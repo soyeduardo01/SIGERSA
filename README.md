@@ -7,6 +7,7 @@ SIGERSA digitaliza el ciclo completo de las evaluaciones e inspecciones de Buena
 - **Backend:** .NET 9 Web API con Clean Architecture y Dapper.
 - **Frontend:** React PWA con TypeScript y Tailwind CSS.
 - **Persistencia:** PostgreSQL 15 o superior.
+- **Archivos:** Supabase Storage para evidencias, informes y demás binarios.
 
 ## Restricción arquitectónica
 

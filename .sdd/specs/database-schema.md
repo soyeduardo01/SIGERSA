@@ -37,6 +37,10 @@ Este documento define las directrices arquitectónicas iniciales para la persist
 - Los campos de auditoría temporal usarán `timestamptz` en UTC.
 - La información histórica de una evaluación deberá conservar la versión inmutable de la ficha y las reglas utilizadas.
 
-## 4. Fuente de verdad
+## 4. Persistencia estructurada y archivos
 
-PostgreSQL será la única fuente de verdad para la persistencia del sistema. Cualquier mecanismo futuro de optimización deberá documentarse y aprobarse mediante una decisión arquitectónica antes de incorporarse.
+PostgreSQL será la fuente de verdad para los datos estructurados y transaccionales del sistema. Los archivos binarios se almacenarán exclusivamente en Supabase Storage; PostgreSQL no guardará binarios ni rutas físicas locales.
+
+La tabla `SIGERSA.EVIDENCIA` conservará los metadatos `bucket_name`, `supabase_path`, `file_size`, `mime_type` y `hash`. Las credenciales de Supabase y las URL firmadas son responsabilidad de la capa de infraestructura y nunca se persistirán como parte de la evidencia.
+
+Cualquier mecanismo futuro de optimización deberá documentarse y aprobarse mediante una decisión arquitectónica antes de incorporarse.

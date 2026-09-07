@@ -4,7 +4,7 @@
 
 SIGERSA es una aplicación web progresiva (PWA) orientada a gestionar el ciclo integral de las Evaluaciones Basadas en Riesgo de establecimientos sujetos a inspecciones de Buenas Prácticas de Manufactura (EBR/BPM). La solución centralizará el registro de solicitudes y casos, la planificación y asignación de inspecciones, la ejecución en campo, la captura de evidencias, el cálculo de riesgo, la revisión de informes, las correcciones, el cierre y el seguimiento histórico.
 
-La PWA deberá funcionar en equipos de escritorio y dispositivos móviles, y deberá tolerar conectividad intermitente mediante capacidades offline y sincronización controlada. El backend expondrá una API REST desacoplada y PostgreSQL será la fuente transaccional de verdad.
+La PWA deberá funcionar en equipos de escritorio y dispositivos móviles, y deberá tolerar conectividad intermitente mediante capacidades offline y sincronización controlada. El backend expondrá una API REST desacoplada y PostgreSQL será la fuente transaccional de verdad. Todos los archivos binarios se almacenarán en buckets privados de Supabase Storage; PostgreSQL conservará exclusivamente sus metadatos y referencias lógicas.
 
 > **Regla arquitectónica obligatoria:** la base de datos PostgreSQL usará de forma mandatoria el esquema `SIGERSA` para todas sus tablas. No se crearán tablas de negocio en el esquema `public` ni en ningún otro esquema.
 
@@ -32,6 +32,7 @@ Este documento establece la base funcional y arquitectónica que guiará el aná
 - Captura de respuestas, hallazgos, evidencias y geolocalización opcional.
 - Cálculo de calificación BPM, no conformidades, riesgo y frecuencia de inspección.
 - Generación y revisión de informes, planes de corrección e histórico auditable.
+- Almacenamiento de evidencias e informes binarios en Supabase Storage, sin rutas físicas locales.
 - Notificaciones por correo y controles de seguridad gestionados por el backend.
 
 ## 5. Principios de la solución
