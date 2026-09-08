@@ -4,7 +4,7 @@ SIGERSA digitaliza el ciclo completo de las evaluaciones e inspecciones de Buena
 
 ## Stack tecnológico
 
-- **Backend:** .NET 9 Web API con Clean Architecture y Dapper.
+- **Backend:** .NET 10 Web API con Clean Architecture, Dapper y Npgsql.
 - **Frontend:** React PWA con TypeScript y Tailwind CSS.
 - **Persistencia:** PostgreSQL 15 o superior.
 - **Archivos:** Supabase Storage para evidencias, informes y demás binarios.
@@ -17,7 +17,7 @@ SIGERSA digitaliza el ciclo completo de las evaluaciones e inspecciones de Buena
 
 ### Requisitos
 
-- .NET SDK 9.
+- .NET SDK 10.
 - Node.js y un gestor de paquetes compatible con el frontend.
 - PostgreSQL 15 o superior instalado y en ejecución.
 - Puerto local `5432` disponible, salvo que se configure otro puerto.
@@ -36,7 +36,37 @@ Las tablas y demás objetos de negocio se crearán exclusivamente dentro del esq
 
 La cadena de conexión deberá suministrarse mediante configuración local o variables de entorno. No almacene credenciales reales en el repositorio.
 
-Los comandos de ejecución del backend y del frontend se documentarán cuando sus proyectos sean inicializados.
+Defina los secretos fuera del repositorio. Por ejemplo, para la API:
+
+```powershell
+$env:Database__ConnectionString = "Host=localhost;Port=5432;Database=sigersa_db;Username=postgres;Password=SU_CLAVE"
+$env:Supabase__Url = "https://SU_PROYECTO.supabase.co"
+$env:Supabase__Key = "SU_CLAVE_SECRETA_DE_SERVIDOR"
+```
+
+Restaure, compile, pruebe e inicie el backend:
+
+```powershell
+dotnet restore src/backend/SIGERSA.sln --configfile NuGet.Config
+dotnet build src/backend/SIGERSA.sln --no-restore
+dotnet test src/backend/SIGERSA.sln --no-build
+dotnet run --project src/backend/SIGERSA.Api
+```
+
+Swagger UI estará disponible en `/swagger` durante el desarrollo. La migración
+`src/backend/Database/Migrations/001_initial_schema_sigersa.sql` se conserva para una ejecución manual posterior; la aplicación no la ejecuta automáticamente.
+
+### Calidad y OpenAPI
+
+`dotnet format` forma parte del SDK .NET 10. El CLI de Swashbuckle se instala como herramienta local del repositorio:
+
+```powershell
+dotnet tool restore
+dotnet format src/backend/SIGERSA.sln --verify-no-changes
+dotnet swagger tofile --output .sdd/specs/openapi-v1.json src/backend/SIGERSA.Api/bin/Debug/net10.0/SIGERSA.Api.dll v1
+```
+
+Nunca registre cuerpos de solicitudes, contraseñas, tokens ni claves de Supabase. La clave de servidor de Supabase debe permanecer únicamente en configuración segura del backend.
 
 ## Estructura SDD
 

@@ -1,0 +1,11 @@
+.dotnet-home/
+.nuget/
+**/bin/
+**/obj/
+.vs/
+.vscode/
+*.user
+*.suo
+TestResults/
+coverage/
+appsettings.Local.json
