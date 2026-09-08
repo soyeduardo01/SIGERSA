@@ -56,6 +56,28 @@ dotnet run --project src/backend/SIGERSA.Api
 Swagger UI estará disponible en `/swagger` durante el desarrollo. La migración
 `src/backend/Database/Migrations/001_initial_schema_sigersa.sql` se conserva para una ejecución manual posterior; la aplicación no la ejecuta automáticamente.
 
+### Iniciar el frontend PWA
+
+Copie `src/frontend/.env.example` como `src/frontend/.env.local` y complete las variables públicas de Supabase. La clave usada en el navegador debe ser la clave publicable o `anon`; nunca utilice una clave de servicio.
+
+```powershell
+cd src/frontend
+pnpm install
+pnpm dev
+```
+
+La PWA mantiene evaluaciones, fichas y una cola de sincronización en IndexedDB. Las respuestas y evidencias pendientes conservan una `idempotency_key` para evitar duplicados al recuperar la conexión. Los binarios se envían directamente a Supabase Storage únicamente cuando hay red y el bucket dispone de las políticas RLS correspondientes.
+
+Para validar un cambio del frontend:
+
+```powershell
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
 ### Calidad y OpenAPI
 
 `dotnet format` forma parte del SDK .NET 10. El CLI de Swashbuckle se instala como herramienta local del repositorio:

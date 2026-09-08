@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">SIGERSA</title>
+  <rect width="512" height="512" rx="112" fill="#0d563f"/>
+  <path fill="#d7f5e8" d="M256 82c-78 0-142 48-142 107 0 39 28 73 71 92v79c0 39 32 70 71 70s71-31 71-70v-79c43-19 71-53 71-92 0-59-64-107-142-107Z"/>
+  <path fill="#16835f" d="M256 126c-49 0-89 27-89 60 0 19 14 37 36 48l53-72 53 72c22-11 36-29 36-48 0-33-40-60-89-60Z"/>
+  <path fill="#fff" d="m256 189 42 57-42 57-42-57 42-57Zm-24 121h48v68h-48v-68Z"/>
+</svg>

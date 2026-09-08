@@ -1,5 +1,7 @@
 .dotnet-home/
 .nuget/
+.pnpm-home/
+.pnpm-store/
 **/bin/
 **/obj/
 .vs/
@@ -8,4 +10,5 @@
 *.suo
 TestResults/
 coverage/
+output/playwright/
 appsettings.Local.json
