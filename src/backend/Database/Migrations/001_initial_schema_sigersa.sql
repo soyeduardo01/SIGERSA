@@ -13,81 +13,311 @@ COMMENT ON SCHEMA "SIGERSA" IS
     'Esquema obligatorio para todos los objetos de negocio de SIGERSA.';
 
 -- =============================================================================
--- B. Tipos enumerados
+-- B. Parámetros dinámicos y ficha base mutable
 -- =============================================================================
 
-CREATE TYPE "SIGERSA"."ESTADO_CASO" AS ENUM (
-    'BORRADOR',
-    'PENDIENTE_ANALISIS',
-    'PENDIENTE_ASIGNACION',
-    'PENDIENTE_PROGRAMACION',
-    'PROGRAMADO',
-    'ASIGNADO',
-    'EN_EJECUCION',
-    'PENDIENTE_REVISION',
-    'EN_CORRECCION',
-    'APROBADO',
-    'CERRADO',
-    'CERRADO_NO_PROCEDE',
-    'CANCELADO'
+CREATE TABLE "SIGERSA"."ParametersControl" (
+    "ParametersId" bigserial PRIMARY KEY,
+    "KeyWord" varchar(50) NOT NULL,
+    "CompanyCode" integer,
+    "OCode" integer,
+    "CCode" varchar(9),
+    "NumericData" integer,
+    "DoubleData" double precision,
+    "StringData" varchar(255),
+    "BooleanData" boolean,
+    "DateData" timestamptz,
+    "Status" boolean NOT NULL DEFAULT true,
+    "CUser" varchar(100) NOT NULL,
+    "CDate" timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "MUser" varchar(100),
+    "MDate" timestamptz,
+    "DUser" varchar(100),
+    "DDate" timestamptz,
+    CONSTRAINT "CK_ParametersControl_KeyWord" CHECK (btrim("KeyWord") <> ''),
+    CONSTRAINT "CK_ParametersControl_DeleteAudit" CHECK (
+        ("Status" = true AND "DUser" IS NULL AND "DDate" IS NULL)
+        OR ("Status" = false AND "DUser" IS NOT NULL AND "DDate" IS NOT NULL)
+    )
 );
 
-CREATE TYPE "SIGERSA"."ESTADO_FICHA" AS ENUM (
-    'BORRADOR',
-    'EN_REVISION',
-    'PUBLICADA',
-    'RETIRADA',
-    'ARCHIVADA'
+CREATE INDEX "IX_ParametersControl_ActiveLookup"
+    ON "SIGERSA"."ParametersControl" ("KeyWord", "CompanyCode", "OCode", "CCode")
+    WHERE "Status" = true;
+
+CREATE UNIQUE INDEX "UQ_ParametersControl_GlobalActiveValue"
+    ON "SIGERSA"."ParametersControl" ("KeyWord", "StringData")
+    WHERE "Status" = true AND "CompanyCode" IS NULL AND "StringData" IS NOT NULL;
+
+CREATE TABLE "SIGERSA"."AllItems" (
+    "Items" serial PRIMARY KEY,
+    "ItemsId" varchar(50) NOT NULL,
+    "Description" text NOT NULL,
+    "SectionType" varchar(255) NOT NULL,
+    "Parents" varchar(255)
 );
 
-CREATE TYPE "SIGERSA"."ESTADO_EVALUACION" AS ENUM (
-    'ASIGNADA',
-    'EN_EJECUCION',
-    'PAUSADA',
-    'PENDIENTE_REVISION',
-    'EN_CORRECCION',
-    'APROBADA',
-    'CERRADA',
-    'CANCELADA'
-);
+CREATE INDEX "IX_AllItems_Parent"
+    ON "SIGERSA"."AllItems" ("Parents", "Items");
 
-CREATE TYPE "SIGERSA"."TIPO_ITEM_FICHA" AS ENUM (
-    'SECCION',
-    'SUBSECCION',
-    'GRUPO',
-    'CRITERIO',
-    'PREGUNTA',
-    'TEXTO_INFORMATIVO',
-    'SUBTOTAL'
-);
+-- Catálogos dinámicos. NumericData conserva el orden de presentación.
+INSERT INTO "SIGERSA"."ParametersControl"
+    ("KeyWord", "NumericData", "StringData", "Status", "CUser")
+VALUES
+    ('ESTADO_CASO', 1, 'BORRADOR', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 2, 'PENDIENTE_ANALISIS', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 3, 'PENDIENTE_ASIGNACION', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 4, 'PENDIENTE_PROGRAMACION', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 5, 'PROGRAMADO', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 6, 'ASIGNADO', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 7, 'EN_EJECUCION', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 8, 'PENDIENTE_REVISION', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 9, 'EN_CORRECCION', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 10, 'APROBADO', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 11, 'CERRADO', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 12, 'CERRADO_NO_PROCEDE', true, 'MIGRATION_001'),
+    ('ESTADO_CASO', 13, 'CANCELADO', true, 'MIGRATION_001'),
+    ('ESTADO_FICHA', 1, 'BORRADOR', true, 'MIGRATION_001'),
+    ('ESTADO_FICHA', 2, 'EN_REVISION', true, 'MIGRATION_001'),
+    ('ESTADO_FICHA', 3, 'PUBLICADA', true, 'MIGRATION_001'),
+    ('ESTADO_FICHA', 4, 'RETIRADA', true, 'MIGRATION_001'),
+    ('ESTADO_FICHA', 5, 'ARCHIVADA', true, 'MIGRATION_001'),
+    ('ESTADO_EVALUACION', 1, 'ASIGNADA', true, 'MIGRATION_001'),
+    ('ESTADO_EVALUACION', 2, 'EN_EJECUCION', true, 'MIGRATION_001'),
+    ('ESTADO_EVALUACION', 3, 'PAUSADA', true, 'MIGRATION_001'),
+    ('ESTADO_EVALUACION', 4, 'PENDIENTE_REVISION', true, 'MIGRATION_001'),
+    ('ESTADO_EVALUACION', 5, 'EN_CORRECCION', true, 'MIGRATION_001'),
+    ('ESTADO_EVALUACION', 6, 'APROBADA', true, 'MIGRATION_001'),
+    ('ESTADO_EVALUACION', 7, 'CERRADA', true, 'MIGRATION_001'),
+    ('ESTADO_EVALUACION', 8, 'CANCELADA', true, 'MIGRATION_001'),
+    ('TIPO_ITEM_FICHA', 1, 'SECCION', true, 'MIGRATION_001'),
+    ('TIPO_ITEM_FICHA', 2, 'SUBSECCION', true, 'MIGRATION_001'),
+    ('TIPO_ITEM_FICHA', 3, 'GRUPO', true, 'MIGRATION_001'),
+    ('TIPO_ITEM_FICHA', 4, 'CRITERIO', true, 'MIGRATION_001'),
+    ('TIPO_ITEM_FICHA', 5, 'PREGUNTA', true, 'MIGRATION_001'),
+    ('TIPO_ITEM_FICHA', 6, 'TEXTO_INFORMATIVO', true, 'MIGRATION_001'),
+    ('TIPO_ITEM_FICHA', 7, 'SUBTOTAL', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 1, 'OPCION_UNICA', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 2, 'OPCION_MULTIPLE', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 3, 'TEXTO_CORTO', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 4, 'TEXTO_LARGO', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 5, 'ENTERO', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 6, 'DECIMAL', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 7, 'FECHA', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 8, 'HORA', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 9, 'FECHA_HORA', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 10, 'BOOLEANO', true, 'MIGRATION_001'),
+    ('TIPO_RESPUESTA', 11, 'ARCHIVO', true, 'MIGRATION_001'),
+    ('NIVEL_RIESGO', 1, 'BAJO', true, 'MIGRATION_001'),
+    ('NIVEL_RIESGO', 2, 'MEDIO', true, 'MIGRATION_001'),
+    ('NIVEL_RIESGO', 3, 'ALTO', true, 'MIGRATION_001'),
+    ('NIVEL_RIESGO', 4, 'NO_CALCULABLE', true, 'MIGRATION_001'),
+    ('ESTADO_SINCRONIZACION', 1, 'PENDIENTE', true, 'MIGRATION_001'),
+    ('ESTADO_SINCRONIZACION', 2, 'EN_PROCESO', true, 'MIGRATION_001'),
+    ('ESTADO_SINCRONIZACION', 3, 'SINCRONIZADA', true, 'MIGRATION_001'),
+    ('ESTADO_SINCRONIZACION', 4, 'ERROR', true, 'MIGRATION_001'),
+    ('ESTADO_SINCRONIZACION', 5, 'CONFLICTO', true, 'MIGRATION_001');
 
-CREATE TYPE "SIGERSA"."TIPO_RESPUESTA" AS ENUM (
-    'OPCION_UNICA',
-    'OPCION_MULTIPLE',
-    'TEXTO_CORTO',
-    'TEXTO_LARGO',
-    'ENTERO',
-    'DECIMAL',
-    'FECHA',
-    'HORA',
-    'FECHA_HORA',
-    'BOOLEANO',
-    'ARCHIVO'
-);
+CREATE FUNCTION "SIGERSA"."FN_ParametersControl_Create"(
+    p_keyword varchar(50), p_company_code integer, p_ocode integer,
+    p_ccode varchar(9), p_numeric_data integer, p_double_data double precision,
+    p_string_data varchar(255), p_boolean_data boolean, p_date_data timestamptz,
+    p_user varchar(100)
+)
+RETURNS bigint
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_id bigint;
+BEGIN
+    IF nullif(btrim(p_keyword), '') IS NULL OR nullif(btrim(p_user), '') IS NULL THEN
+        RAISE EXCEPTION 'KeyWord y CUser son obligatorios';
+    END IF;
 
-CREATE TYPE "SIGERSA"."NIVEL_RIESGO" AS ENUM (
-    'BAJO',
-    'MEDIO',
-    'ALTO',
-    'NO_CALCULABLE'
-);
+    INSERT INTO "SIGERSA"."ParametersControl"
+        ("KeyWord", "CompanyCode", "OCode", "CCode", "NumericData", "DoubleData",
+         "StringData", "BooleanData", "DateData", "Status", "CUser")
+    VALUES
+        (p_keyword, p_company_code, p_ocode, p_ccode, p_numeric_data, p_double_data,
+         p_string_data, p_boolean_data, p_date_data, true, p_user)
+    RETURNING "ParametersId" INTO v_id;
 
-CREATE TYPE "SIGERSA"."ESTADO_SINCRONIZACION" AS ENUM (
-    'PENDIENTE',
-    'EN_PROCESO',
-    'SINCRONIZADA',
-    'ERROR',
-    'CONFLICTO'
+    RETURN v_id;
+END;
+$function$;
+
+CREATE FUNCTION "SIGERSA"."FN_ParametersControl_Update"(
+    p_parameters_id bigint, p_keyword varchar(50), p_company_code integer,
+    p_ocode integer, p_ccode varchar(9), p_numeric_data integer,
+    p_double_data double precision, p_string_data varchar(255),
+    p_boolean_data boolean, p_date_data timestamptz, p_user varchar(100)
+)
+RETURNS boolean
+LANGUAGE plpgsql
+AS $function$
+BEGIN
+    IF nullif(btrim(p_keyword), '') IS NULL OR nullif(btrim(p_user), '') IS NULL THEN
+        RAISE EXCEPTION 'KeyWord y MUser son obligatorios';
+    END IF;
+
+    UPDATE "SIGERSA"."ParametersControl"
+       SET "KeyWord" = p_keyword,
+           "CompanyCode" = p_company_code,
+           "OCode" = p_ocode,
+           "CCode" = p_ccode,
+           "NumericData" = p_numeric_data,
+           "DoubleData" = p_double_data,
+           "StringData" = p_string_data,
+           "BooleanData" = p_boolean_data,
+           "DateData" = p_date_data,
+           "MUser" = p_user,
+           "MDate" = CURRENT_TIMESTAMP
+     WHERE "ParametersId" = p_parameters_id
+       AND "Status" = true;
+
+    RETURN FOUND;
+END;
+$function$;
+
+CREATE FUNCTION "SIGERSA"."FN_ParametersControl_SoftDelete"(
+    p_parameters_id bigint, p_user varchar(100)
+)
+RETURNS boolean
+LANGUAGE plpgsql
+AS $function$
+BEGIN
+    IF nullif(btrim(p_user), '') IS NULL THEN
+        RAISE EXCEPTION 'DUser es obligatorio';
+    END IF;
+
+    UPDATE "SIGERSA"."ParametersControl"
+       SET "Status" = false,
+           "DUser" = p_user,
+           "DDate" = CURRENT_TIMESTAMP,
+           "MUser" = p_user,
+           "MDate" = CURRENT_TIMESTAMP
+     WHERE "ParametersId" = p_parameters_id
+       AND "Status" = true;
+
+    RETURN FOUND;
+END;
+$function$;
+
+CREATE FUNCTION "SIGERSA"."FN_ParametersControl_GetActive"(
+    p_keyword varchar(50), p_company_code integer DEFAULT NULL
+)
+RETURNS SETOF "SIGERSA"."ParametersControl"
+LANGUAGE sql
+STABLE
+AS $function$
+    SELECT parameter.*
+      FROM "SIGERSA"."ParametersControl" AS parameter
+     WHERE parameter."Status" = true
+       AND parameter."KeyWord" = p_keyword
+       AND (parameter."CompanyCode" IS NULL OR parameter."CompanyCode" = p_company_code)
+     ORDER BY parameter."CompanyCode" NULLS FIRST,
+              parameter."NumericData" NULLS LAST,
+              parameter."OCode" NULLS LAST,
+              parameter."ParametersId";
+$function$;
+
+-- Ficha BPM base heredada. ItemsId no es único porque el origen contiene
+-- identificadores repetidos que distinguen renglones mediante la PK Items.
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (1, '1', '1. ESTABLECIMIENTO - DISEÑO DE LAS INSTALACIONES Y EQUIPO', 'C', NULL);
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (2, '1.1', '1.1. Ubicación y estructura', 'S', '1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (3, '1.1.1', '1.1.1. Ubicación del establecimiento', 'SS', '1.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (4, '1.1.1.1', 'a) Ubicación adecuada ', 'I', '1.1.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (5, '1.1.1.1', 'b) Alrededores limpios ', 'I', '1.1.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (6, '1.1.1.1', 'c) Ausencia de focos de contaminación ', 'I', '1.1.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (7, '1.1.2', '1.1.2. Diseño y disposición del establecimiento', 'SS', '1.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (8, '1.1.2.1', 'a) El diseño y la disposición del establecimiento permite la limpieza y el mantenimiento de manera adecuada.', 'I', '1.1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (9, '1.1.2.2', 'b) La disposición de las áreas y el flujo de las operaciones evitan o reducen al mínimo la contaminación cruzada.', 'I', '1.1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (10, '1.1.3', '1.1.3. Estructuras internas y accesorios', 'SS', '1.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (11, '1.1.3.1', '1.1.3.1. Paredes', 'A', '1.1.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (12, '1.1.3.1.1', 'Las paredes deben tener una superficie lisa adecuada a las actividades que se realicen, construídas con materiales impermeables de fácil limpieza y, cuando sea necesario, de fácil desinfección.', 'I', '1.1.3.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (13, '1.1.3.2', '1.1.3.2. Pisos', 'A', '1.1.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (14, '1.1.3.2.1', 'Construidos con materiales impermeables de fácil limpieza sin grietas, uniones redondeadas con las paredes y que faciliten el drenaje.', 'I', '1.1.3.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (15, '1.1.3.3', '1.1.3.3. Techos', 'A', '1.1.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (16, '1.1.3.3.1', 'Construidos de manera que reduzcan al mínimo la acumulación de suciedad y de condensación, así como el desprendimiento de partículas.', 'I', '1.1.3.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (17, '1.1.3.4', '1.1.3.4. Ventanas ', 'A', '1.1.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (18, '1.1.3.4.1', 'a) Fáciles de limpiar y construídas de modo que se reduzca al mínimo la acumulación de suciedad.', 'I', '1.1.3.4');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (19, '1.1.3.4.2', 'b) Provistas de malla contra insectos fácil de desmontar y limpiar.', 'I', '1.1.3.4');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (20, '1.1.3.5', '1.1.3.5. Puertas', 'A', '1.1.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (21, '1.1.3.5.1', 'Tienen una superficie lisa y no absorbente, son fáciles de limpiar y, cuando sea necesario, de desinfectar.', 'I', '1.1.3.5');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (22, '1.1.3.6', '1.1.3.6.  Superficies en contacto con los alimentos', 'A', '1.1.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (23, '1.1.3.6.1', 'Deben estar construídos con materiales inertes, en buenas condiciones, ser duraderas y fáciles de limpiar, mantener y desinfectar.', 'I', '1.1.3.6');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (24, '1.2', '1.2. Instalaciones', 'S', '1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (25, '1.2.1', '1.2.1. Drenaje y eliminación de residuos', 'SS', '1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (26, '1.2.1.1', 'a) El sistema de drenaje está diseñado y construído de manera que se evite la contaminación de los alimentos o del suministro de agua potable.', 'I', '1.2.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (27, '1.2.1.2', 'b) Los residuos sólidos son recogidos y eliminados por personal calificado y deben ser depositados en contenedores debidamente identificados, construidos con material impermeable, ubicados en áreas que eviten la infestación por plagas y cuando corresponda', 'I', '1.2.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (28, '1.2.2.1', '1.2.2. Instalaciones de limpieza', 'SS', '1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (29, '1.2.2.2', 'La planta cuenta con estaciones separadas para el lavado y desinfección de alimentos, equipos, utencilios y manos, al igual que para el lavado de los equipos utilizados en la limpieza de los servicios sanitarios, los drenajes y contenedores, todas dotadas', 'I', '1.2.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (30, '1.2.3', '1.2.3. Instalaciones para la higiene personal y servicios sanitarios', 'SS', '1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (31, '1.2.3.1', 'a) Los establecimientos cuentan con un filtro sanitario a la entrada del área de producción.', 'I', '1.2.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (32, '1.2.3.2', 'b) Servicios sanitarios separados por sexo, con suficientes lavamanos, inodoros, urinales y duchas.', 'I', '1.2.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (33, '1.2.3.3', 'c) Cuando sea necesario, vestidores con casilleros y espejos debidamente ubicados.', 'I', '1.2.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (34, '1.2.4', '1.2.4. Temperatura', 'SS', '1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (35, '1.2.4.1', 'a) El establecimiento cuenta con instalaciones adecuadas para el calentamiento, enfriamiento, cocción, refrigeración o congelamiento y para el almacenamiento de alimentos refrigerados o congelados dependiendo de las operaciones que realiza,', 'I', '1.2.4');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (36, '1.2.4.2', 'b) El establecimiento cuenta con la capacidad para controlar la temperatura ambiente de acuerdo a la naturaleza del prouducto, con el objeto de garantizar la inocuidad y la idoneidad de los alimentos.', 'I', '1.2.4');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (37, '1.2.5', '1.2.5. Calidad del aire y ventilación', 'SS', '1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (38, '1.2.5.1', 'El establecimiento cuenta con medios adecuados de ventilación natural o mecánica, diseñados y construídos de manera que el aire no circule de zonas contaminadas a zonas limpias y que se facilite su mantenimiento y limpieza. ', 'I', '1.2.5');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (39, '1.2.6', '1.2.6. Iluminación', 'SS', '1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (40, '1.2.6.1', 'Se dispone de iluminación natural o artificial adecuada que permita a la empresa realizar las actividades alimentarias de manera higiénica. ', 'I', '1.2.6');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (41, '1.2.6.2', 'b) La intensidad debe ser suficiente para la naturaleza de la actividad que se realice.', 'I', '1.2.6');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (42, '1.2.6.3', 'c) Las luminarias  están protegidas, cuando corresponda, para garantizar que los alimentos no se contaminen en caso de rotura de los elementos de iluminación.', 'I', '1.2.6');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (43, '1.2.7', '1.2.7. Almacenamiento', 'SS', '1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (44, '1.2.7.1', 'El establecimieno cuenta con instalaciones separadas y adecuadas para el almacenamiento de los productos terminados, materias primas, material de empaque, productos de limpieza, lubricantes y combustibles.', 'I', '1.2.7');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (45, '1.3', '1.3. Equipo', 'S', '1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (46, '1.3.1', 'El equipo y los recipientes que estan en contacto con los alimentos deben ser aptos para el contacto con los alimentos, estar diseñados, fabricados y ubicados de manera que se puedan limpiar, desinfectar y mantener adecuadamente para evitar la contaminaci', 'I', '1.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (47, '2', '2. CAPACITACIÓN Y COMPETENCIA', 'C', NULL);
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (48, '2.1', '2.1. Conocimiento y responsabilidades', 'S', '2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (49, '2.1.1', 'El personal debe tener conocimiento de su función y responsabilidad en cuanto a la protección de los alimentos contra la contaminación o el deterioro.', 'I', '2.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (50, '2.2', '2.2. Programas de capacitación', 'S', '2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (51, '2.2.1', 'El establecimiento cuenta con un programa escrito de capacitación, principalmente en higiene y manipulación de alimentos, BPM e higiene personal.', 'I', '2.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (52, '2.3', '2.3. Instrucción y supervisión', 'S', '2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (53, '2.3.1', 'Los encargados, supervisores y los operarios cuentan con los conocimientos suficientes sobre los principios y prácticas de higiene de los alimentos para poder identificar las desviaciones y adoptar las medidas necesarias que correspondan a su puesto.', 'I', '2.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (55, '3', '3. MANTENIMIENTO, LIMPIEZA, DESINFECCIÓN Y CONTROL DE PLAGAS EN EL ESTABLECIMIENTO', 'C', NULL);
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (56, '3.1', '3.1. Mantenimiento y limpieza', 'S', '3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (57, '3.1.1', '3.1.1. Consideraciones generales', 'SS', '3.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (58, '3.1.1.1', 'Se  utilizan equipos y utensilios de limpieza adecuadamente diseñados para las diferentes áreas, se conservan limpios, reciben mantenimiento y se sustituyen periódicamente a fin de que no se conviertan en una fuente de contaminación para las superficies o', 'I', '3.1.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (59, '3.1.3', '3.1.2. Métodos y procedimientos de limpieza y desinfección', 'SS', '3.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (60, '3.1.2.1', 'Los procedimientos de limpieza y desinfección garantizan que todas las partes del establecimiento están adecuadamente limpias y cuando corresponda desinfectadas. ', 'I', '3.1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (61, '3.1.3', '3.1.3 Monitoreo/seguimiento de la eficacia', 'SS', '3.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (62, '3.1.3.1', 'Se realiza el seguimiento de la eficacia de la aplicación de los procedimientos de limpieza y desinfección y se verifica que se han aplicado adecuadamente.', 'I', '3.1.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (63, '3.2', '3.2. Sistemas de control de plagas', 'S', '3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (64, '3.2.1', 'El establecimiento cuenta con un Programa escrito para el control de plagas y con las barreras físicas necesarias para impedir que penetren a la planta.', 'I', '3.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (65, '4', '4. HIGIENE PERSONAL', 'C', NULL);
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (66, '4.1', 'La empresa tiene establecidas políticas y procedimientos adecuados  en materia de higiene personal.', 'I', '4');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (67, '5', '5. CONTROL DE LAS OPERACIONES', 'C', NULL);
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (68, '5.1', '5.1. Descripción de los productos y procesos', 'S', '5');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (69, '5.1.1', '5.1.1. Descripción del producto', 'SS', '5.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (70, '5.1.1.1', 'El establecimiento describe sus productos de manera individual o por grupo de alimentos de manera adecuada. ', 'I', '5.1.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (71, '5.1.2', '5.1.2. Descripción fases del proceso', 'SS', '5.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (72, '5.1.2.1', 'El establecimiento tiene elaborado los diagramas  de flujo de los productos y líneas de productos actualizados.', 'I', '5.1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (73, '5.1.3', '5.1.3. Monitoreo/seguimiento, medidas correctivas y verificación', 'SS', '5.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (74, '5.1.3.1', 'El establecimiento cuenta con procedimintos escritos sobre el monitoreo de las prácticas de higiene y realiza actividades de verificación de su efectividad.', 'I', '5.1.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (75, '5.2', '5.2. Aspectos fundamentales de las BPM', 'S', '5');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (76, '5.2.1', '5.2.1. Especificaciones microbiológicas, físicas, químicas y de alérgenos', 'SS', '5.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (77, '5.2.1.1', 'Las especificaciones microbiológicas, físicas, químicas y de alérgenos del producto están definidas en base a las normas oficiales y contribuyen a la inocuidad del producto.', 'I', '5.2.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (78, '5.2.2', '5.2.2. Materiales y materias primas', 'SS', '5.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (79, '5.2.2.1', 'El establecimiento mantiene un sistema de control para asegurar que las materias primas y otros ingredientes a ser utilizados en la elaboración de alimentos son conformes con las especificaciones de calidad e inocuidad establecidas en las espcificaciones.', 'I', '5.2.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (80, '5.2.3', '5.2.3. Envasado', 'SS', '5.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (81, '5.2.3.1', 'El diseño y los materiales utilizados para envasar los alimentos son inocuos y adecuados para proteger el producto contra la contaminación. ', 'I', '5.2.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (82, '5.3', '5.3. Agua', 'S', '5');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (83, '5.3.1', 'El establecimiento cuenta con suficiente abastecimiento de agua potable y con instalaciones apropiadas para su almacenamiento y distribución.', 'I', '5.3');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (84, '5.4', '5.4. Procedimientos de retiro del mercado', 'S', '5');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (85, '5.4.1', 'a) El establecimiento cuenta con los procedimientos adecuados de retiro de alimentos del mercado.', 'I', '5.4');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (86, '5.4.2', 'b) Los productos devueltos o retirados del mercado  se mantienen en condiciones seguras de almacenamiento según lo estipulado en los procedimeintos. ', 'I', '5.4');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (87, '6', '6. INFORMACIÓN SOBRE LOS PRODUCTOS Y SENSIBILIZACIÓN DEL CONSUMIDOR', 'C', NULL);
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (88, '6.1', '6.1. Etiquetado de los productos ', 'S', '6');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (89, '6.1.1', 'Los productos eleborados cumplen a cabalidad con la NORDOM 53, Etiquetado general de los productos previamente envasados (pre envasados), en especial:', 'I', '6.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (90, '7', '7. TRANSPORTE', 'C', NULL);
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (91, '7.1', 'Los medios de transporte son adecuados a la  naturaleza de los productos que  transportan y permiten, cuando procede, el control de temperatura, el grado de humedad, el aire y otras condiciones necesarias para proteger los alimentos contra la proliferació', 'I', '7');
+
+SELECT setval(
+    pg_get_serial_sequence('"SIGERSA"."AllItems"', 'Items'),
+    (SELECT max("Items") FROM "SIGERSA"."AllItems"),
+    true
 );
 
 -- =============================================================================
@@ -714,7 +944,7 @@ CREATE TABLE "SIGERSA"."RANGO_RIESGO" (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     regla_riesgo_version_id uuid NOT NULL,
     codigo varchar(50) NOT NULL,
-    nivel_riesgo "SIGERSA"."NIVEL_RIESGO" NOT NULL,
+    nivel_riesgo varchar(20) NOT NULL,
     limite_inferior numeric(12, 4) NOT NULL,
     incluye_inferior boolean NOT NULL DEFAULT true,
     limite_superior numeric(12, 4),
@@ -731,7 +961,7 @@ CREATE TABLE "SIGERSA"."RANGO_RIESGO" (
         REFERENCES "SIGERSA"."REGLA_RIESGO_VERSION" (id) ON DELETE RESTRICT,
     CONSTRAINT "UQ_RANGO_RIESGO_CODIGO" UNIQUE (regla_riesgo_version_id, codigo),
     CONSTRAINT "UQ_RANGO_RIESGO_ORDEN" UNIQUE (regla_riesgo_version_id, orden),
-    CONSTRAINT "CK_RANGO_RIESGO_NIVEL" CHECK (nivel_riesgo <> 'NO_CALCULABLE'),
+    CONSTRAINT "CK_RANGO_RIESGO_NIVEL" CHECK (btrim(nivel_riesgo) <> ''),
     CONSTRAINT "CK_RANGO_RIESGO_LIMITES" CHECK (limite_superior IS NULL OR limite_superior > limite_inferior),
     CONSTRAINT "CK_RANGO_RIESGO_FRECUENCIA" CHECK (frecuencia IN ('ANUAL', 'SEMESTRAL', 'TRIMESTRAL')),
     CONSTRAINT "CK_RANGO_RIESGO_MESES" CHECK (meses_frecuencia > 0),
@@ -743,7 +973,7 @@ CREATE TABLE "SIGERSA"."SUBCATEGORIA_RIESGO_VERSION" (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     subcategoria_alimento_id uuid NOT NULL,
     regla_riesgo_version_id uuid NOT NULL,
-    nivel_riesgo "SIGERSA"."NIVEL_RIESGO" NOT NULL,
+    nivel_riesgo varchar(20) NOT NULL,
     valor_riesgo numeric(12, 4) NOT NULL,
     fuente varchar(250),
     validado boolean NOT NULL DEFAULT false,
@@ -759,7 +989,7 @@ CREATE TABLE "SIGERSA"."SUBCATEGORIA_RIESGO_VERSION" (
     CONSTRAINT "FK_SUBCAT_RIESGO_REGLA" FOREIGN KEY (regla_riesgo_version_id)
         REFERENCES "SIGERSA"."REGLA_RIESGO_VERSION" (id) ON DELETE RESTRICT,
     CONSTRAINT "UQ_SUBCAT_RIESGO_VERSION" UNIQUE (subcategoria_alimento_id, regla_riesgo_version_id),
-    CONSTRAINT "CK_SUBCAT_RIESGO_NIVEL" CHECK (nivel_riesgo <> 'NO_CALCULABLE'),
+    CONSTRAINT "CK_SUBCAT_RIESGO_NIVEL" CHECK (btrim(nivel_riesgo) <> ''),
     CONSTRAINT "CK_SUBCAT_RIESGO_VALOR" CHECK (valor_riesgo BETWEEN 1 AND 3),
     CONSTRAINT "CK_SUBCAT_RIESGO_VIGENCIA" CHECK (vigente_hasta IS NULL OR vigente_desde IS NULL OR vigente_hasta > vigente_desde),
     CONSTRAINT "CK_SUBCAT_RIESGO_FILA" CHECK (version_fila > 0)
@@ -773,7 +1003,7 @@ CREATE TABLE "SIGERSA"."FICHA_INSPECCION" (
     nombre varchar(200) NOT NULL,
     descripcion text,
     version integer NOT NULL,
-    estado "SIGERSA"."ESTADO_FICHA" NOT NULL DEFAULT 'BORRADOR',
+    estado varchar(20) NOT NULL DEFAULT 'BORRADOR',
     vigente_desde timestamptz,
     vigente_hasta timestamptz,
     puntaje_maximo_referencia numeric(12, 4),
@@ -819,12 +1049,12 @@ CREATE TABLE "SIGERSA"."ITEM_FICHA" (
     ficha_inspeccion_id uuid NOT NULL,
     parent_item_ficha_id uuid,
     codigo varchar(80) NOT NULL,
-    tipo_item "SIGERSA"."TIPO_ITEM_FICHA" NOT NULL,
+    tipo_item varchar(30) NOT NULL,
     titulo varchar(500) NOT NULL,
     descripcion text,
     ayuda text,
     es_evaluable boolean NOT NULL DEFAULT false,
-    tipo_respuesta "SIGERSA"."TIPO_RESPUESTA",
+    tipo_respuesta varchar(30),
     nivel smallint NOT NULL,
     orden integer NOT NULL,
     obligatorio boolean NOT NULL DEFAULT false,
@@ -1028,7 +1258,7 @@ CREATE TABLE "SIGERSA"."CASO" (
     establecimiento_id uuid NOT NULL,
     motivo_inspeccion_id uuid,
     origen varchar(30) NOT NULL,
-    estado "SIGERSA"."ESTADO_CASO" NOT NULL DEFAULT 'BORRADOR',
+    estado varchar(30) NOT NULL DEFAULT 'BORRADOR',
     prioridad smallint NOT NULL DEFAULT 3,
     responsable_actual_id uuid,
     decision_analisis varchar(30),
@@ -1078,8 +1308,8 @@ CREATE TABLE "SIGERSA"."CASO" (
 CREATE TABLE "SIGERSA"."CASO_TRANSICION" (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     caso_id uuid NOT NULL,
-    estado_anterior "SIGERSA"."ESTADO_CASO",
-    estado_nuevo "SIGERSA"."ESTADO_CASO" NOT NULL,
+    estado_anterior varchar(30),
+    estado_nuevo varchar(30) NOT NULL,
     motivo text,
     ejecutado_por uuid NOT NULL,
     ejecutado_en timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1169,7 +1399,7 @@ CREATE TABLE "SIGERSA"."EVALUACION" (
     establecimiento_id uuid NOT NULL,
     ficha_inspeccion_id uuid NOT NULL,
     evaluador_principal_id uuid NOT NULL,
-    estado "SIGERSA"."ESTADO_EVALUACION" NOT NULL DEFAULT 'ASIGNADA',
+    estado varchar(30) NOT NULL DEFAULT 'ASIGNADA',
     alcance varchar(30) NOT NULL DEFAULT 'COMPLETO',
     programada_inicio_en timestamptz,
     programada_fin_en timestamptz,
@@ -1187,7 +1417,7 @@ CREATE TABLE "SIGERSA"."EVALUACION" (
     riesgo_producto numeric(12, 4),
     riesgo_establecimiento numeric(12, 4),
     riesgo_total numeric(12, 4),
-    nivel_riesgo "SIGERSA"."NIVEL_RIESGO",
+    nivel_riesgo varchar(20),
     frecuencia varchar(30),
     version_regla_riesgo_id uuid NOT NULL,
     snapshot_calculo jsonb,
@@ -1445,7 +1675,7 @@ CREATE TABLE "SIGERSA"."EVIDENCIA" (
     hash varchar(128) NOT NULL,
     hash_algoritmo varchar(20) NOT NULL DEFAULT 'SHA-256',
     tipo_evidencia varchar(50) NOT NULL,
-    estado_sincronizacion "SIGERSA"."ESTADO_SINCRONIZACION" NOT NULL DEFAULT 'PENDIENTE',
+    estado_sincronizacion varchar(20) NOT NULL DEFAULT 'PENDIENTE',
     fecha_dispositivo timestamptz,
     fecha_servidor timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
     latitud numeric(9, 6),
@@ -2105,7 +2335,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $funcion$
 DECLARE
-    estado_ficha "SIGERSA"."ESTADO_FICHA";
+    estado_ficha varchar(20);
     estado_regla varchar(20);
     estado_programacion varchar(30);
 BEGIN
@@ -2280,7 +2510,7 @@ DECLARE
     ficha_evaluacion uuid;
     ficha_item uuid;
     item_evaluable boolean;
-    estado_actual "SIGERSA"."ESTADO_EVALUACION";
+    estado_actual varchar(30);
 BEGIN
     SELECT evaluacion.ficha_inspeccion_id, evaluacion.estado
       INTO ficha_evaluacion, estado_actual
@@ -2321,7 +2551,7 @@ AS $funcion$
 DECLARE
     item_respuesta uuid;
     item_opcion uuid;
-    tipo_respuesta "SIGERSA"."TIPO_RESPUESTA";
+    tipo_respuesta varchar(30);
 BEGIN
     SELECT respuesta.item_ficha_id, item.tipo_respuesta
       INTO item_respuesta, tipo_respuesta
@@ -2397,7 +2627,7 @@ LANGUAGE plpgsql
 AS $funcion$
 DECLARE
     ficha_id uuid;
-    estado_ficha "SIGERSA"."ESTADO_FICHA";
+    estado_ficha varchar(20);
 BEGIN
     IF TG_TABLE_NAME = 'ITEM_FICHA' THEN
         ficha_id := CASE WHEN TG_OP = 'DELETE' THEN OLD.ficha_inspeccion_id ELSE NEW.ficha_inspeccion_id END;
