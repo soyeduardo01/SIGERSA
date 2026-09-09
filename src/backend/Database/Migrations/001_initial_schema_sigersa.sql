@@ -250,7 +250,7 @@ INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionTyp
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (25, '1.2.1', '1.2.1. Drenaje y eliminación de residuos', 'SS', '1.2');
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (26, '1.2.1.1', 'a) El sistema de drenaje está diseñado y construído de manera que se evite la contaminación de los alimentos o del suministro de agua potable.', 'I', '1.2.1');
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (27, '1.2.1.2', 'b) Los residuos sólidos son recogidos y eliminados por personal calificado y deben ser depositados en contenedores debidamente identificados, construidos con material impermeable, ubicados en áreas que eviten la infestación por plagas y cuando corresponda', 'I', '1.2.1');
-INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (28, '1.2.2.1', '1.2.2. Instalaciones de limpieza', 'SS', '1.2');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (28, '1.2.2', '1.2.2. Instalaciones de limpieza', 'SS', '1.2');
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (29, '1.2.2.2', 'La planta cuenta con estaciones separadas para el lavado y desinfección de alimentos, equipos, utencilios y manos, al igual que para el lavado de los equipos utilizados en la limpieza de los servicios sanitarios, los drenajes y contenedores, todas dotadas', 'I', '1.2.2');
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (30, '1.2.3', '1.2.3. Instalaciones para la higiene personal y servicios sanitarios', 'SS', '1.2');
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (31, '1.2.3.1', 'a) Los establecimientos cuentan con un filtro sanitario a la entrada del área de producción.', 'I', '1.2.3');
@@ -280,7 +280,7 @@ INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionTyp
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (56, '3.1', '3.1. Mantenimiento y limpieza', 'S', '3');
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (57, '3.1.1', '3.1.1. Consideraciones generales', 'SS', '3.1');
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (58, '3.1.1.1', 'Se  utilizan equipos y utensilios de limpieza adecuadamente diseñados para las diferentes áreas, se conservan limpios, reciben mantenimiento y se sustituyen periódicamente a fin de que no se conviertan en una fuente de contaminación para las superficies o', 'I', '3.1.1');
-INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (59, '3.1.3', '3.1.2. Métodos y procedimientos de limpieza y desinfección', 'SS', '3.1');
+INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (59, '3.1.2', '3.1.2. Métodos y procedimientos de limpieza y desinfección', 'SS', '3.1');
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (60, '3.1.2.1', 'Los procedimientos de limpieza y desinfección garantizan que todas las partes del establecimiento están adecuadamente limpias y cuando corresponda desinfectadas. ', 'I', '3.1.2');
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (61, '3.1.3', '3.1.3 Monitoreo/seguimiento de la eficacia', 'SS', '3.1');
 INSERT INTO "SIGERSA"."AllItems" ("Items", "ItemsId", "Description", "SectionType", "Parents") VALUES (62, '3.1.3.1', 'Se realiza el seguimiento de la eficacia de la aplicación de los procedimientos de limpieza y desinfección y se verifica que se han aplicado adecuadamente.', 'I', '3.1.3');
@@ -773,6 +773,52 @@ CREATE TABLE "SIGERSA"."USUARIO_ROL" (
 CREATE UNIQUE INDEX "UQ_USUARIO_ROL_AMBITO"
     ON "SIGERSA"."USUARIO_ROL" (usuario_id, rol_id, empresa_ambito_id, establecimiento_ambito_id)
     NULLS NOT DISTINCT;
+
+CREATE FUNCTION "SIGERSA"."FN_VALIDAR_AMBITO_ROL_EMPRESA"()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_rol_codigo varchar(50);
+    v_usuario_empresa uuid;
+    v_establecimiento_empresa uuid;
+BEGIN
+    SELECT codigo INTO v_rol_codigo
+    FROM "SIGERSA"."ROL"
+    WHERE id = NEW.rol_id;
+
+    IF v_rol_codigo IN ('ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO') THEN
+        SELECT empresa_id INTO v_usuario_empresa
+        FROM "SIGERSA"."USUARIO"
+        WHERE id = NEW.usuario_id;
+
+        NEW.empresa_ambito_id := COALESCE(NEW.empresa_ambito_id, v_usuario_empresa);
+        IF NEW.empresa_ambito_id IS NULL THEN
+            RAISE EXCEPTION 'Los roles empresariales requieren empresa_ambito_id';
+        END IF;
+        IF v_usuario_empresa IS NOT NULL AND v_usuario_empresa <> NEW.empresa_ambito_id THEN
+            RAISE EXCEPTION 'El ámbito del rol no coincide con la empresa del usuario';
+        END IF;
+
+        IF NEW.establecimiento_ambito_id IS NOT NULL THEN
+            SELECT empresa_id INTO v_establecimiento_empresa
+            FROM "SIGERSA"."ESTABLECIMIENTO"
+            WHERE id = NEW.establecimiento_ambito_id;
+            IF v_establecimiento_empresa IS DISTINCT FROM NEW.empresa_ambito_id THEN
+                RAISE EXCEPTION 'El establecimiento no pertenece al ámbito empresarial del rol';
+            END IF;
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$function$;
+
+CREATE TRIGGER "TRG_USUARIO_ROL_AMBITO_EMPRESA"
+BEFORE INSERT OR UPDATE OF usuario_id, rol_id, empresa_ambito_id, establecimiento_ambito_id
+ON "SIGERSA"."USUARIO_ROL"
+FOR EACH ROW
+EXECUTE FUNCTION "SIGERSA"."FN_VALIDAR_AMBITO_ROL_EMPRESA"();
 
 CREATE TABLE "SIGERSA"."ESTABLECIMIENTO_MERCADO" (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2677,6 +2723,61 @@ CREATE TRIGGER "TRG_AUDITORIA_EVENTO_INMUTABLE"
 BEFORE UPDATE OR DELETE ON "SIGERSA"."AUDITORIA_EVENTO"
 FOR EACH ROW
 EXECUTE FUNCTION "SIGERSA"."FN_BLOQUEAR_CAMBIOS_AUDITORIA"();
+
+-- =============================================================================
+-- Roles y permisos mínimos de la matriz SRS V2
+-- =============================================================================
+
+INSERT INTO "SIGERSA"."ROL" (id, codigo, nombre, descripcion, es_privilegiado)
+VALUES
+    ('10000000-0000-0000-0000-000000000001', 'ADMINISTRADOR', 'Administrador', 'Gobierno global del sistema.', true),
+    ('10000000-0000-0000-0000-000000000002', 'COORDINADOR', 'Coordinador', 'Coordinación operativa, revisión y cierre.', true),
+    ('10000000-0000-0000-0000-000000000003', 'TECNICO_EVALUADOR', 'Técnico Evaluador', 'Ejecución de evaluaciones e inspecciones asignadas.', false),
+    ('10000000-0000-0000-0000-000000000004', 'USUARIO_DELEGADO', 'Usuario Delegado', 'Actuación limitada en representación de una empresa.', false),
+    ('10000000-0000-0000-0000-000000000005', 'ADMINISTRADOR_EMPRESA', 'Administrador Empresa', 'Administración de usuarios, perfil y solicitudes de su empresa.', false);
+
+INSERT INTO "SIGERSA"."PERMISO" (id, codigo, nombre, descripcion, recurso, accion)
+VALUES
+    ('20000000-0000-0000-0000-000000000001', 'USERS.MANAGE', 'Administrar usuarios', 'Alta, modificación y asignación de roles.', 'USERS', 'MANAGE'),
+    ('20000000-0000-0000-0000-000000000002', 'PARAMETERS.READ', 'Consultar parámetros', 'Consulta de catálogos activos.', 'PARAMETERS', 'READ'),
+    ('20000000-0000-0000-0000-000000000003', 'PARAMETERS.MANAGE', 'Administrar parámetros', 'Alta, modificación y baja lógica.', 'PARAMETERS', 'MANAGE'),
+    ('20000000-0000-0000-0000-000000000004', 'TEMPLATES.READ', 'Consultar fichas', 'Consulta de fichas de inspección.', 'TEMPLATES', 'READ'),
+    ('20000000-0000-0000-0000-000000000005', 'TEMPLATES.MANAGE', 'Administrar fichas', 'Edición y versionado de fichas.', 'TEMPLATES', 'MANAGE'),
+    ('20000000-0000-0000-0000-000000000006', 'CASES.MANAGE', 'Administrar casos', 'Analizar, programar, asignar y cerrar casos.', 'CASES', 'MANAGE'),
+    ('20000000-0000-0000-0000-000000000007', 'EVALUATIONS.EXECUTE', 'Ejecutar evaluaciones', 'Responder evaluaciones asignadas.', 'EVALUATIONS', 'EXECUTE'),
+    ('20000000-0000-0000-0000-000000000008', 'EVALUATIONS.REVIEW', 'Revisar evaluaciones', 'Solicitar correcciones y aprobar.', 'EVALUATIONS', 'REVIEW'),
+    ('20000000-0000-0000-0000-000000000009', 'EVIDENCES.UPLOAD', 'Cargar evidencias', 'Cargar evidencias de evaluaciones asignadas.', 'EVIDENCES', 'UPLOAD'),
+    ('20000000-0000-0000-0000-000000000010', 'EVIDENCES.READ', 'Consultar evidencias', 'Consultar evidencias autorizadas.', 'EVIDENCES', 'READ'),
+    ('20000000-0000-0000-0000-000000000011', 'CORRECTIONS.OWN', 'Atender correcciones propias', 'Responder correcciones habilitadas del ámbito propio.', 'CORRECTIONS', 'OWN'),
+    ('20000000-0000-0000-0000-000000000012', 'REPORTS.READ', 'Consultar informes', 'Consultar informes según ámbito.', 'REPORTS', 'READ'),
+    ('20000000-0000-0000-0000-000000000013', 'AUDIT.READ', 'Consultar auditoría', 'Consultar auditoría según ámbito.', 'AUDIT', 'READ'),
+    ('20000000-0000-0000-0000-000000000014', 'COMPANY_USERS.MANAGE', 'Administrar usuarios de empresa', 'Alta y mantenimiento de usuarios dentro de la empresa propia.', 'COMPANY_USERS', 'MANAGE'),
+    ('20000000-0000-0000-0000-000000000015', 'COMPANY_PROFILE.MANAGE', 'Administrar perfil de empresa', 'Mantenimiento del perfil y establecimientos de la empresa propia.', 'COMPANY_PROFILE', 'MANAGE'),
+    ('20000000-0000-0000-0000-000000000016', 'REQUESTS.MANAGE', 'Administrar solicitudes', 'Crear y mantener solicitudes dentro del ámbito autorizado.', 'REQUESTS', 'MANAGE');
+
+INSERT INTO "SIGERSA"."ROL_PERMISO" (id, rol_id, permiso_id)
+SELECT gen_random_uuid(), role.id, permission.id
+FROM "SIGERSA"."ROL" AS role
+CROSS JOIN "SIGERSA"."PERMISO" AS permission
+WHERE
+    role.codigo = 'ADMINISTRADOR'
+    OR (role.codigo = 'COORDINADOR' AND permission.codigo IN (
+        'PARAMETERS.READ', 'TEMPLATES.READ', 'CASES.MANAGE', 'EVALUATIONS.REVIEW',
+        'EVIDENCES.READ', 'REPORTS.READ', 'AUDIT.READ', 'REQUESTS.MANAGE'
+    ))
+    OR (role.codigo = 'TECNICO_EVALUADOR' AND permission.codigo IN (
+        'PARAMETERS.READ', 'TEMPLATES.READ', 'EVALUATIONS.EXECUTE',
+        'EVIDENCES.UPLOAD', 'EVIDENCES.READ', 'REPORTS.READ'
+    ))
+    OR (role.codigo = 'USUARIO_DELEGADO' AND permission.codigo IN (
+        'PARAMETERS.READ', 'TEMPLATES.READ', 'EVIDENCES.READ',
+        'CORRECTIONS.OWN', 'REPORTS.READ', 'REQUESTS.MANAGE'
+    ))
+    OR (role.codigo = 'ADMINISTRADOR_EMPRESA' AND permission.codigo IN (
+        'PARAMETERS.READ', 'TEMPLATES.READ', 'EVIDENCES.READ',
+        'CORRECTIONS.OWN', 'REPORTS.READ', 'REQUESTS.MANAGE',
+        'COMPANY_USERS.MANAGE', 'COMPANY_PROFILE.MANAGE'
+    ));
 
 -- =============================================================================
 -- Índices estratégicos

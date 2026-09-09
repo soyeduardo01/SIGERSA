@@ -1,3 +1,4 @@
+using SIGERSA.Domain.Exceptions;
 using SIGERSA.Infrastructure.Persistence;
 
 namespace SIGERSA.Tests.Infrastructure;
@@ -21,6 +22,14 @@ public sealed class SigersaSqlGuardTests
     }
 
     [Fact]
+    public void EnsureQualifiedShouldIgnoreOnConflictUpdateClause()
+    {
+        const string sql = "INSERT INTO \"SIGERSA\".\"USUARIO\" (id) VALUES (@Id) ON CONFLICT (id) DO UPDATE SET modificado_en = CURRENT_TIMESTAMP;";
+
+        Assert.Equal(sql, SigersaSqlGuard.EnsureQualified(sql));
+    }
+
+    [Fact]
     public void EnsureAuditedConcurrencyUpdateShouldRejectMissingRowVersionPredicate()
     {
         const string sql = """
@@ -33,5 +42,30 @@ public sealed class SigersaSqlGuardTests
 
         Assert.Throws<InvalidOperationException>(() =>
             SigersaSqlGuard.EnsureAuditedConcurrencyUpdate(sql));
+    }
+
+    [Fact]
+    public void EnsureAuditedConcurrencyUpdateShouldAcceptCompleteUpdate()
+    {
+        const string sql = """
+            UPDATE "SIGERSA"."USUARIO"
+            SET modificado_en = CURRENT_TIMESTAMP,
+                modificado_por = @ModificadoPor,
+                version_fila = version_fila + 1
+            WHERE id = @Id AND version_fila = @VersionFila;
+            """;
+
+        Assert.Equal(sql, SigersaSqlGuard.EnsureAuditedConcurrencyUpdate(sql));
+    }
+
+    [Fact]
+    public void OptimisticConcurrencyGuardShouldRejectStaleVersion()
+    {
+        var id = Guid.NewGuid();
+
+        var exception = Assert.Throws<OptimisticConcurrencyException>(() =>
+            OptimisticConcurrencyGuard.EnsureSingleRowUpdated(0, id));
+
+        Assert.Equal(id, exception.EntityId);
     }
 }

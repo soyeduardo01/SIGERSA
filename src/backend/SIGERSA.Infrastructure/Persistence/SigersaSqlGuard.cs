@@ -49,7 +49,7 @@ public static partial class SigersaSqlGuard
     }
 
     [GeneratedRegex(
-        @"\b(?:FROM|JOIN|UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+([^\s;(]+)",
+        @"\b(?:FROM|JOIN|(?<!DO\s)UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+([^\s;(]+)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DataObjectRegex();
 }

@@ -1,64 +1,47 @@
-# Contratos REST API v1
+# Contratos REST API v1 — Fase 1
 
-## 1. Propósito
+## 1. Contrato ejecutable
 
-Este documento será la fuente de especificación para los contratos HTTP públicos de SIGERSA. Los recursos, operaciones, esquemas, reglas de validación y ejemplos se completarán antes de implementar cada caso de uso.
+El contrato normativo y legible por herramientas es `.sdd/specs/openapi-v1.json`, generado desde el ensamblado de la API. Todas las rutas usan `/api/v1`, JSON UTF-8 salvo la carga multipart de evidencia y errores `application/problem+json`. Los endpoints requieren JWT de propósito `access` salvo los marcados como públicos.
 
-## 2. Lineamientos arquitectónicos
+## 2. Autenticación
 
-- La API seguirá Clean Architecture, separando presentación, aplicación, dominio e infraestructura.
-- Los controladores adaptarán HTTP a los casos de uso y no contendrán lógica de negocio ni acceso directo a datos.
-- La versión inicial se publicará bajo la ruta base `/api/v1`.
-- Los recursos intercambiarán JSON con codificación UTF-8.
-- Los errores HTTP usarán obligatoriamente el formato `application/problem+json` conforme a Problem Details.
-- La persistencia de los casos de uso se resolverá en PostgreSQL y **todas las tablas deberán pertenecer obligatoriamente al esquema `SIGERSA`**.
+| Método y ruta | Acceso | Resultado principal |
+| --- | --- | --- |
+| `POST /auth/login` | Público, limitado | JWT de acceso y refresh token rotativo. |
+| `POST /auth/refresh` | Público, limitado | Rota el refresh token; reutilizar uno revocado invalida su familia. |
+| `POST /auth/logout` | Autenticado | Revoca el refresh token presentado; respuesta `204`. |
+| `POST /auth/password-recovery/request` | Público, limitado | Respuesta neutral `202`; envía OTP si la cuenta es elegible. |
+| `POST /auth/password-recovery/verify` | Público, limitado | Consume el OTP y emite JWT de recuperación de un solo uso. |
+| `POST /auth/password-recovery/reset` | JWT `password_reset`, limitado | Consume atómicamente el comprobante, cambia la contraseña y revoca sesiones. |
 
-## 3. Convenciones de respuesta
+## 3. Parámetros y ficha mutable
 
-### 3.1 Respuesta satisfactoria
+| Método y ruta | Acceso | Uso |
+| --- | --- | --- |
+| `GET /parameters/{keyWord}` | Autenticado | Consulta solo parámetros activos. |
+| `POST /parameters` | Administrador | Alta auditada. |
+| `PUT /parameters/{id}` | Administrador | Edición auditada. |
+| `DELETE /parameters/{id}` | Administrador | Baja lógica. |
+| `GET /all-items` | Autenticado | Lee la plantilla mutable. |
+| `POST /all-items` | Administrador | Agrega un nodo. |
+| `PUT /all-items/{id}` | Administrador | Edita texto o jerarquía, rechazando ciclos. |
+| `DELETE /all-items/{id}` | Administrador | Elimina un nodo sin descendientes. |
+| `POST /inspection-templates/publish-all-items` | Administrador | Publica una versión inmutable de la ficha y reglas. |
 
-Cada operación documentará:
+## 4. Evaluación, riesgo y evidencias
 
-- código de estado HTTP;
-- cuerpo de respuesta, cuando corresponda;
-- encabezados relevantes;
-- esquema y ejemplo JSON;
-- reglas de paginación, filtrado y ordenamiento, si aplican.
+| Método y ruta | Acceso | Uso |
+| --- | --- | --- |
+| `POST /evaluations` | Administrador/Coordinador | Crea y asigna una evaluación contra versiones publicadas. |
+| `GET /evaluations/{id}/form` | Según rol y ámbito | Devuelve la instantánea inmutable autorizada. |
+| `POST /respuestas` | Administrador/Técnico asignado | Guarda una respuesta con `Idempotency-Key` y versión base opcional. |
+| `POST /evaluations/{id}/calculate` | Administrador/Coordinador/Técnico asignado | Calcula y persiste cumplimiento y riesgo en servidor. |
+| `POST /risk/all-items/calculate` | Autenticado | Calcula recursivamente una vista previa sobre `AllItems`. |
+| `POST /evidences` | Administrador/Técnico asignado | Valida y carga multipart exclusivamente a Supabase Storage. |
 
-### 3.2 Respuesta de error
+Una evaluación o ítem inexistente dentro del ámbito del actor responde `404`; credenciales inválidas responden `401`; rol insuficiente responde `403`; y una versión obsoleta o clave idempotente reutilizada con otro contenido responde `409`.
 
-Los errores se devolverán con `Content-Type: application/problem+json` y documentarán, como mínimo, los campos estándar `type`, `title`, `status`, `detail` e `instance`. Los errores de validación podrán agregar una extensión `errors` con los campos y mensajes correspondientes.
+## 5. Operación
 
-Ejemplo base:
-
-```json
-{
-  "type": "https://sigersa.local/problems/validation-error",
-  "title": "La solicitud contiene datos inválidos.",
-  "status": 400,
-  "detail": "Revise los campos indicados e intente nuevamente.",
-  "instance": "/api/v1/casos"
-}
-```
-
-## 4. Plantilla para futuros endpoints
-
-### `[MÉTODO] /api/v1/[recurso]`
-
-- **Caso de uso:** Pendiente de especificación.
-- **Autorización y alcance:** Pendiente de especificación.
-- **Parámetros:** Pendiente de especificación.
-- **Cuerpo de solicitud:** Pendiente de especificación.
-- **Respuesta satisfactoria:** Pendiente de especificación.
-- **Respuestas `application/problem+json`:** Pendiente de especificación.
-- **Idempotencia/concurrencia:** Pendiente de especificación.
-- **Criterios de aceptación:** Pendiente de especificación.
-
-## 5. Dominios por documentar
-
-- Autenticación, sesión y OTP.
-- Empresas y establecimientos.
-- Casos, programación y asignaciones.
-- Fichas versionadas y evaluaciones.
-- Evidencias, informes y correcciones.
-- Auditoría, catálogos y notificaciones.
+`GET /system/status` comprueba el proceso sin revelar configuración. Swagger UI y `/swagger/v1/swagger.json` se exponen únicamente en desarrollo. Ninguna respuesta, log o documento OpenAPI contiene contraseñas, OTP, tokens ni claves de proveedores.

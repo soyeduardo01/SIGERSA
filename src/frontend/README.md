@@ -5,7 +5,7 @@ Aplicación móvil primero para inspecciones EBR/BPM. Utiliza React, TypeScript,
 ## Configuración local
 
 1. Copie `.env.example` como `.env.local`.
-2. Complete `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` con credenciales públicas del proyecto.
+2. Complete `VITE_SUPABASE_URL` y `VITE_SUPABASE_PUBLISHABLE_KEY` con las credenciales públicas del proyecto.
 3. Instale e inicie:
 
 ```powershell

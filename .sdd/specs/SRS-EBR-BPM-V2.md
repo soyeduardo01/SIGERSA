@@ -43,11 +43,14 @@ Quedan fuera de la primera entrega la facturación, el almacenamiento de binario
 | Actor | Responsabilidad principal |
 | --- | --- |
 | Administrador | Gobierno global de usuarios, seguridad, catálogos, fichas y configuración. |
+| Administrador Empresa | Administración de usuarios, perfil, establecimientos y solicitudes dentro de su empresa. |
+| Usuario Delegado | Actuación en representación de una empresa, limitada por el ámbito y las facultades delegadas. |
 | Coordinador | Gestión operativa de casos, programación, asignación, revisión y seguimiento. |
-| Técnico | Ejecución de inspecciones asignadas, captura de respuestas, hallazgos y evidencias. |
-| Empresa | Gestión de su perfil y establecimientos, solicitudes y respuesta a correcciones dentro de su ámbito. |
+| Técnico Evaluador | Ejecución de evaluaciones e inspecciones asignadas, captura de respuestas, hallazgos y evidencias. |
 | Servicio de correo | Entrega de OTP y notificaciones transaccionales. |
 | Supabase Storage | Custodia privada de archivos binarios y entrega mediante acceso temporal autorizado. |
+
+Los códigos RBAC canónicos son `ADMINISTRADOR`, `ADMINISTRADOR_EMPRESA`, `USUARIO_DELEGADO`, `COORDINADOR` y `TECNICO_EVALUADOR`. Los dos roles empresariales requieren obligatoriamente un ámbito de empresa; el rol `USUARIO_DELEGADO` no puede concederse a sí mismo nuevas facultades ni administrar otros usuarios.
 
 ## 5. Autenticación y seguridad
 
@@ -123,12 +126,12 @@ La migración ofrece funciones para alta, actualización, eliminación lógica y
 
 ## 8. Flujo operativo EBR/BPM
 
-1. La Empresa registra o actualiza sus datos y presenta una solicitud cuando corresponda.
-2. El Coordinador analiza el origen del caso, prioriza, programa y asigna uno o más Técnicos.
-3. El Técnico descarga la evaluación y su ficha versionada, trabaja en línea u offline y registra respuestas, ubicación, hallazgos y evidencias.
+1. El Administrador Empresa registra o actualiza los datos de su organización y presenta solicitudes; un Usuario Delegado podrá presentarlas cuando la delegación vigente lo autorice.
+2. El Coordinador analiza el origen del caso, prioriza, programa y asigna uno o más Técnicos Evaluadores.
+3. El Técnico Evaluador descarga la evaluación y su ficha versionada, trabaja en línea u offline y registra respuestas, ubicación, hallazgos y evidencias.
 4. La sincronización envía operaciones idempotentes; la API valida versión, propiedad y estado antes de aceptar cada cambio.
 5. El motor calcula puntuación BPM y riesgo a partir de reglas versionadas y conserva entradas, resultado, versión y hash.
-6. El Coordinador revisa, solicita correcciones o aprueba. La Empresa atiende únicamente las correcciones que le sean notificadas y habilitadas.
+6. El Coordinador revisa, solicita correcciones o aprueba. El Administrador Empresa o un Usuario Delegado autorizado atiende únicamente las correcciones notificadas y habilitadas para su empresa.
 7. El cierre conserva ficha, respuestas, evidencias, cálculos, decisiones y auditoría como historial consultable.
 
 ## 9. Infraestructura documental y evidencias
@@ -149,36 +152,39 @@ Se prohíben carpetas locales del servidor, volúmenes persistentes de la API, b
 
 Leyenda: **T** = total en el ámbito global; **A** = administrar/decidir; **O** = operar recursos asignados o propios; **L** = lectura; **—** = denegado.
 
-| Recurso o acción | Administrador | Coordinador | Técnico | Empresa |
-| --- | :---: | :---: | :---: | :---: |
-| Usuarios internos, roles y permisos | T | L | — | — |
-| Usuarios de la propia empresa | T | L | — | O |
-| Parámetros y catálogos | T | L | L | L |
-| Plantillas de ficha: crear/editar | T | L/proponer | — | — |
-| Plantillas de ficha: publicar/retirar | T | — | — | — |
-| Empresas y establecimientos | T | A | L asignados | O propios |
-| Solicitudes | T | A | L asignadas | O propias |
-| Alertas y denuncias | T | A | L asignadas | L relacionadas, si se habilita |
-| Casos: crear, analizar y priorizar | T | A | L asignados | L propios |
-| Programar y asignar inspecciones | T | A | L propias | L propias |
-| Ejecutar evaluación y respuestas | T | L | O asignadas | — |
-| Crear hallazgos/no conformidades | T | L | O asignadas | L propias |
-| Cargar evidencias de inspección | T | L | O asignadas | — |
-| Ver evidencias | T | A según ámbito | L asignadas | L propias autorizadas |
-| Solicitar correcciones | T | A | L asignadas | L propias |
-| Responder correcciones | T | L | O asignadas | O propias habilitadas |
-| Revisar/aprobar/rechazar evaluación | T | A | — | — |
-| Cerrar/reabrir caso | T | A | — | — |
-| Informes e indicadores | T | A según ámbito | L propios | L propios |
-| Auditoría | T | L según ámbito | — | — |
+| Recurso o acción | Administrador | Administrador Empresa | Usuario Delegado | Coordinador | Técnico Evaluador |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| Usuarios internos, roles y permisos | T | — | — | L | — |
+| Usuarios de la propia empresa | T | A | — | L | — |
+| Parámetros y catálogos | T | L | L | L | L |
+| Plantillas de ficha: crear/editar | T | — | — | L/proponer | — |
+| Plantillas de ficha: publicar/retirar | T | — | — | — | — |
+| Perfil de empresa y establecimientos | T | O propios | L/actualización delegada | A | L asignados |
+| Solicitudes | T | O propias | O propias delegadas | A | L asignadas |
+| Alertas y denuncias | T | L relacionadas | L relacionadas delegadas | A | L asignadas |
+| Casos: crear, analizar y priorizar | T | L propios | L propios | A | L asignados |
+| Programar y asignar inspecciones | T | L propias | L propias | A | L asignadas |
+| Ejecutar evaluación y respuestas | T | — | — | L | O asignadas |
+| Crear hallazgos/no conformidades | T | L propias | L propias | L | O asignadas |
+| Cargar evidencias de inspección | T | — | — | L | O asignadas |
+| Ver evidencias | T | L propias autorizadas | L propias autorizadas | A según ámbito | L asignadas |
+| Solicitar correcciones | T | L propias | L propias | A | L asignadas |
+| Responder correcciones | T | O propias habilitadas | O delegadas habilitadas | L | O asignadas |
+| Revisar/aprobar/rechazar evaluación | T | — | — | A | — |
+| Cerrar/reabrir caso | T | — | — | A | — |
+| Informes e indicadores | T | L propios | L delegados | A según ámbito | L propios |
+| Auditoría | T | — | — | L según ámbito | — |
 
 Reglas complementarias:
 
 - **RF-AUTZ-001:** El rol nunca bastará por sí solo; se comprobará el ámbito global, territorial, empresarial, de establecimiento o de asignación.
-- **RF-AUTZ-002:** Una Empresa no podrá consultar información de otra empresa ni datos internos de análisis no publicados.
-- **RF-AUTZ-003:** Un Técnico solo modificará evaluaciones que tenga asignadas y estén en un estado operable.
+- **RF-AUTZ-002:** Un Administrador Empresa o Usuario Delegado no podrá consultar información de otra empresa ni datos internos de análisis no publicados.
+- **RF-AUTZ-003:** Un Técnico Evaluador solo modificará evaluaciones que tenga asignadas y estén en un estado operable.
 - **RF-AUTZ-004:** Quien ejecuta una evaluación no podrá aprobarla; la separación de funciones se aplicará al Coordinador revisor.
 - **RF-AUTZ-005:** Reabrir un caso cerrado será excepcional, requerirá permiso explícito, justificación y auditoría.
+- **RF-AUTZ-006:** Toda asignación de `ADMINISTRADOR_EMPRESA` o `USUARIO_DELEGADO` deberá incluir `empresa_ambito_id`; las operaciones se limitarán a esa empresa aunque el token contenga el rol.
+- **RF-AUTZ-007:** El Administrador Empresa podrá administrar usuarios de su empresa, pero no podrá crear roles internos, elevar privilegios globales ni modificar ámbitos ajenos.
+- **RF-AUTZ-008:** Las facultades del Usuario Delegado serán revocables y no incluirán administración de usuarios, roles o delegaciones.
 
 ## 11. Datos, auditoría y concurrencia
 
@@ -207,7 +213,7 @@ Reglas complementarias:
 - **CA-03:** Los siete catálogos que antes eran ENUM se encuentran precargados como parámetros activos.
 - **CA-04:** `AllItems` contiene los 90 registros base suministrados, conserva su orden y admite nuevas altas mediante su secuencia.
 - **CA-05:** Una baja de parámetro cambia `Status` de `true` a `false`, conserva el registro y completa auditoría de eliminación.
-- **CA-06:** La documentación define el login, la recuperación OTP por correo, los parámetros sin ENUM, la ficha mutable, Supabase Storage exclusivo y los permisos de los cuatro roles.
+- **CA-06:** La documentación define el login, la recuperación OTP por correo, los parámetros sin ENUM, la ficha mutable, Supabase Storage exclusivo y los permisos de los cinco roles.
 
 ## 14. Trazabilidad mínima para desarrollo
 

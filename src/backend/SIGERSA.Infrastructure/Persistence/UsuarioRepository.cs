@@ -34,7 +34,8 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
                 new { Id = id },
                 cancellationToken: cancellationToken);
 
-            return await connection.QuerySingleOrDefaultAsync<Usuario>(command);
+            var row = await connection.QuerySingleOrDefaultAsync<UsuarioRow>(command);
+            return row?.ToDomain();
         }
     }
 
@@ -60,5 +61,34 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
             new { Id = id, NombreCompleto = nombreCompleto, ModificadoPor = modificadoPor, VersionFila = versionFila },
             id,
             cancellationToken);
+    }
+
+    private sealed class UsuarioRow
+    {
+        public Guid Id { get; init; }
+        public string Correo { get; init; } = string.Empty;
+        public string NombreCompleto { get; init; } = string.Empty;
+        public bool Activo { get; init; }
+        public DateTime CreadoEn { get; init; }
+        public Guid? CreadoPor { get; init; }
+        public DateTime? ModificadoEn { get; init; }
+        public Guid? ModificadoPor { get; init; }
+        public long VersionFila { get; init; }
+
+        public Usuario ToDomain() => new()
+        {
+            Id = Id,
+            Correo = Correo,
+            NombreCompleto = NombreCompleto,
+            Activo = Activo,
+            CreadoEn = Utc(CreadoEn),
+            CreadoPor = CreadoPor,
+            ModificadoEn = ModificadoEn is null ? null : Utc(ModificadoEn.Value),
+            ModificadoPor = ModificadoPor,
+            VersionFila = VersionFila
+        };
+
+        private static DateTimeOffset Utc(DateTime value) =>
+            new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
     }
 }

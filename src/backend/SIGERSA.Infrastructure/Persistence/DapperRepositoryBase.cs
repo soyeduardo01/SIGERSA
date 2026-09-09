@@ -1,5 +1,4 @@
 using Dapper;
-using SIGERSA.Domain.Exceptions;
 
 namespace SIGERSA.Infrastructure.Persistence;
 
@@ -24,10 +23,7 @@ public abstract class DapperRepositoryBase(IDbConnectionFactory connectionFactor
                 cancellationToken: cancellationToken);
 
             var affectedRows = await connection.ExecuteAsync(command);
-            if (affectedRows == 0)
-            {
-                throw new OptimisticConcurrencyException(entityId);
-            }
+            OptimisticConcurrencyGuard.EnsureSingleRowUpdated(affectedRows, entityId);
         }
     }
 }

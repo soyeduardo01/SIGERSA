@@ -17,7 +17,10 @@ public sealed partial class GlobalExceptionHandler(
         var (status, title) = exception switch
         {
             ValidationException => (StatusCodes.Status400BadRequest, "Error de validación"),
+            ArgumentException => (StatusCodes.Status400BadRequest, "Solicitud no válida"),
+            UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "No autorizado"),
             OptimisticConcurrencyException => (StatusCodes.Status409Conflict, "Conflicto de concurrencia"),
+            InvalidOperationException => (StatusCodes.Status409Conflict, "Operación no permitida"),
             KeyNotFoundException => (StatusCodes.Status404NotFound, "Recurso no encontrado"),
             _ => (StatusCodes.Status500InternalServerError, "Error interno del servidor")
         };

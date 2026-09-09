@@ -1,8 +1,8 @@
 import { getSupabaseClient } from '../lib/supabase'
+import { apiFetch } from '../lib/api'
 import { offlineDb, type AnswerPayload, type EvidencePayload, type SyncQueueItem } from './database'
 import { validateAndHashEvidence } from './evidenceFile'
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const queueChangedEvent = 'sigersa:sync-queue-changed'
 const maxAttempts = 5
 let activeFlush: Promise<void> | undefined
@@ -140,7 +140,7 @@ function isDuplicateObjectError(error: { message?: string; statusCode?: string |
 }
 
 async function postJson(path: string, body: unknown, idempotencyKey: string) {
-  const response = await fetch(`${apiBaseUrl}${path}`, {
+  const response = await apiFetch(path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

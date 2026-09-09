@@ -53,8 +53,9 @@ dotnet test src/backend/SIGERSA.sln --no-build
 dotnet run --project src/backend/SIGERSA.Api
 ```
 
-Swagger UI estará disponible en `/swagger` durante el desarrollo. La migración
-`src/backend/Database/Migrations/001_initial_schema_sigersa.sql` se conserva para una ejecución manual posterior; la aplicación no la ejecuta automáticamente.
+Swagger UI estará disponible en `/swagger` durante el desarrollo. La aplicación no
+ejecuta migraciones automáticamente: aplique, en orden por nombre, todos los archivos
+SQL de `src/backend/Database/Migrations`, desde `001_initial_schema_sigersa.sql`.
 
 ### Iniciar el frontend PWA
 

@@ -1,10 +1,14 @@
+using System.Net.Mail;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using SIGERSA.Domain.Repositories;
+using SIGERSA.Domain.Security;
 using SIGERSA.Domain.Storage;
 using SIGERSA.Infrastructure.Configuration;
+using SIGERSA.Infrastructure.Email;
 using SIGERSA.Infrastructure.Persistence;
+using SIGERSA.Infrastructure.Security;
 using SIGERSA.Infrastructure.Storage;
 
 namespace SIGERSA.Infrastructure;
@@ -26,6 +30,21 @@ public static class DependencyInjection
             .Validate(options => Uri.TryCreate(options.Url, UriKind.Absolute, out _), "Supabase:Url debe ser una URL absoluta.")
             .Validate(options => !string.IsNullOrWhiteSpace(options.Key), "Se requiere Supabase:Key.")
             .Validate(options => options.MaxFileSizeBytes > 0, "El tamaño máximo debe ser positivo.")
+            .ValidateOnStart();
+
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Issuer), "Se requiere Authentication:Jwt:Issuer.")
+            .Validate(options => !string.IsNullOrWhiteSpace(options.Audience), "Se requiere Authentication:Jwt:Audience.")
+            .Validate(options => options.SigningKey.Length >= 32, "La clave JWT debe contener al menos 32 caracteres.")
+            .Validate(options => options.AccessTokenMinutes > 0 && options.ResetTokenMinutes > 0, "Las vigencias JWT deben ser positivas.")
+            .ValidateOnStart();
+
+        services.AddOptions<SmtpOptions>()
+            .Bind(configuration.GetSection(SmtpOptions.SectionName))
+            .Validate(options => !options.Enabled || !string.IsNullOrWhiteSpace(options.Host), "Se requiere Smtp:Host.")
+            .Validate(options => !options.Enabled || options.Port > 0, "Smtp:Port debe ser positivo.")
+            .Validate(options => !options.Enabled || MailAddress.TryCreate(options.FromAddress, out _), "Smtp:FromAddress debe ser válido.")
             .ValidateOnStart();
 
         var databaseOptions = configuration
@@ -58,7 +77,15 @@ public static class DependencyInjection
             }));
 
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+        services.AddScoped<IParametersControlRepository, ParametersControlRepository>();
+        services.AddScoped<IAllItemsRepository, AllItemsRepository>();
+        services.AddScoped<IAuthenticationRepository, AuthenticationRepository>();
+        services.AddScoped<IEvidenceRepository, EvidenceRepository>();
+        services.AddScoped<IEvaluationWorkflowRepository, EvaluationWorkflowRepository>();
         services.AddScoped<IFileStorage, SupabaseStorageAdapter>();
+        services.AddSingleton<IPasswordService, Pbkdf2PasswordService>();
+        services.AddSingleton<ITokenService, JwtTokenService>();
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
 
         return services;
     }

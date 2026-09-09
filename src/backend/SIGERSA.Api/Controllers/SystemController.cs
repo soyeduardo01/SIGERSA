@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace SIGERSA.Api.Controllers;
@@ -8,6 +9,7 @@ namespace SIGERSA.Api.Controllers;
 public sealed class SystemController : ControllerBase
 {
     [HttpGet("status")]
+    [AllowAnonymous]
     [ProducesResponseType<SystemStatusResponse>(StatusCodes.Status200OK, "application/json")]
     public ActionResult<SystemStatusResponse> GetStatus()
     {
