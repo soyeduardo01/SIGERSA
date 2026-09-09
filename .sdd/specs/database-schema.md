@@ -11,6 +11,7 @@ Las migraciones se encuentran en `src/backend/Database/Migrations` y deben aplic
 3. `003_link_versioned_items_to_allitems.sql`: trazabilidad entre la instantánea publicada y su fila fuente.
 4. `004_expand_system_roles.sql`: cinco roles canónicos, permisos y validación de ámbito empresarial.
 5. `005_harden_authentication_flows.sql`: comprobantes de recuperación de contraseña de un solo uso.
+6. `006_evidence_idempotency.sql`: idempotencia de la confirmación de evidencias offline.
 
 ## 2. Objetos normativos de Fase 1
 
@@ -43,7 +44,7 @@ Los roles canónicos son `ADMINISTRADOR`, `ADMINISTRADOR_EMPRESA`, `USUARIO_DELE
 
 Las tablas transaccionales usan UUID, instantes `timestamptz`, auditoría y `version_fila`. Las respuestas offline se deduplican mediante `OPERACION_SINCRONIZACION.idempotency_key`; una versión desactualizada provoca conflicto de concurrencia.
 
-PostgreSQL no almacena binarios. `EVIDENCIA` conserva bucket privado, ruta lógica, nombres, tamaño, MIME y SHA-256. El adaptador de infraestructura valida ubicación, límite, MIME y firma binaria antes de cargar el contenido exclusivamente en Supabase Storage.
+PostgreSQL no almacena binarios. `EVIDENCIA` conserva bucket privado, ruta lógica, nombres, tamaño, MIME, SHA-256 e `idempotency_key`. El adaptador de infraestructura valida ubicación, límite, MIME y firma binaria; en cargas firmadas vuelve a leer el objeto remoto y coteja tamaño y hash antes de confirmar la fila.
 
 ## 3. Verificación reproducible
 

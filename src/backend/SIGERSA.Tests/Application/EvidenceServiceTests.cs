@@ -7,6 +7,8 @@ namespace SIGERSA.Tests.Application;
 
 public sealed class EvidenceServiceTests
 {
+    private const string ValidHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
     [Fact]
     public async Task UploadShouldValidateAssignmentBeforeSendingBytesToStorage()
     {
@@ -38,19 +40,71 @@ public sealed class EvidenceServiceTests
         Assert.True(storage.UploadCalled);
         Assert.Same(evidence, repository.Created);
         Assert.Equal(evaluationId, evidence.EvaluationId);
-        Assert.Equal("abc123", evidence.Sha256Hash);
+        Assert.Equal(ValidHash, evidence.Sha256Hash);
         Assert.StartsWith($"evaluaciones/{evaluationId:N}/", evidence.SupabasePath, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task SignedUploadShouldUseDeterministicPathAndVerifyRemoteBytesBeforePersisting()
+    {
+        var evaluationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var idempotencyKey = Guid.NewGuid();
+        var storage = new FakeStorage();
+        var repository = new FakeEvidenceRepository { CanUpload = true };
+        var service = new EvidenceService(storage, repository);
+
+        var authorization = await service.AuthorizeUploadAsync(
+            evaluationId, userId, idempotencyKey, "evidencias", "foto.png",
+            "image/png", 4, CancellationToken.None);
+        var confirmed = await service.ConfirmUploadAsync(
+            evaluationId, userId, idempotencyKey, "evidencias", authorization.SupabasePath,
+            "foto.png", "image/png", "FOTOGRAFIA", 4, ValidHash, CancellationToken.None);
+
+        Assert.Equal($"evaluaciones/{evaluationId:N}/{idempotencyKey:N}.png", authorization.SupabasePath);
+        Assert.True(storage.VerificationCalled);
+        Assert.Equal(idempotencyKey, confirmed.IdempotencyKey);
+        Assert.Same(confirmed, repository.Created);
+    }
+
+    [Fact]
+    public async Task ConfirmationShouldRejectMetadataThatDoesNotMatchRemoteObject()
+    {
+        var evaluationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var idempotencyKey = Guid.NewGuid();
+        var service = new EvidenceService(
+            new FakeStorage(), new FakeEvidenceRepository { CanUpload = true });
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => service.ConfirmUploadAsync(
+            evaluationId, userId, idempotencyKey, "evidencias",
+            $"evaluaciones/{evaluationId:N}/{idempotencyKey:N}.png", "foto.png",
+            "image/png", "FOTOGRAFIA", 5, ValidHash, CancellationToken.None));
     }
 
     private sealed class FakeStorage : IFileStorage
     {
         public bool UploadCalled { get; private set; }
+        public bool VerificationCalled { get; private set; }
 
         public Task<StoredFile> UploadAsync(StorageUpload upload, CancellationToken cancellationToken = default)
         {
             UploadCalled = true;
             return Task.FromResult(new StoredFile(
-                upload.BucketName, upload.SupabasePath, 4, upload.MimeType, "abc123"));
+                upload.BucketName, upload.SupabasePath, 4, upload.MimeType, ValidHash));
+        }
+
+        public Task<StorageUploadAuthorization> CreateUploadAuthorizationAsync(
+            string bucketName, string supabasePath, string mimeType, long fileSize,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new StorageUploadAuthorization(bucketName, supabasePath, "token", "signed-url"));
+
+        public Task<StoredFile> VerifyAsync(
+            string bucketName, string supabasePath, string mimeType,
+            CancellationToken cancellationToken = default)
+        {
+            VerificationCalled = true;
+            return Task.FromResult(new StoredFile(bucketName, supabasePath, 4, mimeType, ValidHash));
         }
 
         public Task<Stream> DownloadAsync(string bucketName, string supabasePath, CancellationToken cancellationToken = default) =>

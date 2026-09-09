@@ -153,6 +153,63 @@
         }
       }
     },
+    "/api/v1/all-items/order": {
+      "put": {
+        "tags": [
+          "AllItems"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderAllItemsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderAllItemsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderAllItemsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AllItem"
+                  }
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AllItem"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AllItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "tags": [
@@ -623,6 +680,102 @@
         }
       }
     },
+    "/api/v1/evidences/upload-authorization": {
+      "post": {
+        "tags": [
+          "Evidence"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceUploadAuthorizationRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceUploadAuthorizationRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceUploadAuthorizationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadAuthorization"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadAuthorization"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageUploadAuthorization"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evidences/confirm": {
+      "post": {
+        "tags": [
+          "Evidence"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmEvidenceUploadRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmEvidenceUploadRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmEvidenceUploadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceRecord"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceRecord"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceRecord"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/evidences": {
       "post": {
         "tags": [
@@ -1049,6 +1202,44 @@
         },
         "additionalProperties": false
       },
+      "ConfirmEvidenceUploadRequest": {
+        "type": "object",
+        "properties": {
+          "evaluationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "supabasePath": {
+            "type": "string",
+            "nullable": true
+          },
+          "originalName": {
+            "type": "string",
+            "nullable": true
+          },
+          "mimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "evidenceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "fileSize": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sha256Hash": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "CreateEvaluationDraft": {
         "type": "object",
         "properties": {
@@ -1260,6 +1451,37 @@
           "evidenceType": {
             "type": "string",
             "nullable": true
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EvidenceUploadAuthorizationRequest": {
+        "type": "object",
+        "properties": {
+          "evaluationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "idempotencyKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "originalName": {
+            "type": "string",
+            "nullable": true
+          },
+          "mimeType": {
+            "type": "string",
+            "nullable": true
+          },
+          "fileSize": {
+            "type": "integer",
+            "format": "int64"
           }
         },
         "additionalProperties": false
@@ -1526,6 +1748,20 @@
         },
         "additionalProperties": false
       },
+      "ReorderAllItemsRequest": {
+        "type": "object",
+        "properties": {
+          "orderedItems": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ResetPasswordRequest": {
         "type": "object",
         "properties": {
@@ -1578,6 +1814,28 @@
           "baseVersion": {
             "type": "integer",
             "format": "int64",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StorageUploadAuthorization": {
+        "type": "object",
+        "properties": {
+          "bucketName": {
+            "type": "string",
+            "nullable": true
+          },
+          "supabasePath": {
+            "type": "string",
+            "nullable": true
+          },
+          "token": {
+            "type": "string",
+            "nullable": true
+          },
+          "signedUrl": {
+            "type": "string",
             "nullable": true
           }
         },

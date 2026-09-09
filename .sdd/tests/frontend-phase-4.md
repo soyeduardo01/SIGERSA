@@ -12,7 +12,7 @@
 
 1. Una respuesta creada sin red queda en `syncQueue` con `idempotency_key` única.
 2. Una evidencia sin red conserva metadata y `Blob` sin intentar cargarlo.
-3. Al volver la conectividad, la cola envía respuestas, carga evidencias en Supabase y registra su metadata.
+3. Al volver la conectividad, la cola solicita autorización al backend, carga cada evidencia mediante URL firmada de Supabase y confirma su metadata verificada.
 4. Repetir una mutación con la misma `idempotency_key` no crea otra entrada local.
 5. Los fallos de red incrementan los intentos y programan un nuevo reintento.
 6. La interfaz distingue por texto y color los estados BPM y niveles de riesgo.
@@ -22,4 +22,4 @@
 
 - Confirmar instalación de la PWA y navegación sin red en un navegador compatible.
 - Validar las políticas RLS y el bucket privado contra un proyecto real de Supabase.
-- Verificar sincronización extremo a extremo cuando la API v1 esté disponible.
+- Verificar una carga real de evidencia con la clave secreta completa del servidor y el bucket privado configurado.

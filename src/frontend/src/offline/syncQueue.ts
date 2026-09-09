@@ -1,5 +1,5 @@
 import { getSupabaseClient } from '../lib/supabase'
-import { apiFetch } from '../lib/api'
+import { apiFetch, confirmEvidenceUpload, requestEvidenceUploadAuthorization } from '../lib/api'
 import { offlineDb, type AnswerPayload, type EvidencePayload, type SyncQueueItem } from './database'
 import { validateAndHashEvidence } from './evidenceFile'
 
@@ -40,6 +40,10 @@ export function flushSyncQueue() {
 
 async function processSyncQueue() {
   const now = new Date().toISOString()
+  await offlineDb.syncQueue.where('status').equals('processing').modify({
+    status: 'pending',
+    nextAttemptAt: now,
+  })
   const queuedItems = await offlineDb.syncQueue
     .where('status')
     .anyOf('pending', 'failed')
@@ -90,32 +94,44 @@ async function processQueueItem(item: SyncQueueItem) {
     } else {
       const evidence = item.payload as EvidencePayload
       if (!item.storageUploaded) {
+        const authorization = await requestEvidenceUploadAuthorization({
+          evaluationId: evidence.evaluationId,
+          idempotencyKey: item.idempotencyKey,
+          originalName: evidence.fileName,
+          mimeType: evidence.mimeType,
+          fileSize: evidence.file.size,
+        })
         const { error } = await getSupabaseClient()
-          .storage.from(evidence.bucketName)
-          .upload(evidence.supabasePath, evidence.file, {
+          .storage.from(authorization.bucketName)
+          .uploadToSignedUrl(authorization.supabasePath, authorization.token, evidence.file, {
             cacheControl: '3600',
             contentType: evidence.mimeType,
-            upsert: false,
           })
 
-        if (error && !(item.attempts > 0 && isDuplicateObjectError(error))) throw error
+        if (error && !isDuplicateObjectError(error)) throw error
 
-        await offlineDb.syncQueue.update(item.idempotencyKey, { storageUploaded: true })
+        await offlineDb.syncQueue.update(item.idempotencyKey, {
+          storageUploaded: true,
+          authorizedBucketName: authorization.bucketName,
+          authorizedSupabasePath: authorization.supabasePath,
+        })
+        item.authorizedBucketName = authorization.bucketName
+        item.authorizedSupabasePath = authorization.supabasePath
       }
 
-      await postJson(
-        '/api/v1/evidencias',
-        {
-          evaluacionId: evidence.evaluationId,
-          bucketName: evidence.bucketName,
-          supabasePath: evidence.supabasePath,
-          fileName: evidence.fileName,
-          fileSize: evidence.file.size,
-          mimeType: evidence.mimeType,
-          sha256Hash: evidence.sha256Hash,
-        },
-        item.idempotencyKey,
-      )
+      if (!item.authorizedSupabasePath) {
+        throw new Error('La autorización de almacenamiento no tiene una ruta válida.')
+      }
+      await confirmEvidenceUpload({
+        evaluationId: evidence.evaluationId,
+        idempotencyKey: item.idempotencyKey,
+        supabasePath: item.authorizedSupabasePath,
+        originalName: evidence.fileName,
+        fileSize: evidence.file.size,
+        mimeType: evidence.mimeType,
+        sha256Hash: evidence.sha256Hash,
+        evidenceType: evidence.evidenceType,
+      })
     }
 
     await offlineDb.syncQueue.delete(item.idempotencyKey)

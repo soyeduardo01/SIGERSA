@@ -30,10 +30,9 @@ export interface AnswerPayload {
 
 export interface EvidencePayload {
   evaluationId: string
-  bucketName: string
-  supabasePath: string
   mimeType: string
   fileName: string
+  evidenceType: string
   file: Blob
   sha256Hash: string
 }
@@ -48,6 +47,8 @@ export interface SyncQueueItem {
   nextAttemptAt: string
   lastError?: string
   storageUploaded?: boolean
+  authorizedBucketName?: string
+  authorizedSupabasePath?: string
 }
 
 class SigersaOfflineDatabase extends Dexie {

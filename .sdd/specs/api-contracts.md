@@ -27,6 +27,7 @@ El contrato normativo y legible por herramientas es `.sdd/specs/openapi-v1.json`
 | `POST /all-items` | Administrador | Agrega un nodo. |
 | `PUT /all-items/{id}` | Administrador | Edita texto o jerarquía, rechazando ciclos. |
 | `DELETE /all-items/{id}` | Administrador | Elimina un nodo sin descendientes. |
+| `PUT /all-items/order` | Administrador | Reordena todos los nodos en una transacción. |
 | `POST /inspection-templates/publish-all-items` | Administrador | Publica una versión inmutable de la ficha y reglas. |
 
 ## 4. Evaluación, riesgo y evidencias
@@ -38,6 +39,8 @@ El contrato normativo y legible por herramientas es `.sdd/specs/openapi-v1.json`
 | `POST /respuestas` | Administrador/Técnico asignado | Guarda una respuesta con `Idempotency-Key` y versión base opcional. |
 | `POST /evaluations/{id}/calculate` | Administrador/Coordinador/Técnico asignado | Calcula y persiste cumplimiento y riesgo en servidor. |
 | `POST /risk/all-items/calculate` | Autenticado | Calcula recursivamente una vista previa sobre `AllItems`. |
+| `POST /evidences/upload-authorization` | Administrador/Técnico asignado | Emite una autorización firmada para una ruta privada determinista. |
+| `POST /evidences/confirm` | Administrador/Técnico asignado | Verifica el objeto remoto y registra sus metadatos de forma idempotente. |
 | `POST /evidences` | Administrador/Técnico asignado | Valida y carga multipart exclusivamente a Supabase Storage. |
 
 Una evaluación o ítem inexistente dentro del ámbito del actor responde `404`; credenciales inválidas responden `401`; rol insuficiente responde `403`; y una versión obsoleta o clave idempotente reutilizada con otro contenido responde `409`.

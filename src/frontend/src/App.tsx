@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AppLayout } from './components/layout/AppLayout'
 import { AllItemsAdmin } from './features/admin/AllItemsAdmin'
 import { LoginPage } from './features/auth/LoginPage'
+import { PasswordRecoveryPage } from './features/auth/PasswordRecoveryPage'
 import { DynamicInspectionForm } from './features/inspection/DynamicInspectionForm'
 import { useSyncStatus } from './hooks/useSyncStatus'
 import { clearSession, getSession, logout, type AuthSession } from './lib/api'
@@ -11,9 +12,16 @@ type View = 'inspection' | 'admin'
 function App() {
   const syncStatus = useSyncStatus()
   const [session, setSession] = useState<AuthSession | null>(() => getSession())
+  const [recoveringPassword, setRecoveringPassword] = useState(false)
   const [view, setView] = useState<View>('inspection')
 
-  if (!session) return <LoginPage onAuthenticated={setSession} />
+  if (!session) {
+    return recoveringPassword ? (
+      <PasswordRecoveryPage onBack={() => setRecoveringPassword(false)} />
+    ) : (
+      <LoginPage onAuthenticated={setSession} onRecover={() => setRecoveringPassword(true)} />
+    )
+  }
 
   const isAdministrator = session.roles.includes('ADMINISTRADOR')
   return (

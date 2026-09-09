@@ -112,11 +112,11 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 
 var app = builder.Build();
 
-app.UseExceptionHandler();
 app.UseSerilogRequestLogging(options =>
 {
     options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} respondió {StatusCode} en {Elapsed:0.0000} ms";
 });
+app.UseExceptionHandler();
 
 if (app.Environment.IsDevelopment())
 {

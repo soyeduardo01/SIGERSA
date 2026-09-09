@@ -11,4 +11,5 @@ public sealed record EvidenceRecord(
     long FileSize,
     string MimeType,
     string Sha256Hash,
-    string EvidenceType);
+    string EvidenceType,
+    Guid? IdempotencyKey = null);

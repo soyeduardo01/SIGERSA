@@ -67,7 +67,7 @@ pnpm install
 pnpm dev
 ```
 
-La PWA mantiene evaluaciones, fichas y una cola de sincronización en IndexedDB. Las respuestas y evidencias pendientes conservan una `idempotency_key` para evitar duplicados al recuperar la conexión. Los binarios se envían directamente a Supabase Storage únicamente cuando hay red y el bucket dispone de las políticas RLS correspondientes.
+La PWA mantiene evaluaciones, fichas y una cola de sincronización en IndexedDB. Las respuestas y evidencias pendientes conservan una `idempotency_key` para evitar duplicados al recuperar la conexión. Cuando hay red, la API autoriza una ruta temporal después de validar la asignación; el navegador carga mediante `supabase-js` y el backend verifica el objeto antes de confirmar sus metadatos.
 
 Para validar un cambio del frontend:
 

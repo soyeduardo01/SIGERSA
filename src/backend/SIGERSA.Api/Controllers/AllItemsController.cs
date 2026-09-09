@@ -36,4 +36,13 @@ public sealed class AllItemsController(AllItemsService service) : ControllerBase
         await service.DeleteAsync(id, cancellationToken);
         return NoContent();
     }
+
+    [HttpPut("order")]
+    [Authorize(Policy = "Administrator")]
+    public Task<IReadOnlyList<AllItem>> Reorder(
+        ReorderAllItemsRequest request,
+        CancellationToken cancellationToken) =>
+        service.ReorderAsync(request.OrderedItems, cancellationToken);
 }
+
+public sealed record ReorderAllItemsRequest(IReadOnlyList<int> OrderedItems);

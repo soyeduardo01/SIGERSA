@@ -27,4 +27,4 @@ pnpm build
 
 ## Seguridad de Supabase
 
-El navegador solo puede recibir la clave pública (`anon` o publishable). El bucket de evidencias debe ser privado y aplicar políticas RLS por usuario/rol; las claves de servicio pertenecen exclusivamente al backend.
+El navegador solo puede recibir la clave pública (`anon` o publishable). El bucket de evidencias permanece privado: la API valida el JWT de SIGERSA y la asignación antes de generar un token firmado para una única ruta; la PWA usa ese token con `supabase-js` y luego solicita confirmación e integridad al backend. Las claves de servicio pertenecen exclusivamente al backend.

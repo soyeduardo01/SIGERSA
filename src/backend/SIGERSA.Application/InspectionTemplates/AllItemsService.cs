@@ -40,6 +40,18 @@ public sealed class AllItemsService(IAllItemsRepository repository)
         }
     }
 
+    public async Task<IReadOnlyList<AllItem>> ReorderAsync(
+        IReadOnlyList<int> orderedItems,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(orderedItems);
+        if (orderedItems.Count == 0)
+        {
+            throw new ArgumentException("El nuevo orden no puede estar vacío.", nameof(orderedItems));
+        }
+        return await repository.ReorderAsync(orderedItems, cancellationToken);
+    }
+
     private async Task ValidateAsync(int? currentId, AllItemDraft draft, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(draft);

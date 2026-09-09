@@ -17,16 +17,8 @@ public sealed class SupabaseStorageAdapter(
     {
         ValidateLocation(upload.BucketName, upload.SupabasePath);
 
-        if (!_options.AllowedMimeTypes.Contains(upload.MimeType, StringComparer.OrdinalIgnoreCase))
-        {
-            throw new InvalidDataException("El tipo MIME no está permitido.");
-        }
-
         var bytes = await ReadBoundedAsync(upload.Content, _options.MaxFileSizeBytes, cancellationToken);
-        if (!FileSignatureValidator.HasValidSignature(upload.MimeType, bytes))
-        {
-            throw new InvalidDataException("La firma del archivo no coincide con el tipo MIME declarado.");
-        }
+        ValidateBytes(upload.MimeType, bytes);
 
         var fileOptions = new Supabase.Storage.FileOptions
         {
@@ -45,6 +37,51 @@ public sealed class SupabaseStorageAdapter(
             bytes.LongLength,
             upload.MimeType,
             hash);
+    }
+
+    public async Task<StorageUploadAuthorization> CreateUploadAuthorizationAsync(
+        string bucketName,
+        string supabasePath,
+        string mimeType,
+        long fileSize,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateLocation(bucketName, supabasePath);
+        if (!_options.AllowedMimeTypes.Contains(mimeType, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException("El tipo MIME no está permitido.");
+        }
+        if (fileSize <= 0 || fileSize > _options.MaxFileSizeBytes)
+        {
+            throw new InvalidDataException("El tamaño del archivo no está permitido.");
+        }
+        var authorization = await client.Storage.From(bucketName).CreateUploadSignedUrl(supabasePath);
+        return new StorageUploadAuthorization(
+            bucketName,
+            supabasePath,
+            authorization.Token,
+            authorization.SignedUrl.ToString());
+    }
+
+    public async Task<StoredFile> VerifyAsync(
+        string bucketName,
+        string supabasePath,
+        string mimeType,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateLocation(bucketName, supabasePath);
+        var bytes = await client.Storage
+            .From(bucketName)
+            .Download(supabasePath, (EventHandler<float>?)null, cancellationToken, null);
+        if (bytes.LongLength > _options.MaxFileSizeBytes)
+        {
+            throw new InvalidDataException("El archivo excede el tamaño máximo permitido.");
+        }
+
+        ValidateBytes(mimeType, bytes);
+        var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+        return new StoredFile(bucketName, supabasePath, bytes.LongLength, mimeType, hash);
     }
 
     public async Task<Stream> DownloadAsync(
@@ -76,6 +113,19 @@ public sealed class SupabaseStorageAdapter(
             supabasePath.Split('/').Any(segment => segment is "" or "." or ".."))
         {
             throw new ArgumentException("La ruta de Supabase no es válida.", nameof(supabasePath));
+        }
+    }
+
+    private void ValidateBytes(string mimeType, ReadOnlySpan<byte> bytes)
+    {
+        if (!_options.AllowedMimeTypes.Contains(mimeType, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException("El tipo MIME no está permitido.");
+        }
+
+        if (!FileSignatureValidator.HasValidSignature(mimeType, bytes))
+        {
+            throw new InvalidDataException("La firma del archivo no coincide con el tipo MIME declarado.");
         }
     }
 

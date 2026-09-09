@@ -3,6 +3,7 @@ import {
   createAllItem,
   deleteAllItem,
   getAllItems,
+  reorderAllItems,
   updateAllItem,
   type AllItem,
   type AllItemDraft,
@@ -62,6 +63,19 @@ export function AllItemsAdmin() {
       await reload()
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No fue posible remover el nodo.')
+    }
+  }
+
+  async function move(index: number, direction: -1 | 1) {
+    const target = index + direction
+    if (target < 0 || target >= items.length) return
+    const reordered = [...items]
+    ;[reordered[index], reordered[target]] = [reordered[target], reordered[index]]
+    try {
+      setItems(await reorderAllItems(reordered.map((item) => item.items)))
+      setMessage('Orden de la ficha actualizado.')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No fue posible reordenar la ficha.')
     }
   }
 
@@ -160,7 +174,7 @@ export function AllItemsAdmin() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {items.map((item) => (
+            {items.map((item, index) => (
               <tr key={item.items}>
                 <td className="p-3 font-semibold">{item.items}</td>
                 <td className="p-3">{item.itemsId}</td>
@@ -169,6 +183,24 @@ export function AllItemsAdmin() {
                 <td className="p-3">{item.parents ?? '—'}</td>
                 <td className="p-3">
                   <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={index === 0}
+                      aria-label={`Mover ${item.itemsId} hacia arriba`}
+                      onClick={() => void move(index, -1)}
+                      className="min-h-10 rounded-lg border border-slate-300 px-3 font-bold disabled:opacity-40"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      disabled={index === items.length - 1}
+                      aria-label={`Mover ${item.itemsId} hacia abajo`}
+                      onClick={() => void move(index, 1)}
+                      className="min-h-10 rounded-lg border border-slate-300 px-3 font-bold disabled:opacity-40"
+                    >
+                      ↓
+                    </button>
                     <button
                       type="button"
                       onClick={() => edit(item)}

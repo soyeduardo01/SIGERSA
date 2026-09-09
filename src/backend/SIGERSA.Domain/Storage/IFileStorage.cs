@@ -4,6 +4,19 @@ public interface IFileStorage
 {
     Task<StoredFile> UploadAsync(StorageUpload upload, CancellationToken cancellationToken = default);
 
+    Task<StorageUploadAuthorization> CreateUploadAuthorizationAsync(
+        string bucketName,
+        string supabasePath,
+        string mimeType,
+        long fileSize,
+        CancellationToken cancellationToken = default);
+
+    Task<StoredFile> VerifyAsync(
+        string bucketName,
+        string supabasePath,
+        string mimeType,
+        CancellationToken cancellationToken = default);
+
     Task<Stream> DownloadAsync(
         string bucketName,
         string supabasePath,
@@ -22,3 +35,9 @@ public sealed record StoredFile(
     long FileSize,
     string MimeType,
     string Sha256Hash);
+
+public sealed record StorageUploadAuthorization(
+    string BucketName,
+    string SupabasePath,
+    string Token,
+    string SignedUrl);

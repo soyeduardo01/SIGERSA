@@ -18,7 +18,7 @@ El frontend de SIGERSA es una PWA móvil primero orientada al trabajo de campo. 
 1. Cada mutación recibe una `idempotency_key` antes de almacenarse localmente.
 2. IndexedDB conserva la carga útil y, para evidencias, el `Blob` hasta que exista conexión.
 3. Al recuperar la red, las respuestas se envían a `/api/v1/respuestas` con el encabezado `Idempotency-Key`.
-4. El binario de una evidencia se carga directamente al bucket de Supabase sin sobrescritura y después se registra su metadata mediante `/api/v1/evidencias`.
+4. La PWA solicita a la API una autorización firmada para una evaluación asignada, carga el binario directamente al bucket privado mediante `supabase-js` y confirma la operación en `/api/v1/evidences/confirm`. La API vuelve a descargar y valida tamaño, firma y SHA-256 antes de registrar metadatos.
 5. Los fallos se reintentan con espera incremental y un máximo controlado de intentos. El backend debe conservar la idempotencia como autoridad final.
 
 ## Estrategias de caché

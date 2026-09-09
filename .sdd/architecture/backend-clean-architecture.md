@@ -19,7 +19,7 @@ Las cinco columnas comunes de auditoría son `creado_en`, `creado_por`, `modific
 
 ## Evidencias
 
-Los binarios se almacenan exclusivamente en Supabase Storage. PostgreSQL conserva sus metadatos. Antes de subir un archivo, el adaptador valida bucket, ruta, límite de tamaño, MIME permitido y firma binaria; luego calcula SHA-256. Las claves de Supabase se suministran mediante variables de entorno o un proveedor seguro y nunca se versionan.
+Los binarios se almacenan exclusivamente en Supabase Storage. PostgreSQL conserva sus metadatos. Para la PWA, la API valida rol y asignación antes de emitir una autorización firmada con ruta determinista por `idempotency_key`. Después de la carga directa mediante `supabase-js`, el backend descarga el objeto y valida bucket, ruta, límite, MIME, firma binaria, tamaño y SHA-256 antes de confirmar los metadatos. La carga multipart del backend permanece como alternativa controlada. Las claves de Supabase se suministran mediante variables de entorno o un proveedor seguro y nunca se versionan.
 
 ## API y observabilidad
 

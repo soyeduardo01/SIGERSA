@@ -13,4 +13,8 @@ public interface IAllItemsRepository
     Task<bool> UpdateAsync(int items, AllItemDraft item, CancellationToken cancellationToken = default);
 
     Task<bool> DeleteAsync(int items, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<AllItem>> ReorderAsync(
+        IReadOnlyList<int> orderedItems,
+        CancellationToken cancellationToken = default);
 }

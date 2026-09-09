@@ -31,6 +31,35 @@ export interface AllItemScore {
   isCalculable: boolean
 }
 
+export interface EvaluationFormItem {
+  id: string
+  parentId: string | null
+  sourceItem: number
+  code: string
+  title: string
+  isEvaluable: boolean
+  level: number
+  order: number
+}
+
+export interface EvaluationCalculation {
+  evaluationId: string
+  compliancePercentage: number | null
+  productRisk: number | null
+  establishmentRisk: number | null
+  totalRisk: number | null
+  riskLevel: 'BAJO' | 'MEDIO' | 'ALTO' | 'NO_CALCULABLE'
+  frequency: 'ANUAL' | 'SEMESTRAL' | 'TRIMESTRAL' | 'NO_APLICA'
+  rowVersion: number
+}
+
+export interface EvidenceUploadAuthorization {
+  bucketName: string
+  supabasePath: string
+  token: string
+  signedUrl: string
+}
+
 export function getSession(): AuthSession | null {
   const raw = localStorage.getItem(sessionKey)
   if (!raw) return null
@@ -74,6 +103,37 @@ export async function login(email: string, password: string) {
   return session
 }
 
+export async function requestPasswordRecovery(email: string) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/auth/password-recovery/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  if (!response.ok) throw await apiError(response)
+}
+
+export async function verifyPasswordRecovery(email: string, otp: string) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/auth/password-recovery/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp }),
+  })
+  if (!response.ok) throw await apiError(response)
+  return (await response.json()) as { resetToken: string; expiresAt: string }
+}
+
+export async function resetPassword(resetToken: string, newPassword: string) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/auth/password-recovery/reset`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${resetToken}`,
+    },
+    body: JSON.stringify({ newPassword }),
+  })
+  if (!response.ok) throw await apiError(response)
+}
+
 export async function apiFetch(path: string, init: RequestInit = {}, retry = true) {
   const session = getSession()
   const headers = new Headers(init.headers)
@@ -103,8 +163,49 @@ export async function deleteAllItem(id: number) {
   if (!response.ok) throw await apiError(response)
 }
 
+export async function reorderAllItems(orderedItems: number[]) {
+  return sendJson<AllItem[]>('/api/v1/all-items/order', 'PUT', { orderedItems })
+}
+
 export async function calculateInspectionRisk(ratings: Array<{ item: number; rating: string }>) {
   return sendJson<AllItemScore[]>('/api/v1/risk/all-items/calculate', 'POST', { ratings })
+}
+
+export async function getEvaluationForm(evaluationId: string) {
+  return getJson<EvaluationFormItem[]>(`/api/v1/evaluations/${evaluationId}/form`)
+}
+
+export async function calculateEvaluation(evaluationId: string, productRisk: number) {
+  return sendJson<EvaluationCalculation>(`/api/v1/evaluations/${evaluationId}/calculate`, 'POST', {
+    productRisk,
+  })
+}
+
+export async function requestEvidenceUploadAuthorization(input: {
+  evaluationId: string
+  idempotencyKey: string
+  originalName: string
+  mimeType: string
+  fileSize: number
+}) {
+  return sendJson<EvidenceUploadAuthorization>(
+    '/api/v1/evidences/upload-authorization',
+    'POST',
+    input,
+  )
+}
+
+export async function confirmEvidenceUpload(input: {
+  evaluationId: string
+  idempotencyKey: string
+  supabasePath: string
+  originalName: string
+  mimeType: string
+  evidenceType: string
+  fileSize: number
+  sha256Hash: string
+}) {
+  return sendJson<{ id: string }>('/api/v1/evidences/confirm', 'POST', input)
 }
 
 async function getJson<T>(path: string) {

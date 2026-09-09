@@ -43,5 +43,6 @@ public sealed class InspectionRiskServiceTests
         public Task<AllItem> CreateAsync(AllItemDraft item, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> UpdateAsync(int item, AllItemDraft value, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<bool> DeleteAsync(int item, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyList<AllItem>> ReorderAsync(IReadOnlyList<int> orderedItems, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

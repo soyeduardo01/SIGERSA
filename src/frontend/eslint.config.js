@@ -7,7 +7,7 @@ import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'public/pwa-*.png'] },
+  { ignores: ['dist', 'dev-dist', 'coverage', 'public/pwa-*.png'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

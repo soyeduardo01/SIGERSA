@@ -3,8 +3,10 @@ import { login, type AuthSession } from '../../lib/api'
 
 export function LoginPage({
   onAuthenticated,
+  onRecover,
 }: {
   onAuthenticated: (session: AuthSession) => void
+  onRecover: () => void
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -73,6 +75,13 @@ export function LoginPage({
             {loading ? 'Validando…' : 'Entrar'}
           </button>
         </form>
+        <button
+          type="button"
+          onClick={onRecover}
+          className="mt-4 min-h-11 w-full rounded-xl px-4 font-bold text-brand-700 hover:bg-brand-100"
+        >
+          ¿Olvidó su contraseña?
+        </button>
       </section>
     </main>
   )
