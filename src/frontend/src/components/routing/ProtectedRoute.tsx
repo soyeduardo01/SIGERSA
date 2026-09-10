@@ -1,15 +1,22 @@
-import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import type { ReactNode } from 'react'
 import { useAuth } from '../../contexts/useAuth'
 import { hasAnyRole, type CanonicalRole } from '../../lib/rbac'
 
-export function RequireAuthentication() {
-  const { session } = useAuth()
-  const location = useLocation()
-
-  return session ? <Outlet /> : <Navigate to="/login" replace state={{ from: location }} />
+interface AccessGuardProps {
+  children: ReactNode
+  fallback: ReactNode
 }
 
-export function RequireRoles({ allowedRoles }: { allowedRoles: readonly CanonicalRole[] }) {
+export function RequireAuthentication({ children, fallback }: AccessGuardProps) {
+  const { session } = useAuth()
+  return session ? children : fallback
+}
+
+export function RequireRoles({
+  allowedRoles,
+  children,
+  fallback,
+}: AccessGuardProps & { allowedRoles: readonly CanonicalRole[] }) {
   const { roles } = useAuth()
-  return hasAnyRole(roles, allowedRoles) ? <Outlet /> : <Navigate to="/acceso-denegado" replace />
+  return hasAnyRole(roles, allowedRoles) ? children : fallback
 }

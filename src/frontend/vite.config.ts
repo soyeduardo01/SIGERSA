@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -10,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'SIGERSA - Evaluación Basada en Riesgo',
+        name: 'SIGERSA - Sistema Integral de Gestión de Riesgo y Seguridad Alimentaria',
         short_name: 'SIGERSA',
-        description: 'Gestión móvil de inspecciones y evaluaciones BPM basadas en riesgo.',
+        description: 'Sistema Integral de Gestión de Riesgo y Seguridad Alimentaria.',
         theme_color: '#0d563f',
         background_color: '#f5f7f6',
         display: 'standalone',
@@ -34,14 +35,15 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
-        navigateFallback: '/index.html',
+        navigateFallback: null,
+        ignoreURLParametersMatching: [/^utm_/, /^module$/],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
             urlPattern: /\.(?:js|css|woff2?|png|svg|webp|ico)$/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'sigersa-static-v1',
+              cacheName: 'sigersa-static-v2',
               expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
             },
@@ -70,7 +72,16 @@ export default defineConfig({
           },
         ],
       },
-      devOptions: { enabled: true, type: 'module' },
+      devOptions: { enabled: true, type: 'module', disableRuntimeConfig: true },
     }),
   ],
+  build: {
+    rollupOptions: {
+      input: {
+        login: fileURLToPath(new URL('./index.html', import.meta.url)),
+        recovery: fileURLToPath(new URL('./recuperar-clave.html', import.meta.url)),
+        module: fileURLToPath(new URL('./modulo.html', import.meta.url)),
+      },
+    },
+  },
 })

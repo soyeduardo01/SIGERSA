@@ -1,4 +1,4 @@
-# SIGERSA - Sistema PWA para Evaluación Basada en Riesgo (EBR/BPM)
+# SIGERSA - Sistema Integral de Gestión de Riesgo y Seguridad Alimentaria
 
 SIGERSA digitaliza el ciclo completo de las evaluaciones e inspecciones de Buenas Prácticas de Manufactura: registro de casos, planificación, trabajo de campo, evidencias, cálculo de riesgo, revisión, correcciones, cierre y trazabilidad histórica. El proyecto se desarrolla mediante Spec-Driven Development (SDD), usando las especificaciones versionadas como base para la arquitectura, la implementación y las pruebas.
 

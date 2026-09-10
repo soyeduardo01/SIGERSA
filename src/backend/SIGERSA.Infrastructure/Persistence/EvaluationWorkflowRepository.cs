@@ -130,17 +130,20 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
              WHERE establishment.activo = true AND @CanCreate = true
              ORDER BY establishment.nombre;
 
-            SELECT template.id AS Id, template.nombre || ' · v' || template.version::text AS Name
+            SELECT template.id AS Id, template.nombre || ' · v' || template.version::text AS Name,
+                   NULL::uuid AS CompanyId
               FROM "SIGERSA"."FICHA_INSPECCION" template
              WHERE template.estado = 'PUBLICADA' AND @CanCreate = true
              ORDER BY template.version DESC;
 
-            SELECT risk.id AS Id, risk.nombre || ' · v' || risk.version::text AS Name
+            SELECT risk.id AS Id, risk.nombre || ' · v' || risk.version::text AS Name,
+                   NULL::uuid AS CompanyId
               FROM "SIGERSA"."REGLA_RIESGO_VERSION" risk
              WHERE risk.estado = 'PUBLICADA' AND @CanCreate = true
              ORDER BY risk.version DESC;
 
-            SELECT DISTINCT user_account.id AS Id, user_account.nombre_completo AS Name
+            SELECT DISTINCT user_account.id AS Id, user_account.nombre_completo AS Name,
+                   user_account.empresa_id AS CompanyId
               FROM "SIGERSA"."USUARIO" user_account
               JOIN "SIGERSA"."USUARIO_ROL" user_role ON user_role.usuario_id = user_account.id AND user_role.activo = true
               JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { moduleHref } from '../../lib/navigation'
 
 export function AccessDenied() {
   return (
@@ -19,12 +19,12 @@ export function AccessDenied() {
         Su rol actual no tiene permisos para consultar este módulo. Si considera que necesita
         acceso, contacte al administrador de SIGERSA.
       </p>
-      <Link
-        to="/resumen"
+      <a
+        href={moduleHref('resumen')}
         className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-brand-700 px-5 font-bold text-white"
       >
         Volver al resumen
-      </Link>
+      </a>
     </section>
   )
 }

@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { CardGridSkeleton } from '../../components/feedback/Skeletons'
 import { useAuth } from '../../contexts/useAuth'
-import { useSyncStatus } from '../../hooks/useSyncStatus'
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
 import { offlineDb, type SyncQueueItem } from '../../offline/database'
@@ -13,6 +11,7 @@ import { EvaluationsManagement } from '../evaluations/EvaluationsManagement'
 import { EvidenceManagement } from '../evidences/EvidenceManagement'
 import { RequestsManagement } from '../requests/RequestsManagement'
 import { SchedulingManagement } from '../scheduling/SchedulingManagement'
+import { DashboardOverview } from './DashboardOverview'
 import { OperationalModulePage, type OperationalModuleConfig } from './OperationalModulePage'
 
 function useRole(...allowed: string[]) {
@@ -28,43 +27,7 @@ function Workspace(props: Omit<OperationalModuleConfig, 'canCreate'> & { editors
 }
 
 export function OverviewPage() {
-  const { isSyncing } = useSyncStatus()
-  const cards = [
-    ['Casos activos', 'Consulte los casos autorizados para su ámbito.'],
-    ['Evaluaciones', 'Revise asignaciones y trabajo pendiente de sincronizar.'],
-    ['Alertas', 'Priorice denuncias y eventos que requieren atención.'],
-    ['Riesgo BPM', 'Acceda a indicadores calculados y trazables.'],
-  ]
-  return (
-    <section aria-labelledby="overview-title">
-      <p className="text-xs font-bold tracking-[0.14em] text-brand-700 uppercase">
-        Panel operativo
-      </p>
-      <h1 id="overview-title" className="mt-2 text-2xl font-extrabold text-ink-strong">
-        Resumen
-      </h1>
-      <p className="mt-2 text-sm text-ink-muted">
-        Punto de entrada al ciclo EBR/BPM según los permisos y el ámbito de la sesión.
-      </p>
-      <div className="mt-6">
-        {isSyncing ? (
-          <CardGridSkeleton cards={4} />
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {cards.map(([title, text]) => (
-              <article key={title} className="rounded-card bg-white p-5 shadow-card">
-                <p className="text-sm font-extrabold text-ink-strong">{title}</p>
-                <p className="mt-2 text-sm leading-6 text-ink-muted">{text}</p>
-                <span className="text-brand-800 mt-5 inline-flex rounded-full bg-brand-50 px-2.5 py-1 text-xs font-bold">
-                  Ámbito autorizado
-                </span>
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
-    </section>
-  )
+  return <DashboardOverview />
 }
 
 export function CompaniesPage() {

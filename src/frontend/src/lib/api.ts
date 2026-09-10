@@ -354,18 +354,20 @@ export interface CorrectionDraft {
 }
 
 export function getSession(): AuthSession | null {
-  const raw = localStorage.getItem(sessionKey)
+  const raw = localStorage.getItem(sessionKey) ?? sessionStorage.getItem(sessionKey)
   if (!raw) return null
   try {
     return JSON.parse(raw) as AuthSession
   } catch {
     localStorage.removeItem(sessionKey)
+    sessionStorage.removeItem(sessionKey)
     return null
   }
 }
 
 export function clearSession() {
   localStorage.removeItem(sessionKey)
+  sessionStorage.removeItem(sessionKey)
   window.dispatchEvent(new Event(sessionChangedEvent))
 }
 
@@ -410,7 +412,7 @@ export async function logout() {
   clearSession()
 }
 
-export async function login(email: string, password: string) {
+export async function login(email: string, password: string, rememberSession = false) {
   let response: Response
   try {
     response = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
@@ -438,7 +440,7 @@ export async function login(email: string, password: string) {
     )
 
   const session = (await response.json()) as AuthSession
-  saveSession(session)
+  saveSession(session, rememberSession)
   return session
 }
 
@@ -867,7 +869,11 @@ function stringClaim(claims: Record<string, unknown>, keys: string[]) {
   return ''
 }
 
-function saveSession(session: AuthSession) {
-  localStorage.setItem(sessionKey, JSON.stringify(session))
+function saveSession(session: AuthSession, persistent?: boolean) {
+  const usePersistentStorage = persistent ?? localStorage.getItem(sessionKey) !== null
+  const targetStorage = usePersistentStorage ? localStorage : sessionStorage
+  const otherStorage = usePersistentStorage ? sessionStorage : localStorage
+  otherStorage.removeItem(sessionKey)
+  targetStorage.setItem(sessionKey, JSON.stringify(session))
   window.dispatchEvent(new Event(sessionChangedEvent))
 }

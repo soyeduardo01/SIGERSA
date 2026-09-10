@@ -17,8 +17,18 @@ export const alerts = {
     })
   },
 
-  error(error: unknown, title = 'No se pudo completar la acción') {
-    if (typeof error === 'object' && error !== null && 'status' in error && error.status === 401) {
+  error(
+    error: unknown,
+    title = 'No se pudo completar la acción',
+    options: { showUnauthorized?: boolean } = {},
+  ) {
+    if (
+      !options.showUnauthorized &&
+      typeof error === 'object' &&
+      error !== null &&
+      'status' in error &&
+      error.status === 401
+    ) {
       return Promise.resolve()
     }
     return Swal.fire({

@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { Header } from './Header'
 
@@ -14,12 +13,13 @@ const defaultProps = {
 }
 
 describe('Header', () => {
+  it('no muestra un buscador global en el layout', () => {
+    render(<Header {...defaultProps} />)
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument()
+  })
+
   it('abre la bandeja de notificaciones', () => {
-    render(
-      <MemoryRouter>
-        <Header {...defaultProps} />
-      </MemoryRouter>,
-    )
+    render(<Header {...defaultProps} />)
     fireEvent.click(screen.getByRole('button', { name: 'Notificaciones' }))
     expect(screen.getByLabelText('Bandeja de notificaciones')).toBeVisible()
     expect(screen.getByText(/Hay 2 registros pendientes/)).toBeVisible()
@@ -27,14 +27,10 @@ describe('Header', () => {
 
   it('muestra perfil, rol y cierre de sesión', () => {
     const onLogout = vi.fn()
-    render(
-      <MemoryRouter>
-        <Header {...defaultProps} onLogout={onLogout} />
-      </MemoryRouter>,
-    )
+    render(<Header {...defaultProps} onLogout={onLogout} />)
     fireEvent.click(screen.getByRole('button', { name: 'Abrir menú de usuario' }))
     expect(screen.getByLabelText('Menú de usuario')).toBeVisible()
-    expect(screen.getByText('Administrador')).toBeVisible()
+    expect(screen.getAllByText('Administrador')).toHaveLength(2)
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
     expect(onLogout).toHaveBeenCalledOnce()
   })

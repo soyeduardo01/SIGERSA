@@ -46,8 +46,12 @@ export function OtpInput({ value, onChange, length = 6, disabled = false }: OtpI
 
   return (
     <fieldset disabled={disabled}>
-      <legend className="text-sm font-bold text-ink-body">Código OTP</legend>
-      <div className="mt-2 flex justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
+      <legend className="text-sm font-semibold text-[#153f34]">Código de verificación</legend>
+      <div
+        className="mt-3 grid grid-cols-6 gap-2 sm:gap-3"
+        onPaste={handlePaste}
+        aria-describedby="otp-help"
+      >
         {digits.map((digit, index) => (
           <input
             key={index}
@@ -64,16 +68,16 @@ export function OtpInput({ value, onChange, length = 6, disabled = false }: OtpI
             onChange={(event) => setDigit(index, event.target.value)}
             onKeyDown={(event) => handleKeyDown(index, event)}
             onFocus={(event) => event.currentTarget.select()}
-            className={`aspect-square w-11 rounded-xl border text-center text-xl font-extrabold transition-all duration-200 ease-out outline-none sm:w-12 ${
+            className={`aspect-square min-w-0 rounded-xl border text-center text-xl font-extrabold transition-all duration-200 ease-out outline-none sm:text-2xl ${
               digit
-                ? 'scale-105 border-brand-500 bg-brand-50 text-brand-900 shadow-sm'
-                : 'border-slate-300 bg-white text-ink-strong'
-            } focus:-translate-y-0.5 focus:border-brand-600 focus:ring-4 focus:ring-brand-100`}
+                ? 'border-[#16835f] bg-[#effaf5] text-[#125640] shadow-[0_5px_14px_rgba(18,86,64,0.12)]'
+                : 'border-slate-300 bg-[#f8fafc] text-slate-800'
+            } hover:border-slate-400 focus:-translate-y-0.5 focus:border-[#16835f] focus:bg-white focus:ring-4 focus:ring-[#16835f]/12 disabled:cursor-wait disabled:opacity-60`}
           />
         ))}
       </div>
-      <p className="mt-3 text-center text-xs text-ink-muted">
-        Ingrese los seis dígitos enviados a su correo.
+      <p id="otp-help" className="mt-3 text-center text-xs leading-relaxed text-slate-500">
+        Ingresa los seis dígitos enviados a tu correo. También puedes pegar el código completo.
       </p>
     </fieldset>
   )

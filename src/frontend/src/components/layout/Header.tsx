@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import type { SessionIdentity } from '../../lib/api'
+import { moduleHref } from '../../lib/navigation'
 
 interface HeaderProps {
   isOnline: boolean
@@ -54,8 +54,8 @@ export function Header({
   }, [])
 
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/90 px-4 py-3 backdrop-blur md:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+    <header className="sticky top-0 z-20 h-[76px] shrink-0 border-b border-slate-200/80 bg-white/95 px-4 backdrop-blur md:px-6 lg:px-7">
+      <div className="mx-auto flex h-full max-w-[1540px] items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
@@ -74,16 +74,29 @@ export function Header({
               <path strokeLinecap="round" strokeWidth="2" d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
-          <div className="min-w-0">
-            <p className="truncate text-xs font-semibold tracking-[0.12em] text-brand-700 uppercase">
-              Panel operativo
-            </p>
-            <p className="truncate text-sm font-medium text-ink-strong">
+          <span className="hidden size-10 shrink-0 place-items-center rounded-xl border border-brand-100 bg-brand-50 text-brand-700 xl:grid">
+            <svg
+              viewBox="0 0 24 24"
+              className="size-5"
+              fill="none"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                strokeWidth="1.8"
+                d="M4 21V8l8-4 8 4v13M8 21v-5h8v5M8 10h.01M12 10h.01M16 10h.01"
+              />
+            </svg>
+          </span>
+          <div className="hidden min-w-0 xl:block">
+            <p className="truncate text-sm font-bold text-ink-strong">
               Dirección de Inspección BPM
             </p>
+            <p className="truncate text-xs text-ink-muted">Panel operativo del sistema SIGERSA</p>
           </div>
         </div>
-        <div ref={controlsRef} className="relative flex items-center gap-2 sm:gap-3">
+
+        <div ref={controlsRef} className="relative ml-auto flex items-center gap-2 sm:gap-3">
           <div
             className="hidden items-center gap-2 rounded-full bg-surface-muted px-3 py-2 text-xs font-semibold text-ink-body sm:flex"
             role="status"
@@ -138,8 +151,11 @@ export function Header({
             <span className="grid size-9 place-items-center rounded-lg bg-brand-100 text-sm font-bold text-brand-700">
               {identity.initials}
             </span>
-            <span className="hidden max-w-40 truncate text-sm font-semibold text-ink-strong md:block">
-              {identity.name}
+            <span className="hidden max-w-44 min-w-0 md:block">
+              <span className="block truncate text-sm font-semibold text-ink-strong">
+                {identity.name}
+              </span>
+              <span className="block truncate text-[0.65rem] text-ink-muted">{roleLabel}</span>
             </span>
             <span className="hidden text-xs text-ink-muted md:block" aria-hidden="true">
               ▾
@@ -179,13 +195,13 @@ export function Header({
                   {roleLabel}
                 </span>
               </div>
-              <Link
-                to="/perfil"
+              <a
+                href={moduleHref('perfil')}
                 onClick={() => setProfileOpen(false)}
                 className="mt-1 flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-ink-body hover:bg-surface-muted"
               >
                 Ver perfil
-              </Link>
+              </a>
               <button
                 type="button"
                 onClick={onLogout}

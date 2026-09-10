@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { apiFetch, getSession, type AuthSession } from './api'
+import { apiFetch, clearSession, getSession, login, type AuthSession } from './api'
 
 const session: AuthSession = {
   accessToken: 'expired-access-token',
@@ -12,6 +12,7 @@ const session: AuthSession = {
 describe('apiFetch', () => {
   beforeEach(() => {
     localStorage.clear()
+    sessionStorage.clear()
     localStorage.setItem('sigersa.auth.session', JSON.stringify(session))
     vi.restoreAllMocks()
   })
@@ -100,5 +101,43 @@ describe('apiFetch', () => {
     expect(firstResponse.ok).toBe(true)
     expect(secondResponse.ok).toBe(true)
     expect(refreshCalls).toBe(1)
+  })
+
+  it('conserva la sesión solo durante la pestaña cuando no se solicita recordarla', async () => {
+    clearSession()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(session), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    )
+
+    await login('usuario@example.com', 'Valid-Password-2026!', false)
+
+    expect(sessionStorage.getItem('sigersa.auth.session')).not.toBeNull()
+    expect(localStorage.getItem('sigersa.auth.session')).toBeNull()
+  })
+
+  it('conserva la sesión entre aperturas cuando se solicita recordarla', async () => {
+    clearSession()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify(session), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      ),
+    )
+
+    await login('usuario@example.com', 'Valid-Password-2026!', true)
+
+    expect(localStorage.getItem('sigersa.auth.session')).not.toBeNull()
+    expect(sessionStorage.getItem('sigersa.auth.session')).toBeNull()
   })
 })

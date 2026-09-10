@@ -1,16 +1,15 @@
-import { useEffect, useState } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useAuth } from '../../contexts/useAuth'
 import { useSyncStatus } from '../../hooks/useSyncStatus'
 import { alerts } from '../../lib/alerts'
+import type { AppModule } from '../../lib/rbac'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 
-export function AppLayout() {
+export function AppLayout({ children, currentModule }: { children: ReactNode; currentModule: AppModule }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { identity, roleLabel, signOut } = useAuth()
   const { isOnline, isSyncing, pendingCount } = useSyncStatus()
-  const navigate = useNavigate()
 
   useEffect(() => {
     if (!mobileMenuOpen) return
@@ -38,12 +37,12 @@ export function AppLayout() {
     } catch (error) {
       await alerts.error(error, 'No se pudo notificar el cierre de sesión')
     } finally {
-      navigate('/login', { replace: true })
+      window.location.replace('/')
     }
   }
 
   return (
-    <div className="min-h-screen bg-surface-canvas text-ink-strong">
+    <div className="h-dvh overflow-hidden bg-surface-canvas text-ink-strong">
       <a
         href="#main-content"
         className="fixed top-3 left-3 z-50 -translate-y-20 rounded-lg bg-white px-4 py-2 font-semibold text-brand-700 shadow-lg transition-transform focus:translate-y-0"
@@ -51,8 +50,8 @@ export function AppLayout() {
         Saltar al contenido
       </a>
 
-      <aside className="fixed inset-y-0 left-0 hidden w-64 lg:block">
-        <Sidebar />
+      <aside className="fixed inset-y-0 left-0 hidden w-72 lg:block">
+        <Sidebar currentModule={currentModule} />
       </aside>
 
       {mobileMenuOpen && (
@@ -64,12 +63,16 @@ export function AppLayout() {
             onClick={() => setMobileMenuOpen(false)}
           />
           <aside id="mobile-navigation" className="relative h-full w-[min(20rem,88vw)] shadow-2xl">
-            <Sidebar mobile onNavigate={() => setMobileMenuOpen(false)} />
+            <Sidebar
+              mobile
+              currentModule={currentModule}
+              onNavigate={() => setMobileMenuOpen(false)}
+            />
           </aside>
         </div>
       )}
 
-      <div className="lg:pl-64">
+      <div className="flex h-full min-w-0 flex-col lg:pl-72">
         <Header
           isOnline={isOnline}
           isSyncing={isSyncing}
@@ -79,9 +82,12 @@ export function AppLayout() {
           onOpenMenu={() => setMobileMenuOpen(true)}
           onLogout={() => void handleLogout()}
         />
-        <main id="main-content" className="px-4 py-6 md:px-6 lg:px-8 lg:py-8">
-          <div className="mx-auto max-w-7xl">
-            <Outlet />
+        <main
+          id="main-content"
+          className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top_right,rgba(209,250,229,.7),transparent_34%)] px-4 py-6 md:px-6 lg:px-7"
+        >
+          <div className="mx-auto max-w-[1540px]">
+            {children}
           </div>
         </main>
       </div>

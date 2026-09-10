@@ -1,5 +1,5 @@
-import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../contexts/useAuth'
+import { moduleHref } from '../../lib/navigation'
 import { canAccessModule, type AppModule } from '../../lib/rbac'
 
 interface NavigationItem {
@@ -128,22 +128,28 @@ const accountNavigation: NavigationItem[] = [
 
 interface SidebarProps {
   mobile?: boolean
+  currentModule?: AppModule
   onNavigate?: () => void
 }
 
-export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
+export function Sidebar({ mobile = false, currentModule = 'resumen', onNavigate }: SidebarProps) {
   const { roles } = useAuth()
   const visibleNavigation = navigation.filter((item) => canAccessModule(roles, item.module))
   const visibleAdministration = administrationNavigation.filter((item) =>
     canAccessModule(roles, item.module),
   )
   const visibleAccount = accountNavigation.filter((item) => canAccessModule(roles, item.module))
-  const linkClass = ({ isActive }: { isActive: boolean }) =>
+  const linkClass = (isActive: boolean) =>
     `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${isActive ? 'bg-white/12 text-white' : 'text-slate-300 hover:bg-white/8 hover:text-white'}`
 
   const renderLink = (item: NavigationItem) => (
-    <li key={item.to}>
-      <NavLink to={item.to} className={linkClass} onClick={onNavigate}>
+    <li key={item.module}>
+      <a
+        href={moduleHref(item.module)}
+        className={linkClass(currentModule === item.module)}
+        aria-current={currentModule === item.module ? 'page' : undefined}
+        onClick={onNavigate}
+      >
         <svg
           viewBox="0 0 24 24"
           className="size-5 shrink-0"
@@ -154,13 +160,15 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.7" d={item.icon} />
         </svg>
         {item.label}
-      </NavLink>
+      </a>
     </li>
   )
 
   return (
-    <div className="flex h-full flex-col bg-surface-inverse text-white">
-      <div className="flex h-20 items-center gap-3 px-5">
+    <div className="relative flex h-full flex-col overflow-hidden bg-[linear-gradient(165deg,#043a2e_0%,#0A4D3C_58%,#063e31_100%)] text-white">
+      <span className="pointer-events-none absolute -right-36 bottom-24 z-0 size-80 rounded-full border-[4rem] border-emerald-400/6 opacity-45 blur-2xl" aria-hidden="true" />
+      <span className="pointer-events-none absolute -bottom-40 -left-40 z-0 size-96 rounded-full border-[5rem] border-emerald-500/8 opacity-40 blur-3xl" aria-hidden="true" />
+      <div className="relative z-10 flex h-20 items-center gap-3 px-5">
         <span className="grid size-11 place-items-center rounded-xl bg-brand-500 shadow-lg shadow-black/20">
           <svg viewBox="0 0 32 32" className="size-7" aria-hidden="true">
             <path
@@ -177,7 +185,7 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
         </div>
       </div>
       <nav
-        className="sigersa-scrollbar flex-1 overflow-y-auto px-3 py-5"
+        className="sigersa-scrollbar relative z-10 flex-1 overflow-y-auto px-3 py-5"
         aria-label={mobile ? 'Navegación móvil' : 'Navegación principal'}
       >
         <p className="px-3 pb-2 text-[0.65rem] font-bold tracking-[0.16em] text-slate-400 uppercase">
@@ -197,12 +205,20 @@ export function Sidebar({ mobile = false, onNavigate }: SidebarProps) {
         </p>
         <ul className="space-y-1">{visibleAccount.map(renderLink)}</ul>
       </nav>
-      <div className="border-t border-white/10 p-4">
+      <div className="relative z-10 border-t border-white/10 p-4">
         <div className="rounded-xl bg-white/6 p-3">
           <p className="text-xs font-semibold text-emerald-100">Centro de ayuda</p>
           <p className="mt-1 text-xs leading-5 text-slate-400">
             Guías de inspección y soporte técnico.
           </p>
+          <a
+            href="https://digemaps.gob.do/"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-emerald-500/15 px-3 text-xs font-bold text-white transition hover:bg-emerald-500/25"
+          >
+            Ver recursos <span aria-hidden="true">→</span>
+          </a>
         </div>
       </div>
     </div>

@@ -17,9 +17,10 @@ var cases = await new CaseRepository(factory).SearchAsync(
 var schedules = await new SchedulingRepository(factory).SearchAsync(new ScheduleSearch(null, null, 1, 5));
 var evaluations = await new EvaluationWorkflowRepository(factory).SearchAsync(
     new EvaluationSearch(null, null, 1, 5, actorId, null, true, false));
+var evaluationOptions = await new EvaluationWorkflowRepository(factory).GetOptionsAsync(true);
 var evidences = await new EvidenceRepository(factory).SearchAsync(
     new EvidenceSearch(null, null, 1, 5, actorId, null, true, false));
 var corrections = await new CorrectionRepository(factory).SearchAsync(
     new CorrectionSearch(null, null, 1, 5, actorId, null, true, false));
 
-Console.WriteLine($"SQL smoke OK: requests={requests.Total}, cases={cases.Total}, schedules={schedules.Total}, evaluations={evaluations.Total}, evidences={evidences.Total}, corrections={corrections.Total}");
+Console.WriteLine($"SQL smoke OK: requests={requests.Total}, cases={cases.Total}, schedules={schedules.Total}, evaluations={evaluations.Total}, evaluationOptions={evaluationOptions.Cases.Count + evaluationOptions.Establishments.Count + evaluationOptions.Templates.Count + evaluationOptions.RiskRules.Count + evaluationOptions.Evaluators.Count}, evidences={evidences.Total}, corrections={corrections.Total}");
