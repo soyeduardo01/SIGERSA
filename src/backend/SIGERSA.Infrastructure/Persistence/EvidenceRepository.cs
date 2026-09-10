@@ -7,6 +7,100 @@ namespace SIGERSA.Infrastructure.Persistence;
 public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
     : DapperRepositoryBase(connectionFactory), IEvidenceRepository
 {
+    public async Task<EvidencesPage> SearchAsync(EvidenceSearch query, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT evidence.id AS Id, evidence.evaluacion_id AS EvaluationId,
+                   evaluation.numero AS EvaluationNumber, establishment.nombre AS EstablishmentName,
+                   evidence.subida_por AS UploadedBy, uploader.nombre_completo AS UploadedByName,
+                   evidence.nombre_original AS OriginalName, evidence.file_size AS FileSize,
+                   evidence.mime_type AS MimeType, evidence.tipo_evidencia AS EvidenceType,
+                   evidence.estado_sincronizacion AS SynchronizationStatus,
+                   evidence.fecha_servidor AS UploadedAt
+              FROM "SIGERSA"."EVIDENCIA" evidence
+              JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = evidence.evaluacion_id
+              JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
+              JOIN "SIGERSA"."USUARIO" uploader ON uploader.id = evidence.subida_por
+             WHERE evidence.eliminada = false
+               AND (@EvidenceType IS NULL OR evidence.tipo_evidencia = @EvidenceType)
+               AND (@Search IS NULL OR lower(evidence.nombre_original) LIKE '%' || @Search || '%'
+                    OR lower(evaluation.numero) LIKE '%' || @Search || '%'
+                    OR lower(establishment.nombre) LIKE '%' || @Search || '%')
+               AND (@GlobalScope = true
+                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope)
+                    OR (@AssignedOnly = true AND (
+                        evaluation.evaluador_principal_id = @ActorId
+                        OR EXISTS (SELECT 1 FROM "SIGERSA"."ASIGNACION" assignment
+                            WHERE assignment.programacion_id = evaluation.programacion_id
+                              AND assignment.evaluador_id = @ActorId AND assignment.estado = 'ACTIVA')
+                    )))
+             ORDER BY evidence.fecha_servidor DESC, evidence.id
+             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(*)
+              FROM "SIGERSA"."EVIDENCIA" evidence
+              JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = evidence.evaluacion_id
+              JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
+             WHERE evidence.eliminada = false
+               AND (@EvidenceType IS NULL OR evidence.tipo_evidencia = @EvidenceType)
+               AND (@Search IS NULL OR lower(evidence.nombre_original) LIKE '%' || @Search || '%'
+                    OR lower(evaluation.numero) LIKE '%' || @Search || '%'
+                    OR lower(establishment.nombre) LIKE '%' || @Search || '%')
+               AND (@GlobalScope = true
+                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope)
+                    OR (@AssignedOnly = true AND (
+                        evaluation.evaluador_principal_id = @ActorId
+                        OR EXISTS (SELECT 1 FROM "SIGERSA"."ASIGNACION" assignment
+                            WHERE assignment.programacion_id = evaluation.programacion_id
+                              AND assignment.evaluador_id = @ActorId AND assignment.estado = 'ACTIVA')
+                    )));
+            """;
+        var parameters = new
+        {
+            query.Search, query.EvidenceType, query.ActorId, query.CompanyScope,
+            query.GlobalScope, query.AssignedOnly,
+            Offset = (query.Page - 1) * query.PageSize, query.PageSize
+        };
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            using var result = await connection.QueryMultipleAsync(new CommandDefinition(
+                Sql(sql), parameters, cancellationToken: cancellationToken));
+            var items = (await result.ReadAsync<EvidenceSummaryRow>()).Select(row => row.ToDomain()).ToArray();
+            var total = await result.ReadSingleAsync<int>();
+            return new EvidencesPage(items, query.Page, query.PageSize, total);
+        }
+    }
+
+    public async Task<EvidenceStorageReference?> GetAuthorizedAsync(
+        Guid evidenceId, Guid actorId, Guid? companyScope, bool globalScope, bool assignedOnly,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT evidence.id AS Id, evidence.bucket_name AS BucketName,
+                   evidence.supabase_path AS SupabasePath, evidence.nombre_original AS OriginalName,
+                   evidence.mime_type AS MimeType
+              FROM "SIGERSA"."EVIDENCIA" evidence
+              JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = evidence.evaluacion_id
+              JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
+             WHERE evidence.id = @EvidenceId AND evidence.eliminada = false
+               AND (@GlobalScope = true
+                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope)
+                    OR (@AssignedOnly = true AND (
+                        evaluation.evaluador_principal_id = @ActorId
+                        OR EXISTS (SELECT 1 FROM "SIGERSA"."ASIGNACION" assignment
+                            WHERE assignment.programacion_id = evaluation.programacion_id
+                              AND assignment.evaluador_id = @ActorId AND assignment.estado = 'ACTIVA')
+                    )));
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            return await connection.QuerySingleOrDefaultAsync<EvidenceStorageReference>(new CommandDefinition(
+                Sql(sql), new { EvidenceId = evidenceId, ActorId = actorId, CompanyScope = companyScope, GlobalScope = globalScope, AssignedOnly = assignedOnly }, cancellationToken: cancellationToken));
+        }
+    }
+
     public async Task<bool> CanUploadAsync(Guid userId, Guid evaluationId, CancellationToken cancellationToken = default)
     {
         const string sql = """
@@ -72,5 +166,18 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
             var id = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(Sql(sql), evidence, cancellationToken: cancellationToken));
             return id ?? throw new InvalidOperationException("La clave de idempotencia ya fue utilizada con otros metadatos.");
         }
+    }
+
+    private sealed class EvidenceSummaryRow
+    {
+        public Guid Id { get; init; } public Guid EvaluationId { get; init; }
+        public string EvaluationNumber { get; init; } = string.Empty; public string EstablishmentName { get; init; } = string.Empty;
+        public Guid UploadedBy { get; init; } public string UploadedByName { get; init; } = string.Empty;
+        public string OriginalName { get; init; } = string.Empty; public long FileSize { get; init; }
+        public string MimeType { get; init; } = string.Empty; public string EvidenceType { get; init; } = string.Empty;
+        public string SynchronizationStatus { get; init; } = string.Empty; public DateTime UploadedAt { get; init; }
+        public EvidenceSummary ToDomain() => new(Id, EvaluationId, EvaluationNumber, EstablishmentName,
+            UploadedBy, UploadedByName, OriginalName, FileSize, MimeType, EvidenceType,
+            SynchronizationStatus, new DateTimeOffset(DateTime.SpecifyKind(UploadedAt, DateTimeKind.Utc)));
     }
 }

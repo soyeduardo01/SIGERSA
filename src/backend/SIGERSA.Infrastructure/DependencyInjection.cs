@@ -45,6 +45,7 @@ public static class DependencyInjection
             .Validate(options => !options.Enabled || !string.IsNullOrWhiteSpace(options.Host), "Se requiere Smtp:Host.")
             .Validate(options => !options.Enabled || options.Port > 0, "Smtp:Port debe ser positivo.")
             .Validate(options => !options.Enabled || MailAddress.TryCreate(options.FromAddress, out _), "Smtp:FromAddress debe ser válido.")
+            .Validate(options => !options.Enabled || string.IsNullOrWhiteSpace(options.Username) == string.IsNullOrWhiteSpace(options.Password), "Smtp:Username y Smtp:Password deben configurarse juntos.")
             .ValidateOnStart();
 
         var databaseOptions = configuration
@@ -82,6 +83,10 @@ public static class DependencyInjection
         services.AddScoped<IAuthenticationRepository, AuthenticationRepository>();
         services.AddScoped<IEvidenceRepository, EvidenceRepository>();
         services.AddScoped<IEvaluationWorkflowRepository, EvaluationWorkflowRepository>();
+        services.AddScoped<IInspectionRequestRepository, InspectionRequestRepository>();
+        services.AddScoped<ICaseRepository, CaseRepository>();
+        services.AddScoped<ISchedulingRepository, SchedulingRepository>();
+        services.AddScoped<ICorrectionRepository, CorrectionRepository>();
         services.AddScoped<IFileStorage, SupabaseStorageAdapter>();
         services.AddSingleton<IPasswordService, Pbkdf2PasswordService>();
         services.AddSingleton<ITokenService, JwtTokenService>();

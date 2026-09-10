@@ -1,5 +1,9 @@
 import { useState, type FormEvent } from 'react'
+import { PasswordValidatorUI } from '../../components/feedback/PasswordValidatorUI'
+import { OtpInput } from '../../components/forms/OtpInput'
 import { requestPasswordRecovery, resetPassword, verifyPasswordRecovery } from '../../lib/api'
+import { alerts } from '../../lib/alerts'
+import { isPasswordValid } from '../../lib/passwordPolicy'
 
 type Stage = 'request' | 'verify' | 'reset' | 'complete'
 
@@ -35,11 +39,16 @@ export function PasswordRecoveryPage({ onBack }: { onBack: () => void }) {
         setConfirmation('')
         setStage('complete')
         setMessage('Contraseña actualizada. Ya puede iniciar sesión.')
+        void alerts.success(
+          'Contraseña actualizada',
+          'Ya puede iniciar sesión con su nueva contraseña.',
+        )
       }
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : 'No fue posible completar la recuperación.',
       )
+      void alerts.error(error, 'No se pudo completar la recuperación')
     } finally {
       setLoading(false)
     }
@@ -74,21 +83,7 @@ export function PasswordRecoveryPage({ onBack }: { onBack: () => void }) {
                 />
               </label>
             )}
-            {stage === 'verify' && (
-              <label className="block text-sm font-bold text-ink-body">
-                Código OTP
-                <input
-                  required
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  value={otp}
-                  onChange={(event) => setOtp(event.target.value.replace(/\D/g, ''))}
-                  className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-center text-xl font-normal tracking-[0.4em]"
-                />
-              </label>
-            )}
+            {stage === 'verify' && <OtpInput value={otp} onChange={setOtp} disabled={loading} />}
             {stage === 'reset' && (
               <>
                 <label className="block text-sm font-bold text-ink-body">
@@ -97,19 +92,22 @@ export function PasswordRecoveryPage({ onBack }: { onBack: () => void }) {
                     required
                     type="password"
                     autoComplete="new-password"
-                    minLength={12}
+                    minLength={8}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
                   />
                 </label>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <PasswordValidatorUI passwordValue={password} />
+                </div>
                 <label className="block text-sm font-bold text-ink-body">
                   Confirmar contraseña
                   <input
                     required
                     type="password"
                     autoComplete="new-password"
-                    minLength={12}
+                    minLength={8}
                     value={confirmation}
                     onChange={(event) => setConfirmation(event.target.value)}
                     className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
@@ -119,7 +117,11 @@ export function PasswordRecoveryPage({ onBack }: { onBack: () => void }) {
             )}
             <button
               type="submit"
-              disabled={loading}
+              disabled={
+                loading ||
+                (stage === 'verify' && otp.length !== 6) ||
+                (stage === 'reset' && (!isPasswordValid(password) || password !== confirmation))
+              }
               className="min-h-11 w-full rounded-xl bg-brand-700 px-4 font-bold text-white disabled:opacity-60"
             >
               {loading

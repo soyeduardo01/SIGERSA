@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Npgsql;
 using SIGERSA.Domain.Exceptions;
 
 namespace SIGERSA.Api.ExceptionHandling;
@@ -19,7 +20,11 @@ public sealed partial class GlobalExceptionHandler(
             ValidationException => (StatusCodes.Status400BadRequest, "Error de validación"),
             ArgumentException => (StatusCodes.Status400BadRequest, "Solicitud no válida"),
             UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "No autorizado"),
+            ForbiddenException => (StatusCodes.Status403Forbidden, "Acceso denegado"),
             OptimisticConcurrencyException => (StatusCodes.Status409Conflict, "Conflicto de concurrencia"),
+            PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } =>
+                (StatusCodes.Status409Conflict, "Registro duplicado"),
+            EmailDeliveryException => (StatusCodes.Status503ServiceUnavailable, "Servicio de correo no disponible"),
             InvalidOperationException => (StatusCodes.Status409Conflict, "Operación no permitida"),
             KeyNotFoundException => (StatusCodes.Status404NotFound, "Recurso no encontrado"),
             _ => (StatusCodes.Status500InternalServerError, "Error interno del servidor")
@@ -40,9 +45,13 @@ public sealed partial class GlobalExceptionHandler(
             Status = status,
             Title = title,
             Type = $"https://httpstatuses.com/{status}",
-            Detail = status == StatusCodes.Status500InternalServerError
-                ? "La solicitud no pudo completarse."
-                : exception.Message,
+            Detail = exception switch
+            {
+                PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } =>
+                    "Ya existe un registro con el mismo correo o identificación.",
+                _ when status == StatusCodes.Status500InternalServerError => "La solicitud no pudo completarse.",
+                _ => exception.Message
+            },
             Instance = httpContext.Request.Path
         };
 

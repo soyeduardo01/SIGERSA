@@ -11,6 +11,13 @@ const apiMocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../../lib/api', () => apiMocks)
+vi.mock('../../lib/alerts', () => ({
+  alerts: {
+    confirm: vi.fn().mockResolvedValue(true),
+    success: vi.fn().mockResolvedValue(undefined),
+    error: vi.fn().mockResolvedValue(undefined),
+  },
+}))
 
 describe('AllItemsAdmin', () => {
   beforeEach(() => {
@@ -36,5 +43,11 @@ describe('AllItemsAdmin', () => {
     await waitFor(() =>
       expect(apiMocks.deleteAllItem).toHaveBeenCalledWith(1, 'REPARENT', undefined),
     )
+  })
+
+  it('muestra el nombre completo del tipo almacenado como abreviatura', async () => {
+    render(<AllItemsAdmin />)
+    expect((await screen.findAllByText('Capítulo', { selector: 'td' }))[0]).toBeVisible()
+    expect(screen.getAllByText('Pregunta', { selector: 'td' })[0]).toBeVisible()
   })
 })

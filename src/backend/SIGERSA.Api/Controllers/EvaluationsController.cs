@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SIGERSA.Application.Evaluations;
@@ -10,6 +11,18 @@ namespace SIGERSA.Api.Controllers;
 [Route("api/v1")]
 public sealed class EvaluationsController(EvaluationWorkflowService service) : ControllerBase
 {
+    [HttpGet("evaluations")]
+    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
+    public Task<EvaluationsPage> Search(
+        string? search, string? status, int page = 1, int pageSize = 10,
+        CancellationToken cancellationToken = default) =>
+        service.SearchAsync(search, status, page, pageSize, ActorContext(), cancellationToken);
+
+    [HttpGet("evaluations/options")]
+    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
+    public Task<EvaluationCreateOptions> Options(CancellationToken cancellationToken) =>
+        service.GetOptionsAsync(ActorContext(), cancellationToken);
+
     [HttpPost("inspection-templates/publish-all-items")]
     [Authorize(Policy = "Administrator")]
     public Task<PublishedInspectionTemplate> Publish(CancellationToken cancellationToken) =>
@@ -63,6 +76,19 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
     {
         var subject = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
         return Guid.TryParse(subject, out var id) ? id : throw new UnauthorizedAccessException();
+    }
+
+    private EvaluationActor ActorContext()
+    {
+        var userId = Actor();
+        var companyId = Guid.TryParse(User.FindFirstValue("company_id"), out var parsedCompanyId)
+            ? parsedCompanyId
+            : (Guid?)null;
+        var roles = User.FindAll(ClaimTypes.Role)
+            .Select(claim => claim.Value.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return new EvaluationActor(userId, roles, companyId);
     }
 
     private Guid HeaderIdempotencyKey()

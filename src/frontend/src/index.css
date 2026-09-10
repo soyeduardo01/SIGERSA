@@ -49,6 +49,29 @@ a {
   outline-offset: 3px;
 }
 
+.sigersa-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(148 163 184 / 38%) transparent;
+  scrollbar-gutter: stable;
+}
+
+.sigersa-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sigersa-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sigersa-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgb(148 163 184 / 38%);
+}
+
+.sigersa-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(167 243 208 / 55%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

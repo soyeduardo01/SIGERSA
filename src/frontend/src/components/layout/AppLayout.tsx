@@ -1,16 +1,16 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
+import { Outlet, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/useAuth'
+import { useSyncStatus } from '../../hooks/useSyncStatus'
+import { alerts } from '../../lib/alerts'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 
-interface AppLayoutProps {
-  children: ReactNode
-  isOnline: boolean
-  isSyncing: boolean
-  pendingCount: number
-}
-
-export function AppLayout({ children, isOnline, isSyncing, pendingCount }: AppLayoutProps) {
+export function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { identity, roleLabel, signOut } = useAuth()
+  const { isOnline, isSyncing, pendingCount } = useSyncStatus()
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (!mobileMenuOpen) return
@@ -22,6 +22,25 @@ export function AppLayout({ children, isOnline, isSyncing, pendingCount }: AppLa
     document.addEventListener('keydown', closeOnEscape)
     return () => document.removeEventListener('keydown', closeOnEscape)
   }, [mobileMenuOpen])
+
+  async function handleLogout() {
+    if (
+      !(await alerts.confirm({
+        title: '¿Cerrar sesión?',
+        text: 'Se cerrará la sesión actual en este dispositivo.',
+        confirmText: 'Cerrar sesión',
+      }))
+    )
+      return
+
+    try {
+      await signOut()
+    } catch (error) {
+      await alerts.error(error, 'No se pudo notificar el cierre de sesión')
+    } finally {
+      navigate('/login', { replace: true })
+    }
+  }
 
   return (
     <div className="min-h-screen bg-surface-canvas text-ink-strong">
@@ -55,10 +74,15 @@ export function AppLayout({ children, isOnline, isSyncing, pendingCount }: AppLa
           isOnline={isOnline}
           isSyncing={isSyncing}
           pendingCount={pendingCount}
+          identity={identity ?? { name: 'Usuario SIGERSA', email: '', initials: 'US' }}
+          roleLabel={roleLabel}
           onOpenMenu={() => setMobileMenuOpen(true)}
+          onLogout={() => void handleLogout()}
         />
         <main id="main-content" className="px-4 py-6 md:px-6 lg:px-8 lg:py-8">
-          <div className="mx-auto max-w-7xl">{children}</div>
+          <div className="mx-auto max-w-7xl">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

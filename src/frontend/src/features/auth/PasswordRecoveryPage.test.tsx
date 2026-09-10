@@ -8,6 +8,12 @@ vi.mock('../../lib/api', () => ({
   verifyPasswordRecovery: vi.fn(),
   resetPassword: vi.fn(),
 }))
+vi.mock('../../lib/alerts', () => ({
+  alerts: {
+    success: vi.fn().mockResolvedValue(undefined),
+    error: vi.fn().mockResolvedValue(undefined),
+  },
+}))
 
 describe('PasswordRecoveryPage', () => {
   beforeEach(() => {
@@ -28,7 +34,10 @@ describe('PasswordRecoveryPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Enviar código' }))
     await waitFor(() => expect(requestPasswordRecovery).toHaveBeenCalledWith('usuario@example.com'))
 
-    fireEvent.change(await screen.findByLabelText('Código OTP'), { target: { value: '123456' } })
+    const firstDigit = await screen.findByLabelText('Dígito 1 de 6')
+    fireEvent.paste(firstDigit.parentElement!, {
+      clipboardData: { getData: () => '123456' },
+    })
     fireEvent.click(screen.getByRole('button', { name: 'Validar código' }))
     await waitFor(() =>
       expect(verifyPasswordRecovery).toHaveBeenCalledWith('usuario@example.com', '123456'),

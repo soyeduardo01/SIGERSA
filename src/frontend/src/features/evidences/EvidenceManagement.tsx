@@ -1,0 +1,278 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { TableSkeleton } from '../../components/feedback/Skeletons'
+import { useAuth } from '../../contexts/useAuth'
+import {
+  downloadEvidence,
+  getEvidences,
+  getEvaluations,
+  type EvidenceSummary,
+  type EvidencesPage,
+  type EvaluationSummary,
+} from '../../lib/api'
+import { alerts } from '../../lib/alerts'
+import { formatStatusLabel } from '../../lib/formatters'
+import { offlineDb } from '../../offline/database'
+import { flushSyncQueue, queueEvidence } from '../../offline/syncQueue'
+
+const emptyPage: EvidencesPage = { items: [], page: 1, pageSize: 20, total: 0 }
+
+export function EvidenceManagement() {
+  const { roles } = useAuth()
+  const canUpload = roles.some((role) => role === 'ADMINISTRADOR' || role === 'TECNICO_EVALUADOR')
+  const [result, setResult] = useState(emptyPage)
+  const [evaluations, setEvaluations] = useState<EvaluationSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [page, evaluationPage] = await Promise.all([
+        getEvidences({}),
+        getEvaluations({ pageSize: 100 }),
+      ])
+      setResult(page)
+      setEvaluations(evaluationPage.items)
+      setError('')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'No se pudieron cargar las evidencias.')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    queueMicrotask(() => void load())
+  }, [load])
+
+  async function download(item: EvidenceSummary) {
+    try {
+      const blob = await downloadEvidence(item.id)
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = item.originalName
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (caught) {
+      await alerts.error(caught, 'No se pudo descargar la evidencia')
+    }
+  }
+
+  async function save(evaluationId: string, evidenceType: string, file: File) {
+    try {
+      const queueId = await queueEvidence({
+        evaluationId,
+        evidenceType,
+        fileName: file.name,
+        mimeType: file.type,
+        file,
+      })
+      if (navigator.onLine) await flushSyncQueue()
+      const pending = await offlineDb.syncQueue.get(queueId)
+      setOpen(false)
+      await load()
+      await alerts.success(
+        pending ? 'Evidencia guardada en cola' : 'Evidencia sincronizada',
+        pending
+          ? 'El archivo permanece protegido en el dispositivo y se reintentará desde Notificaciones y sincronización.'
+          : 'El archivo fue verificado y registrado en Storage privado.',
+      )
+    } catch (caught) {
+      await alerts.error(caught, 'No se pudo guardar la evidencia')
+      throw caught
+    }
+  }
+
+  return (
+    <section aria-labelledby="evidence-title">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <div>
+          <p className="text-xs font-bold tracking-[0.14em] text-brand-700 uppercase">
+            Soporte documental
+          </p>
+          <h1 id="evidence-title" className="mt-2 text-2xl font-extrabold">
+            Evidencias
+          </h1>
+          <p className="mt-2 text-sm text-ink-muted">
+            Los binarios se conservan en Supabase Storage privado; aquí se muestran metadatos
+            autorizados.
+          </p>
+        </div>
+        {canUpload && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="min-h-11 rounded-xl bg-brand-700 px-5 font-bold text-white"
+          >
+            + Adjuntar evidencia
+          </button>
+        )}
+      </div>
+      <div className="mt-6 overflow-hidden rounded-card bg-white p-5 shadow-card">
+        {error && (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+          >
+            {error}
+          </div>
+        )}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[850px] text-left text-sm">
+            <thead>
+              <tr className="border-b text-xs text-ink-muted uppercase">
+                <th className="px-3 py-3">Archivo</th>
+                <th className="px-3 py-3">Evaluación</th>
+                <th className="px-3 py-3">Tipo</th>
+                <th className="px-3 py-3">Autor</th>
+                <th className="px-3 py-3">Estado</th>
+                <th className="px-3 py-3 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.items.map((item) => (
+                <tr key={item.id} className="border-b border-slate-100">
+                  <td className="px-3 py-4 font-bold">
+                    {item.originalName}
+                    <span className="block text-xs font-normal text-ink-muted">
+                      {(item.fileSize / 1024).toFixed(1)} KB · {item.mimeType}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4">
+                    {item.evaluationNumber}
+                    <span className="block text-xs text-ink-muted">{item.establishmentName}</span>
+                  </td>
+                  <td className="px-3 py-4">{formatStatusLabel(item.evidenceType)}</td>
+                  <td className="px-3 py-4">{item.uploadedByName}</td>
+                  <td className="px-3 py-4">{formatStatusLabel(item.synchronizationStatus)}</td>
+                  <td className="px-3 py-4 text-right">
+                    <button
+                      type="button"
+                      onClick={() => void download(item)}
+                      className="rounded-lg border px-3 py-2 font-bold"
+                    >
+                      Descargar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {loading && <TableSkeleton rows={5} columns={6} />}
+          {!loading && !error && result.items.length === 0 && (
+            <p className="p-10 text-center text-sm text-ink-muted">
+              No hay evidencias disponibles.
+            </p>
+          )}
+        </div>
+      </div>
+      {open && (
+        <EvidenceForm evaluations={evaluations} onClose={() => setOpen(false)} onSave={save} />
+      )}
+    </section>
+  )
+}
+
+function EvidenceForm({
+  evaluations,
+  onClose,
+  onSave,
+}: {
+  evaluations: EvaluationSummary[]
+  onClose: () => void
+  onSave: (evaluationId: string, evidenceType: string, file: File) => Promise<void>
+}) {
+  const [evaluationId, setEvaluationId] = useState('')
+  const [evidenceType, setEvidenceType] = useState('FOTOGRAFIA')
+  const [file, setFile] = useState<File | null>(null)
+  const [saving, setSaving] = useState(false)
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!file) return
+    setSaving(true)
+    try {
+      await onSave(evaluationId, evidenceType, file)
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4"
+      role="presentation"
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="evidence-form-title"
+        className="w-full max-w-xl rounded-2xl bg-white p-6"
+      >
+        <div className="flex justify-between">
+          <h2 id="evidence-form-title" className="text-xl font-extrabold">
+            Adjuntar evidencia
+          </h2>
+          <button type="button" onClick={onClose} aria-label="Cerrar">
+            ✕
+          </button>
+        </div>
+        <form onSubmit={(event) => void submit(event)} className="mt-6 grid gap-4">
+          <label className="text-sm font-bold">
+            Evaluación asignada
+            <select
+              required
+              value={evaluationId}
+              onChange={(e) => setEvaluationId(e.target.value)}
+              className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
+            >
+              <option value="">Seleccione</option>
+              {evaluations.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.number} · {item.establishmentName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-bold">
+            Tipo
+            <select
+              value={evidenceType}
+              onChange={(e) => setEvidenceType(e.target.value)}
+              className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
+            >
+              <option value="FOTOGRAFIA">Fotografía</option>
+              <option value="DOCUMENTO">Documento</option>
+              <option value="VIDEO">Video</option>
+            </select>
+          </label>
+          <label className="text-sm font-bold">
+            Archivo
+            <input
+              required
+              type="file"
+              accept="image/jpeg,image/png,application/pdf,video/mp4"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="mt-1.5 block w-full rounded-xl border p-3 font-normal"
+            />
+          </label>
+          <div className="flex justify-end gap-3 border-t pt-5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border px-4 py-2.5 font-bold"
+            >
+              Volver
+            </button>
+            <button
+              disabled={saving || !file}
+              className="rounded-xl bg-brand-700 px-5 py-2.5 font-bold text-white disabled:opacity-50"
+            >
+              {saving ? 'Guardando…' : 'Guardar evidencia'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  )
+}

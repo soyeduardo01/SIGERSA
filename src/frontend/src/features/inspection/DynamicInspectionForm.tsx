@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { FormSkeleton } from '../../components/feedback/Skeletons'
 import {
   calculateEvaluation,
   getEvaluationForm,
@@ -7,6 +8,7 @@ import {
 } from '../../lib/api'
 import { offlineDb } from '../../offline/database'
 import { flushSyncQueue, queueAnswer, queueEvidence } from '../../offline/syncQueue'
+import { alerts } from '../../lib/alerts'
 
 const ratingOptions = [
   { code: 'CUMPLE', short: 'C', label: 'Cumple' },
@@ -17,7 +19,7 @@ const ratingOptions = [
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-export function DynamicInspectionForm() {
+export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvaluationId?: string }) {
   const [evaluationInput, setEvaluationInput] = useState(
     () => localStorage.getItem('sigersa.active-evaluation') ?? '',
   )
@@ -30,6 +32,20 @@ export function DynamicInspectionForm() {
   const [calculation, setCalculation] = useState<EvaluationCalculation | null>(null)
   const [productRisk, setProductRisk] = useState(1)
   const [message, setMessage] = useState('Indique una evaluación asignada para cargar su ficha.')
+  const [loadingForm, setLoadingForm] = useState(() => {
+    const stored = localStorage.getItem('sigersa.active-evaluation') ?? ''
+    return uuidPattern.test(stored)
+  })
+
+  useEffect(() => {
+    if (!selectedEvaluationId || !uuidPattern.test(selectedEvaluationId)) return
+    localStorage.setItem('sigersa.active-evaluation', selectedEvaluationId)
+    queueMicrotask(() => {
+      setEvaluationInput(selectedEvaluationId)
+      setLoadingForm(true)
+      setEvaluationId(selectedEvaluationId)
+    })
+  }, [selectedEvaluationId])
 
   useEffect(() => {
     if (!evaluationId) return
@@ -44,6 +60,7 @@ export function DynamicInspectionForm() {
       }
       if (!navigator.onLine) {
         if (!cached) setMessage('Esta evaluación todavía no está disponible sin conexión.')
+        setLoadingForm(false)
         return
       }
       try {
@@ -65,6 +82,9 @@ export function DynamicInspectionForm() {
         setMessage(
           error instanceof Error ? error.message : 'No fue posible cargar la evaluación asignada.',
         )
+        await alerts.error(error, 'No se pudo cargar la evaluación')
+      } finally {
+        setLoadingForm(false)
       }
     }
   }, [evaluationId])
@@ -77,9 +97,14 @@ export function DynamicInspectionForm() {
     const normalized = evaluationInput.trim()
     if (!uuidPattern.test(normalized)) {
       setMessage('Ingrese el identificador UUID válido de una evaluación existente.')
+      void alerts.error(
+        new Error('Ingrese el identificador UUID válido de una evaluación existente.'),
+        'Identificador no válido',
+      )
       return
     }
     localStorage.setItem('sigersa.active-evaluation', normalized)
+    setLoadingForm(true)
     if (normalized === evaluationId) {
       setEvaluationId('')
       queueMicrotask(() => setEvaluationId(normalized))
@@ -102,6 +127,10 @@ export function DynamicInspectionForm() {
   async function calculate() {
     if (!evaluationId || !navigator.onLine) {
       setMessage('El cálculo definitivo requiere conexión con el backend.')
+      await alerts.error(
+        new Error('Conéctese a internet y cargue una evaluación antes de calcular.'),
+        'No es posible calcular ahora',
+      )
       return
     }
     try {
@@ -109,8 +138,13 @@ export function DynamicInspectionForm() {
       const result = await calculateEvaluation(evaluationId, productRisk)
       setCalculation(result)
       setMessage('Respuestas sincronizadas y riesgo calculado por el backend.')
+      await alerts.success(
+        'Evaluación calculada',
+        'Las respuestas se sincronizaron y el riesgo fue actualizado.',
+      )
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No fue posible calcular el riesgo.')
+      await alerts.error(error, 'No se pudo calcular el riesgo')
     }
   }
 
@@ -125,32 +159,54 @@ export function DynamicInspectionForm() {
         file,
       })
       setMessage('Evidencia validada y guardada en la cola segura del dispositivo.')
+      await alerts.success(
+        'Evidencia guardada',
+        'El archivo quedó preparado para su sincronización segura.',
+      )
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'La evidencia no pudo guardarse.')
+      await alerts.error(error, 'No se pudo guardar la evidencia')
     }
   }
 
   return (
     <section aria-labelledby="dynamic-form-title">
       <div className="rounded-xl bg-white p-4 shadow-card">
-        <form className="flex flex-wrap items-end gap-3" onSubmit={activateEvaluation}>
-          <label className="min-w-72 flex-1 text-sm font-bold text-ink-body">
-            Identificador de evaluación asignada
-            <input
-              required
-              value={evaluationInput}
-              onChange={(event) => setEvaluationInput(event.target.value)}
-              placeholder="00000000-0000-0000-0000-000000000000"
-              className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
-            />
-          </label>
-          <button
-            type="submit"
-            className="min-h-11 rounded-xl bg-brand-700 px-4 font-bold text-white"
-          >
-            Cargar evaluación
-          </button>
-        </form>
+        <div className="mb-4 rounded-xl bg-brand-50 p-4 text-sm leading-6 text-ink-body">
+          <strong className="text-brand-900">¿Cómo completar esta ficha?</strong>
+          <ol className="mt-2 grid gap-2 pl-5 marker:font-bold md:grid-cols-3">
+            <li>Cargue el identificador de la evaluación asignada.</li>
+            <li>Responda cada pregunta siguiendo los títulos jerárquicos.</li>
+            <li>Adjunte evidencias y pulse “Sincronizar y calcular”.</li>
+          </ol>
+        </div>
+        {!selectedEvaluationId && (
+          <form className="flex flex-wrap items-end gap-3" onSubmit={activateEvaluation}>
+            <label className="min-w-72 flex-1 text-sm font-bold text-ink-body">
+              Identificador de evaluación asignada
+              <span
+                className="ml-1 cursor-help text-brand-700"
+                title="Este código UUID se encuentra en la asignación de la inspección."
+                aria-label="Ayuda sobre el identificador"
+              >
+                ⓘ
+              </span>
+              <input
+                required
+                value={evaluationInput}
+                onChange={(event) => setEvaluationInput(event.target.value)}
+                placeholder="00000000-0000-0000-0000-000000000000"
+                className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
+              />
+            </label>
+            <button
+              type="submit"
+              className="min-h-11 rounded-xl bg-brand-700 px-4 font-bold text-white"
+            >
+              Cargar evaluación
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
@@ -172,7 +228,12 @@ export function DynamicInspectionForm() {
         </div>
       </div>
 
-      <div className="mt-6 space-y-3">
+      {loadingForm && (
+        <div className="mt-6 rounded-card bg-white p-5 shadow-card">
+          <FormSkeleton />
+        </div>
+      )}
+      <div className="mt-6 space-y-3" aria-busy={loadingForm}>
         {items.map((item) => (
           <article
             key={item.id}

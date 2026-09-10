@@ -116,6 +116,14 @@ public sealed class EvidenceServiceTests
         public bool CanUpload { get; init; }
         public EvidenceRecord? Created { get; private set; }
 
+        public Task<EvidencesPage> SearchAsync(EvidenceSearch query, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new EvidencesPage([], query.Page, query.PageSize, 0));
+
+        public Task<EvidenceStorageReference?> GetAuthorizedAsync(
+            Guid evidenceId, Guid actorId, Guid? companyScope, bool globalScope, bool assignedOnly,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<EvidenceStorageReference?>(null);
+
         public Task<bool> CanUploadAsync(Guid userId, Guid evaluationId, CancellationToken cancellationToken = default) =>
             Task.FromResult(CanUpload);
 

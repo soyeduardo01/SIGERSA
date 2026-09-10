@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { alerts } from '../../lib/alerts'
 import { login, type AuthSession } from '../../lib/api'
 
 export function LoginPage({
@@ -10,17 +11,15 @@ export function LoginPage({
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setLoading(true)
-    setError('')
     try {
       onAuthenticated(await login(email, password))
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'No fue posible iniciar sesión.')
+      await alerts.error(reason, 'No se pudo iniciar sesión')
     } finally {
       setLoading(false)
     }
@@ -62,11 +61,6 @@ export function LoginPage({
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 text-base font-normal"
             />
           </label>
-          {error && (
-            <p className="rounded-xl bg-red-50 p-3 text-sm text-red-800" role="alert">
-              {error}
-            </p>
-          )}
           <button
             type="submit"
             disabled={loading}

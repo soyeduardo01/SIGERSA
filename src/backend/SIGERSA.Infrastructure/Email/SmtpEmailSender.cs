@@ -1,13 +1,17 @@
 using System.Net;
 using System.Net.Mail;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SIGERSA.Domain.Exceptions;
 using SIGERSA.Domain.Security;
 using SIGERSA.Infrastructure.Configuration;
 
 namespace SIGERSA.Infrastructure.Email;
 
-public sealed class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSender
+public sealed partial class SmtpEmailSender(
+    IOptions<SmtpOptions> options,
+    ILogger<SmtpEmailSender> logger) : IEmailSender
 {
     private readonly SmtpOptions _options = options.Value;
 
@@ -18,7 +22,12 @@ public sealed class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSende
         DateTimeOffset expiresAt,
         CancellationToken cancellationToken = default)
     {
-        if (!_options.Enabled) throw new InvalidOperationException("El servicio SMTP no está habilitado.");
+        if (!_options.Enabled)
+        {
+            LogSmtpDisabled(logger);
+            throw new EmailDeliveryException(
+                "El correo de recuperación no está configurado. Contacte al administrador del sistema.");
+        }
         using var message = new MailMessage
         {
             From = new MailAddress(_options.FromAddress, _options.FromName, Encoding.UTF8),
@@ -34,8 +43,37 @@ public sealed class SmtpEmailSender(IOptions<SmtpOptions> options) : IEmailSende
         {
             EnableSsl = _options.EnableSsl,
             UseDefaultCredentials = false,
-            Credentials = new NetworkCredential(_options.Username, _options.Password)
+            Credentials = string.IsNullOrWhiteSpace(_options.Username)
+                ? null
+                : new NetworkCredential(_options.Username, _options.Password)
         };
-        await client.SendMailAsync(message, cancellationToken);
+        try
+        {
+            await client.SendMailAsync(message, cancellationToken);
+            LogOtpSent(logger);
+        }
+        catch (SmtpException exception)
+        {
+            LogSmtpFailure(logger, exception, exception.StatusCode);
+            throw new EmailDeliveryException(
+                "No fue posible enviar el código de recuperación. Inténtelo nuevamente más tarde.",
+                exception);
+        }
+        catch (InvalidOperationException exception)
+        {
+            LogSmtpFailure(logger, exception, SmtpStatusCode.GeneralFailure);
+            throw new EmailDeliveryException(
+                "El servicio de correo no está disponible. Contacte al administrador del sistema.",
+                exception);
+        }
     }
+
+    [LoggerMessage(EventId = 2100, Level = LogLevel.Error, Message = "El envío SMTP está deshabilitado.")]
+    private static partial void LogSmtpDisabled(ILogger logger);
+
+    [LoggerMessage(EventId = 2101, Level = LogLevel.Information, Message = "OTP de recuperación enviado correctamente.")]
+    private static partial void LogOtpSent(ILogger logger);
+
+    [LoggerMessage(EventId = 2102, Level = LogLevel.Error, Message = "Falló el envío SMTP. Estado: {StatusCode}.")]
+    private static partial void LogSmtpFailure(ILogger logger, Exception exception, SmtpStatusCode statusCode);
 }

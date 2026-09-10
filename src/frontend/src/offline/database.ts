@@ -1,7 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie'
 
 export type SyncStatus = 'pending' | 'processing' | 'failed'
-export type SyncMutationKind = 'answer' | 'evidence'
+export type SyncMutationKind =
+  'answer' | 'evidence' | 'request' | 'case' | 'schedule' | 'correction'
 
 export interface CachedEvaluation {
   id: string
@@ -37,11 +38,59 @@ export interface EvidencePayload {
   sha256Hash: string
 }
 
+export interface RequestPayload {
+  companyId: string | null
+  establishmentId: string | null
+  inspectionReasonId: string
+  reasonDetail: string
+  establishmentType: string
+  observations: string
+  idempotencyKey: string
+  rowVersion: null
+}
+
+export interface CasePayload {
+  requestId: string
+  priority: number
+  responsibleId: string | null
+  analysisDecision: string | null
+  decisionReason: string
+  idempotencyKey: string
+  rowVersion: null
+}
+
+export interface SchedulePayload {
+  caseId: string
+  startsAt: string
+  endsAt: string
+  priority: number
+  observations: string
+  changeReason: string
+  evaluatorIds: string[]
+  idempotencyKey: string
+  rowVersion: null
+}
+
+export interface CorrectionPayload {
+  evaluationId: string
+  responsibleType: 'TECNICO' | 'EMPRESA'
+  assignedToId: string | null
+  coordinatorObservation: string
+  dueAt: string
+  idempotencyKey: string
+}
+
 export interface SyncQueueItem {
   idempotencyKey: string
   kind: SyncMutationKind
   status: SyncStatus
-  payload: AnswerPayload | EvidencePayload
+  payload:
+    | AnswerPayload
+    | EvidencePayload
+    | RequestPayload
+    | CasePayload
+    | SchedulePayload
+    | CorrectionPayload
   attempts: number
   createdAt: string
   nextAttemptAt: string

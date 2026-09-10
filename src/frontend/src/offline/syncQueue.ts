@@ -1,6 +1,15 @@
 import { getSupabaseClient } from '../lib/supabase'
 import { apiFetch, confirmEvidenceUpload, requestEvidenceUploadAuthorization } from '../lib/api'
-import { offlineDb, type AnswerPayload, type EvidencePayload, type SyncQueueItem } from './database'
+import {
+  offlineDb,
+  type AnswerPayload,
+  type CasePayload,
+  type CorrectionPayload,
+  type EvidencePayload,
+  type RequestPayload,
+  type SchedulePayload,
+  type SyncQueueItem,
+} from './database'
 import { validateAndHashEvidence } from './evidenceFile'
 
 const queueChangedEvent = 'sigersa:sync-queue-changed'
@@ -22,6 +31,22 @@ export async function queueEvidence(
 ) {
   const sha256Hash = await validateAndHashEvidence(payload.file, payload.mimeType)
   return enqueueMutation('evidence', { ...payload, sha256Hash }, idempotencyKey)
+}
+
+export async function queueRequest(payload: RequestPayload) {
+  return enqueueMutation('request', payload, payload.idempotencyKey)
+}
+
+export async function queueCase(payload: CasePayload) {
+  return enqueueMutation('case', payload, payload.idempotencyKey)
+}
+
+export async function queueSchedule(payload: SchedulePayload) {
+  return enqueueMutation('schedule', payload, payload.idempotencyKey)
+}
+
+export async function queueCorrection(payload: CorrectionPayload) {
+  return enqueueMutation('correction', payload, payload.idempotencyKey)
 }
 
 export async function getPendingMutationCount() {
@@ -91,7 +116,7 @@ async function processQueueItem(item: SyncQueueItem) {
   try {
     if (item.kind === 'answer') {
       await postJson('/api/v1/respuestas', item.payload, item.idempotencyKey)
-    } else {
+    } else if (item.kind === 'evidence') {
       const evidence = item.payload as EvidencePayload
       if (!item.storageUploaded) {
         const authorization = await requestEvidenceUploadAuthorization({
@@ -132,6 +157,14 @@ async function processQueueItem(item: SyncQueueItem) {
         sha256Hash: evidence.sha256Hash,
         evidenceType: evidence.evidenceType,
       })
+    } else if (item.kind === 'request') {
+      await postJson('/api/v1/requests', item.payload, item.idempotencyKey)
+    } else if (item.kind === 'case') {
+      await postJson('/api/v1/cases', item.payload, item.idempotencyKey)
+    } else if (item.kind === 'schedule') {
+      await postJson('/api/v1/schedules', item.payload, item.idempotencyKey)
+    } else {
+      await postJson('/api/v1/corrections', item.payload, item.idempotencyKey)
     }
 
     await offlineDb.syncQueue.delete(item.idempotencyKey)

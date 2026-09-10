@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FluentValidation;
 using Microsoft.Extensions.Options;
+using SIGERSA.Domain.Exceptions;
 using SIGERSA.Domain.Repositories;
 using SIGERSA.Domain.Security;
 
@@ -121,12 +122,21 @@ public sealed class AuthService(
             expiresAt,
             command.IpHash,
             cancellationToken);
-        await emailSender.SendPasswordRecoveryOtpAsync(
-            user.Correo,
-            user.NombreCompleto,
-            otp,
-            expiresAt,
-            cancellationToken);
+        try
+        {
+            await emailSender.SendPasswordRecoveryOtpAsync(
+                user.Correo,
+                user.NombreCompleto,
+                otp,
+                expiresAt,
+                cancellationToken);
+        }
+        catch (EmailDeliveryException)
+        {
+            // Nunca deje un código utilizable si el correo no pudo entregarse.
+            await repository.InvalidateActiveOtpsAsync(user.Id, timeProvider.GetUtcNow(), cancellationToken);
+            throw;
+        }
     }
 
     public async Task<PasswordRecoveryTokenResponse> VerifyPasswordRecoveryAsync(

@@ -78,7 +78,7 @@ public sealed class ResetPasswordCommandValidator : AbstractValidator<ResetPassw
         RuleFor(command => command.UserId).NotEmpty();
         RuleFor(command => command.ProofId).NotEmpty();
         RuleFor(command => command.NewPassword)
-            .MinimumLength(12)
+            .MinimumLength(8)
             .MaximumLength(128)
             .Matches("[A-Z]").WithMessage("La contraseña debe contener una mayúscula.")
             .Matches("[a-z]").WithMessage("La contraseña debe contener una minúscula.")

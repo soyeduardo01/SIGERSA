@@ -145,7 +145,8 @@ public sealed class AuthenticationRepository(IDbConnectionFactory connectionFact
             {
                 await connection.ExecuteAsync(new CommandDefinition(Sql("""
                     UPDATE "SIGERSA"."REFRESH_TOKEN"
-                       SET revocado_en = COALESCE(revocado_en, @Now), modificado_en = @Now,
+                       SET revocado_en = COALESCE(revocado_en, GREATEST(@Now, creado_en)),
+                           modificado_en = GREATEST(@Now, creado_en),
                            version_fila = version_fila + 1
                      WHERE familia_token_id = @FamilyId;
                     """), new { current.FamilyId, Now = now }, transaction, cancellationToken: cancellationToken));

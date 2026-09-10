@@ -8,6 +8,37 @@ public sealed record PublishedInspectionTemplate(
 
 public sealed record EvaluationSession(Guid Id, string Number, long RowVersion);
 
+public sealed record EvaluationSummary(
+    Guid Id,
+    string Number,
+    Guid CaseId,
+    string CaseNumber,
+    Guid EstablishmentId,
+    string EstablishmentName,
+    Guid EvaluatorId,
+    string EvaluatorName,
+    string Status,
+    DateTimeOffset? ScheduledStart,
+    DateTimeOffset? ScheduledEnd,
+    decimal? CompliancePercentage,
+    decimal? TotalRisk,
+    string? RiskLevel,
+    int AnsweredItems,
+    long RowVersion);
+
+public sealed record EvaluationsPage(IReadOnlyList<EvaluationSummary> Items, int Page, int PageSize, int Total);
+public sealed record EvaluationSearch(
+    string? Search, string? Status, int Page, int PageSize, Guid ActorId,
+    Guid? CompanyScope, bool GlobalScope, bool AssignedOnly);
+public sealed record EvaluationOption(Guid Id, string Name, Guid? CompanyId = null);
+public sealed record EvaluationCreateOptions(
+    IReadOnlyList<EvaluationOption> Cases,
+    IReadOnlyList<EvaluationOption> Establishments,
+    IReadOnlyList<EvaluationOption> Templates,
+    IReadOnlyList<EvaluationOption> RiskRules,
+    IReadOnlyList<EvaluationOption> Evaluators,
+    bool CanCreate);
+
 public sealed record EvaluationFormItem(
     Guid Id,
     Guid? ParentId,

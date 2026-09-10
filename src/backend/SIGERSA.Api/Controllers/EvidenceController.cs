@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -10,10 +11,24 @@ namespace SIGERSA.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/evidences")]
-[Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+[Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
 public sealed class EvidenceController(EvidenceService service, IOptions<SupabaseOptions> options) : ControllerBase
 {
+    [HttpGet]
+    public Task<EvidencesPage> Search(
+        string? search, string? evidenceType, int page = 1, int pageSize = 20,
+        CancellationToken cancellationToken = default) =>
+        service.SearchAsync(search, evidenceType, page, pageSize, ActorContext(), cancellationToken);
+
+    [HttpGet("{id:guid}/content")]
+    public async Task<IActionResult> Download(Guid id, CancellationToken cancellationToken)
+    {
+        var download = await service.DownloadAsync(id, ActorContext(), cancellationToken);
+        return File(download.Content, download.MimeType, download.FileName, enableRangeProcessing: true);
+    }
+
     [HttpPost("upload-authorization")]
+    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
     public Task<Domain.Storage.StorageUploadAuthorization> AuthorizeUpload(
         EvidenceUploadAuthorizationRequest request,
         CancellationToken cancellationToken) =>
@@ -28,6 +43,7 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
             cancellationToken);
 
     [HttpPost("confirm")]
+    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
     public async Task<ActionResult<EvidenceRecord>> ConfirmUpload(
         ConfirmEvidenceUploadRequest request,
         CancellationToken cancellationToken)
@@ -48,6 +64,7 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
     }
 
     [HttpPost]
+    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(26_214_400)]
     public async Task<ActionResult<EvidenceRecord>> Upload(
@@ -73,6 +90,19 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
         return Guid.TryParse(subject, out var userId)
             ? userId
             : throw new UnauthorizedAccessException();
+    }
+
+    private EvidenceActor ActorContext()
+    {
+        var userId = Actor();
+        var companyId = Guid.TryParse(User.FindFirstValue("company_id"), out var parsedCompanyId)
+            ? parsedCompanyId
+            : (Guid?)null;
+        var roles = User.FindAll(ClaimTypes.Role)
+            .Select(claim => claim.Value.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        return new EvidenceActor(userId, roles, companyId);
     }
 }
 

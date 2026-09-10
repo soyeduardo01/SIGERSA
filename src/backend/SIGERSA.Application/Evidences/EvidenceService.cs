@@ -1,11 +1,42 @@
 using SIGERSA.Domain.Entities;
 using SIGERSA.Domain.Repositories;
+using SIGERSA.Domain.Exceptions;
 using SIGERSA.Domain.Storage;
 
 namespace SIGERSA.Application.Evidences;
 
 public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository repository)
 {
+    public Task<EvidencesPage> SearchAsync(
+        string? search, string? evidenceType, int page, int pageSize,
+        EvidenceActor actor, CancellationToken cancellationToken)
+    {
+        EnsureReader(actor);
+        var global = HasRole(actor, "ADMINISTRADOR") || HasRole(actor, "COORDINADOR");
+        var assigned = HasRole(actor, "TECNICO_EVALUADOR") && !global;
+        var company = global || assigned ? (Guid?)null : actor.CompanyId
+            ?? throw new ForbiddenException("El usuario no tiene un ámbito empresarial válido.");
+        return repository.SearchAsync(new EvidenceSearch(
+            Normalize(search)?.ToLowerInvariant(), Normalize(evidenceType)?.ToUpperInvariant(),
+            Math.Max(page, 1), Math.Clamp(pageSize, 5, 100), actor.UserId,
+            company, global, assigned), cancellationToken);
+    }
+
+    public async Task<EvidenceDownload> DownloadAsync(
+        Guid evidenceId, EvidenceActor actor, CancellationToken cancellationToken)
+    {
+        EnsureReader(actor);
+        var global = HasRole(actor, "ADMINISTRADOR") || HasRole(actor, "COORDINADOR");
+        var assigned = HasRole(actor, "TECNICO_EVALUADOR") && !global;
+        var company = global || assigned ? (Guid?)null : actor.CompanyId
+            ?? throw new ForbiddenException("El usuario no tiene un ámbito empresarial válido.");
+        var reference = await repository.GetAuthorizedAsync(
+            evidenceId, actor.UserId, company, global, assigned, cancellationToken)
+            ?? throw new KeyNotFoundException("La evidencia no existe o no está disponible para el usuario.");
+        var content = await storage.DownloadAsync(reference.BucketName, reference.SupabasePath, cancellationToken);
+        return new EvidenceDownload(content, reference.MimeType, reference.OriginalName);
+    }
+
     public async Task<StorageUploadAuthorization> AuthorizeUploadAsync(
         Guid evaluationId,
         Guid uploadedBy,
@@ -135,4 +166,15 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
             throw new ArgumentException("Los identificadores de evidencia son obligatorios.");
         }
     }
+
+    private static void EnsureReader(EvidenceActor actor)
+    {
+        if (!actor.Roles.Any(role => role is "ADMINISTRADOR" or "ADMINISTRADOR_EMPRESA" or "USUARIO_DELEGADO" or "COORDINADOR" or "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("No tiene permisos para consultar evidencias.");
+    }
+    private static bool HasRole(EvidenceActor actor, string role) => actor.Roles.Contains(role, StringComparer.Ordinal);
+    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
+
+public sealed record EvidenceActor(Guid UserId, string[] Roles, Guid? CompanyId);
+public sealed record EvidenceDownload(Stream Content, string MimeType, string FileName);

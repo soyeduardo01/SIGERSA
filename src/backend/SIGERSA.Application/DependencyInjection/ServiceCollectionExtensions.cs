@@ -2,11 +2,16 @@ using FluentValidation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SIGERSA.Application.Authentication;
+using SIGERSA.Application.Cases;
+using SIGERSA.Application.Corrections;
 using SIGERSA.Application.Evaluations;
 using SIGERSA.Application.Evidences;
 using SIGERSA.Application.InspectionTemplates;
 using SIGERSA.Application.Parameters;
 using SIGERSA.Application.Risk;
+using SIGERSA.Application.Requests;
+using SIGERSA.Application.Scheduling;
+using SIGERSA.Application.Users;
 
 namespace SIGERSA.Application.DependencyInjection;
 
@@ -32,6 +37,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<EvidenceService>();
         services.AddScoped<InspectionRiskService>();
         services.AddScoped<EvaluationWorkflowService>();
+        services.AddScoped<UserManagementService>();
+        services.AddScoped<InspectionRequestService>();
+        services.AddScoped<CaseService>();
+        services.AddScoped<SchedulingService>();
+        services.AddScoped<CorrectionService>();
         return services;
     }
 }

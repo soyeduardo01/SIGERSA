@@ -36,6 +36,132 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         )
         """;
 
+    public async Task<EvaluationsPage> SearchAsync(EvaluationSearch query, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT evaluation.id AS Id, evaluation.numero AS Number,
+                   evaluation.caso_id AS CaseId, inspection_case.numero AS CaseNumber,
+                   evaluation.establecimiento_id AS EstablishmentId, establishment.nombre AS EstablishmentName,
+                   evaluation.evaluador_principal_id AS EvaluatorId, evaluator.nombre_completo AS EvaluatorName,
+                   evaluation.estado AS Status, evaluation.programada_inicio_en AS ScheduledStart,
+                   evaluation.programada_fin_en AS ScheduledEnd,
+                   evaluation.porcentaje_cumplimiento AS CompliancePercentage,
+                   evaluation.riesgo_total AS TotalRisk, evaluation.nivel_riesgo AS RiskLevel,
+                   (SELECT COUNT(*) FROM "SIGERSA"."RESPUESTA_USUARIO" response
+                     WHERE response.evaluacion_id = evaluation.id)::integer AS AnsweredItems,
+                   evaluation.version_fila AS RowVersion
+              FROM "SIGERSA"."EVALUACION" evaluation
+              JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
+              JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
+              JOIN "SIGERSA"."USUARIO" evaluator ON evaluator.id = evaluation.evaluador_principal_id
+             WHERE (@Status IS NULL OR evaluation.estado = @Status)
+               AND (@Search IS NULL OR lower(evaluation.numero) LIKE '%' || @Search || '%'
+                    OR lower(inspection_case.numero) LIKE '%' || @Search || '%'
+                    OR lower(establishment.nombre) LIKE '%' || @Search || '%'
+                    OR lower(evaluator.nombre_completo) LIKE '%' || @Search || '%')
+               AND (
+                    @GlobalScope = true
+                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope)
+                    OR (@AssignedOnly = true AND (
+                        evaluation.evaluador_principal_id = @ActorId
+                        OR EXISTS (
+                            SELECT 1 FROM "SIGERSA"."ASIGNACION" assignment
+                             WHERE assignment.programacion_id = evaluation.programacion_id
+                               AND assignment.evaluador_id = @ActorId AND assignment.estado = 'ACTIVA'
+                        )
+                    ))
+               )
+             ORDER BY COALESCE(evaluation.programada_inicio_en, evaluation.creado_en) DESC, evaluation.id
+             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT(*)
+              FROM "SIGERSA"."EVALUACION" evaluation
+              JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
+              JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
+              JOIN "SIGERSA"."USUARIO" evaluator ON evaluator.id = evaluation.evaluador_principal_id
+             WHERE (@Status IS NULL OR evaluation.estado = @Status)
+               AND (@Search IS NULL OR lower(evaluation.numero) LIKE '%' || @Search || '%'
+                    OR lower(inspection_case.numero) LIKE '%' || @Search || '%'
+                    OR lower(establishment.nombre) LIKE '%' || @Search || '%'
+                    OR lower(evaluator.nombre_completo) LIKE '%' || @Search || '%')
+               AND (
+                    @GlobalScope = true
+                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope)
+                    OR (@AssignedOnly = true AND (
+                        evaluation.evaluador_principal_id = @ActorId
+                        OR EXISTS (
+                            SELECT 1 FROM "SIGERSA"."ASIGNACION" assignment
+                             WHERE assignment.programacion_id = evaluation.programacion_id
+                               AND assignment.evaluador_id = @ActorId AND assignment.estado = 'ACTIVA'
+                        )
+                    ))
+               );
+            """;
+        var parameters = new
+        {
+            query.Search, query.Status, query.ActorId, query.CompanyScope,
+            query.GlobalScope, query.AssignedOnly,
+            Offset = (query.Page - 1) * query.PageSize, query.PageSize
+        };
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            using var result = await connection.QueryMultipleAsync(new CommandDefinition(
+                Sql(sql), parameters, cancellationToken: cancellationToken));
+            var items = (await result.ReadAsync<EvaluationSummaryRow>()).Select(row => row.ToDomain()).ToArray();
+            var total = await result.ReadSingleAsync<int>();
+            return new EvaluationsPage(items, query.Page, query.PageSize, total);
+        }
+    }
+
+    public async Task<EvaluationCreateOptions> GetOptionsAsync(bool canCreate, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT inspection_case.id AS Id,
+                   inspection_case.numero || ' · ' || company.razon_social AS Name,
+                   inspection_case.empresa_id AS CompanyId
+              FROM "SIGERSA"."CASO" inspection_case
+              JOIN "SIGERSA"."EMPRESA" company ON company.id = inspection_case.empresa_id
+             WHERE inspection_case.estado <> 'CERRADO' AND @CanCreate = true
+             ORDER BY inspection_case.abierto_en DESC;
+
+            SELECT establishment.id AS Id, establishment.nombre AS Name, establishment.empresa_id AS CompanyId
+              FROM "SIGERSA"."ESTABLECIMIENTO" establishment
+             WHERE establishment.activo = true AND @CanCreate = true
+             ORDER BY establishment.nombre;
+
+            SELECT template.id AS Id, template.nombre || ' · v' || template.version::text AS Name
+              FROM "SIGERSA"."FICHA_INSPECCION" template
+             WHERE template.estado = 'PUBLICADA' AND @CanCreate = true
+             ORDER BY template.version DESC;
+
+            SELECT risk.id AS Id, risk.nombre || ' · v' || risk.version::text AS Name
+              FROM "SIGERSA"."REGLA_RIESGO_VERSION" risk
+             WHERE risk.estado = 'PUBLICADA' AND @CanCreate = true
+             ORDER BY risk.version DESC;
+
+            SELECT DISTINCT user_account.id AS Id, user_account.nombre_completo AS Name
+              FROM "SIGERSA"."USUARIO" user_account
+              JOIN "SIGERSA"."USUARIO_ROL" user_role ON user_role.usuario_id = user_account.id AND user_role.activo = true
+              JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+             WHERE user_account.activo = true AND user_account.estado = 'ACTIVO'
+               AND role.codigo = 'TECNICO_EVALUADOR' AND @CanCreate = true
+             ORDER BY user_account.nombre_completo;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            using var result = await connection.QueryMultipleAsync(new CommandDefinition(
+                Sql(sql), new { CanCreate = canCreate }, cancellationToken: cancellationToken));
+            var cases = (await result.ReadAsync<EvaluationOption>()).AsList();
+            var establishments = (await result.ReadAsync<EvaluationOption>()).AsList();
+            var templates = (await result.ReadAsync<EvaluationOption>()).AsList();
+            var riskRules = (await result.ReadAsync<EvaluationOption>()).AsList();
+            var evaluators = (await result.ReadAsync<EvaluationOption>()).AsList();
+            return new EvaluationCreateOptions(cases, establishments, templates, riskRules, evaluators, canCreate);
+        }
+    }
+
     public async Task<PublishedInspectionTemplate> PublishAllItemsAsync(Guid actorId, CancellationToken cancellationToken = default)
     {
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
@@ -172,9 +298,26 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 (id, numero, caso_id, establecimiento_id, ficha_inspeccion_id,
                  evaluador_principal_id, estado, programada_inicio_en, programada_fin_en,
                  iniciada_en, version_regla_riesgo_id, creado_por)
-            VALUES (@Id, @Number, @CaseId, @EstablishmentId, @InspectionTemplateId,
-                    @EvaluatorId, 'EN_EJECUCION', @ScheduledStart, @ScheduledEnd,
-                    CURRENT_TIMESTAMP, @RiskRuleVersionId, @ActorId)
+            SELECT @Id, @Number, inspection_case.id, establishment.id, template.id,
+                   evaluator.id, 'EN_EJECUCION', @ScheduledStart, @ScheduledEnd,
+                   CURRENT_TIMESTAMP, risk_rule.id, @ActorId
+              FROM "SIGERSA"."CASO" inspection_case
+              JOIN "SIGERSA"."ESTABLECIMIENTO" establishment
+                ON establishment.id = @EstablishmentId
+               AND establishment.empresa_id = inspection_case.empresa_id
+              JOIN "SIGERSA"."FICHA_INSPECCION" template
+                ON template.id = @InspectionTemplateId AND template.estado = 'PUBLICADA'
+              JOIN "SIGERSA"."REGLA_RIESGO_VERSION" risk_rule
+                ON risk_rule.id = @RiskRuleVersionId AND risk_rule.estado = 'PUBLICADA'
+              JOIN "SIGERSA"."USUARIO" evaluator
+                ON evaluator.id = @EvaluatorId AND evaluator.activo = true AND evaluator.estado = 'ACTIVO'
+             WHERE inspection_case.id = @CaseId AND inspection_case.estado <> 'CERRADO'
+               AND EXISTS (
+                    SELECT 1 FROM "SIGERSA"."USUARIO_ROL" user_role
+                    JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                    WHERE user_role.usuario_id = evaluator.id AND user_role.activo = true
+                      AND role.codigo = 'TECNICO_EVALUADOR' AND role.activo = true
+               )
             RETURNING id AS Id, numero AS Number, version_fila AS RowVersion;
             """;
         var id = Guid.NewGuid();
@@ -182,8 +325,9 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
         {
-            return await connection.QuerySingleAsync<EvaluationSession>(new CommandDefinition(
+            var created = await connection.QuerySingleOrDefaultAsync<EvaluationSession>(new CommandDefinition(
                 Sql(sql), new { Id = id, Number = number, draft.CaseId, draft.EstablishmentId, draft.InspectionTemplateId, draft.EvaluatorId, draft.RiskRuleVersionId, draft.ScheduledStart, draft.ScheduledEnd, ActorId = actorId }, cancellationToken: cancellationToken));
+            return created ?? throw new ArgumentException("El caso, establecimiento, ficha, regla o técnico seleccionado no está disponible.");
         }
     }
 
@@ -368,4 +512,20 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
     private sealed class AnswerRow { public Guid Id { get; init; } public long RowVersion { get; init; } }
     private sealed class AnswerInputRow { public Guid Id { get; init; } public Guid EvaluationId { get; init; } public int SourceItem { get; init; } public string Rating { get; init; } = string.Empty; public decimal? Score { get; init; } public long RowVersion { get; init; } public EvaluationAnswer ToDomain() => new(Id, EvaluationId, SourceItem, Rating, Score, RowVersion); }
     private sealed class AnswerDetailRow { public Guid Id { get; init; } public Guid EvaluationId { get; init; } public int SourceItem { get; init; } public string Rating { get; init; } = string.Empty; public decimal? Score { get; init; } public long RowVersion { get; init; } public EvaluationAnswer ToDomain() => new(Id, EvaluationId, SourceItem, Rating, Score, RowVersion); }
+    private sealed class EvaluationSummaryRow
+    {
+        public Guid Id { get; init; } public string Number { get; init; } = string.Empty;
+        public Guid CaseId { get; init; } public string CaseNumber { get; init; } = string.Empty;
+        public Guid EstablishmentId { get; init; } public string EstablishmentName { get; init; } = string.Empty;
+        public Guid EvaluatorId { get; init; } public string EvaluatorName { get; init; } = string.Empty;
+        public string Status { get; init; } = string.Empty; public DateTime? ScheduledStart { get; init; }
+        public DateTime? ScheduledEnd { get; init; } public decimal? CompliancePercentage { get; init; }
+        public decimal? TotalRisk { get; init; } public string? RiskLevel { get; init; }
+        public int AnsweredItems { get; init; } public long RowVersion { get; init; }
+        public EvaluationSummary ToDomain() => new(Id, Number, CaseId, CaseNumber, EstablishmentId,
+            EstablishmentName, EvaluatorId, EvaluatorName, Status, Utc(ScheduledStart), Utc(ScheduledEnd),
+            CompliancePercentage, TotalRisk, RiskLevel, AnsweredItems, RowVersion);
+        private static DateTimeOffset? Utc(DateTime? value) => value.HasValue
+            ? new DateTimeOffset(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)) : null;
+    }
 }

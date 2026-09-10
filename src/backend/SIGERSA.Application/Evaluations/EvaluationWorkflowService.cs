@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using SIGERSA.Domain.Entities;
+using SIGERSA.Domain.Exceptions;
 using SIGERSA.Domain.Repositories;
 using SIGERSA.Domain.Risk;
 
@@ -9,6 +10,27 @@ namespace SIGERSA.Application.Evaluations;
 
 public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repository)
 {
+    public Task<EvaluationsPage> SearchAsync(
+        string? search, string? status, int page, int pageSize,
+        EvaluationActor actor, CancellationToken cancellationToken)
+    {
+        EnsureReader(actor);
+        var global = HasRole(actor, "ADMINISTRADOR") || HasRole(actor, "COORDINADOR");
+        var assigned = HasRole(actor, "TECNICO_EVALUADOR") && !global;
+        var company = global || assigned ? (Guid?)null : actor.CompanyId
+            ?? throw new ForbiddenException("El usuario no tiene un ámbito empresarial válido.");
+        return repository.SearchAsync(new EvaluationSearch(
+            Normalize(search)?.ToLowerInvariant(), Normalize(status)?.ToUpperInvariant(),
+            Math.Max(page, 1), Math.Clamp(pageSize, 5, 100), actor.UserId,
+            company, global, assigned), cancellationToken);
+    }
+
+    public Task<EvaluationCreateOptions> GetOptionsAsync(EvaluationActor actor, CancellationToken cancellationToken)
+    {
+        EnsureReader(actor);
+        return repository.GetOptionsAsync(HasRole(actor, "ADMINISTRADOR") || HasRole(actor, "COORDINADOR"), cancellationToken);
+    }
+
     public Task<PublishedInspectionTemplate> PublishAllItemsAsync(Guid actorId, CancellationToken cancellationToken) =>
         repository.PublishAllItemsAsync(Required(actorId, nameof(actorId)), cancellationToken);
 
@@ -129,4 +151,16 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         if (value == Guid.Empty) throw new ArgumentException("El identificador es obligatorio.", name);
         return value;
     }
+
+    private static void EnsureReader(EvaluationActor actor)
+    {
+        if (!actor.Roles.Any(role => role is "ADMINISTRADOR" or "ADMINISTRADOR_EMPRESA" or "USUARIO_DELEGADO" or "COORDINADOR" or "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("No tiene permisos para consultar evaluaciones.");
+    }
+
+    private static bool HasRole(EvaluationActor actor, string role) =>
+        actor.Roles.Contains(role, StringComparer.Ordinal);
+    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
+
+public sealed record EvaluationActor(Guid UserId, string[] Roles, Guid? CompanyId);

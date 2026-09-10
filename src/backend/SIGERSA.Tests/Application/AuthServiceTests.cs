@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.Extensions.Options;
 using SIGERSA.Application.Authentication;
+using SIGERSA.Domain.Exceptions;
 using SIGERSA.Domain.Repositories;
 using SIGERSA.Domain.Security;
 using SIGERSA.Infrastructure.Security;
@@ -62,6 +63,20 @@ public sealed class AuthServiceTests
         Assert.NotEqual(email.Otp, repository.StoredOtpHash);
         Assert.True(passwords.Verify(repository.StoredOtpHash!, email.Otp!));
         Assert.True(repository.PreviousOtpsInvalidated);
+    }
+
+    [Fact]
+    public async Task RecoveryShouldInvalidateOtpWhenEmailDeliveryFails()
+    {
+        var passwords = new Pbkdf2PasswordService();
+        var repository = new FakeAuthenticationRepository { User = ActiveUser(passwords.Hash("Valid-Password-2026!")) };
+        var email = new FakeEmailSender { ShouldFail = true };
+        var service = CreateService(repository, passwords, email);
+
+        await Assert.ThrowsAsync<EmailDeliveryException>(() =>
+            service.RequestPasswordRecoveryAsync(new RequestPasswordRecoveryCommand("user@example.com", "ip")));
+
+        Assert.Equal(2, repository.OtpInvalidations);
     }
 
     [Fact]
@@ -151,8 +166,10 @@ public sealed class AuthServiceTests
     private sealed class FakeEmailSender : IEmailSender
     {
         public string? Otp { get; private set; }
+        public bool ShouldFail { get; init; }
         public Task SendPasswordRecoveryOtpAsync(string recipient, string recipientName, string otp, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
         {
+            if (ShouldFail) throw new EmailDeliveryException("SMTP no disponible.");
             Otp = otp;
             return Task.CompletedTask;
         }
@@ -165,6 +182,7 @@ public sealed class AuthServiceTests
         public int FailedLogins { get; private set; }
         public bool SuccessfulLoginRecorded { get; private set; }
         public bool PreviousOtpsInvalidated { get; private set; }
+        public int OtpInvalidations { get; private set; }
         public bool OtpConsumed { get; private set; }
         public string? StoredOtpHash { get; private set; }
         public string? StoredRefreshHash { get; private set; }
@@ -175,7 +193,7 @@ public sealed class AuthServiceTests
         public Task<AuthenticationUser?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken = default) => Task.FromResult(User);
         public Task RecordFailedLoginAsync(Guid userId, int maximumAttempts, DateTimeOffset blockedUntil, CancellationToken cancellationToken = default) { FailedLogins++; return Task.CompletedTask; }
         public Task RecordSuccessfulLoginAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken = default) { SuccessfulLoginRecorded = true; return Task.CompletedTask; }
-        public Task InvalidateActiveOtpsAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken = default) { PreviousOtpsInvalidated = true; return Task.CompletedTask; }
+        public Task InvalidateActiveOtpsAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken = default) { PreviousOtpsInvalidated = true; OtpInvalidations++; return Task.CompletedTask; }
         public Task CreateOtpAsync(Guid userId, string otpHash, DateTimeOffset expiresAt, string? ipHash, CancellationToken cancellationToken = default) { StoredOtpHash = otpHash; return Task.CompletedTask; }
         public Task<OtpChallenge?> GetLatestActiveOtpAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(Challenge);
         public Task RecordFailedOtpAttemptAsync(Guid otpId, int maximumAttempts, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
