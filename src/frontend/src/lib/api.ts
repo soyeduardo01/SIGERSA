@@ -158,8 +158,16 @@ export async function updateAllItem(id: number, draft: AllItemDraft) {
   await sendJson<void>(`/api/v1/all-items/${id}`, 'PUT', draft)
 }
 
-export async function deleteAllItem(id: number) {
-  const response = await apiFetch(`/api/v1/all-items/${id}`, { method: 'DELETE' })
+export async function deleteAllItem(
+  id: number,
+  childStrategy?: 'SUBTREE' | 'REPARENT',
+  reparentToItems?: number,
+) {
+  const query = new URLSearchParams()
+  if (childStrategy) query.set('childStrategy', childStrategy)
+  if (reparentToItems !== undefined) query.set('reparentToItems', String(reparentToItems))
+  const suffix = query.size > 0 ? `?${query}` : ''
+  const response = await apiFetch(`/api/v1/all-items/${id}${suffix}`, { method: 'DELETE' })
   if (!response.ok) throw await apiError(response)
 }
 

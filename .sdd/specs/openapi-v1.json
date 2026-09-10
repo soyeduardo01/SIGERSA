@@ -144,6 +144,21 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "childStrategy",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reparentToItems",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
           }
         ],
         "responses": {

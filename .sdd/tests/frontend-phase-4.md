@@ -17,6 +17,7 @@
 5. Los fallos de red incrementan los intentos y programan un nuevo reintento.
 6. La interfaz distingue por texto y color los estados BPM y niveles de riesgo.
 7. El menú adaptable puede abrirse con teclado y cerrarse con `Escape`.
+8. Al remover un nodo padre, la vista exige elegir explícitamente entre eliminar el subárbol o reubicar sus hijos.
 
 ## Verificaciones manuales pendientes de integración
 

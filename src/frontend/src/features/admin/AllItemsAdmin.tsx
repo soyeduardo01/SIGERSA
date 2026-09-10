@@ -15,6 +15,8 @@ export function AllItemsAdmin() {
   const [items, setItems] = useState<AllItem[]>([])
   const [draft, setDraft] = useState<AllItemDraft>(emptyDraft)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<AllItem | null>(null)
+  const [reparentToItems, setReparentToItems] = useState('')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
@@ -56,9 +58,24 @@ export function AllItemsAdmin() {
   }
 
   async function remove(item: AllItem) {
+    const hasChildren = items.some((candidate) => candidate.parents === item.itemsId)
+    if (hasChildren) {
+      setDeleteTarget(item)
+      setReparentToItems('')
+      return
+    }
     if (!window.confirm(`¿Remover "${item.description}" de la plantilla?`)) return
+    await executeRemove(item)
+  }
+
+  async function executeRemove(
+    item: AllItem,
+    childStrategy?: 'SUBTREE' | 'REPARENT',
+    newParent?: number,
+  ) {
     try {
-      await deleteAllItem(item.items)
+      await deleteAllItem(item.items, childStrategy, newParent)
+      setDeleteTarget(null)
       setMessage('Nodo removido.')
       await reload()
     } catch (error) {
@@ -159,6 +176,68 @@ export function AllItemsAdmin() {
         <p className="mt-4 rounded-xl bg-brand-100 p-3 text-sm text-brand-900" role="status">
           {message}
         </p>
+      )}
+      {deleteTarget && (
+        <section
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-node-title"
+          className="mt-4 rounded-card border border-amber-300 bg-amber-50 p-5"
+        >
+          <h2 id="delete-node-title" className="font-extrabold text-ink-strong">
+            El nodo tiene hijos
+          </h2>
+          <p className="mt-2 text-sm text-ink-body">
+            Elija si desea eliminar todo el subárbol de «{deleteTarget.description}» o conservar sus
+            hijos asignándolos a otro padre.
+          </p>
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <button
+              type="button"
+              onClick={() => void executeRemove(deleteTarget, 'SUBTREE')}
+              className="min-h-11 rounded-xl bg-red-700 px-4 font-bold text-white"
+            >
+              Eliminar subárbol
+            </button>
+            <label className="text-sm font-bold text-ink-body">
+              Nuevo padre de los hijos
+              <select
+                value={reparentToItems}
+                onChange={(event) => setReparentToItems(event.target.value)}
+                className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal"
+              >
+                <option value="">Padre actual del nodo</option>
+                {items
+                  .filter((item) => item.items !== deleteTarget.items)
+                  .map((item) => (
+                    <option key={item.items} value={item.items}>
+                      {item.items}. {item.itemsId} — {item.description}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={() =>
+                void executeRemove(
+                  deleteTarget,
+                  'REPARENT',
+                  reparentToItems ? Number(reparentToItems) : undefined,
+                )
+              }
+              className="min-h-11 rounded-xl bg-brand-700 px-4 font-bold text-white"
+            >
+              Reubicar hijos y remover
+            </button>
+            <button
+              type="button"
+              onClick={() => setDeleteTarget(null)}
+              className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 font-bold"
+            >
+              Cancelar
+            </button>
+          </div>
+        </section>
       )}
       <div className="mt-6 overflow-x-auto rounded-card bg-white shadow-card">
         <table className="min-w-full text-left text-sm">

@@ -13,6 +13,8 @@ El frontend de SIGERSA es una PWA móvil primero orientada al trabajo de campo. 
 - Cliente oficial de Supabase para enviar binarios a Storage.
 - API REST v1 para persistir respuestas y metadatos de evidencia.
 
+La administración de `AllItems` ofrece alta, edición, reordenamiento y eliminación. Cuando un nodo contiene hijos, la interfaz obliga a escoger entre eliminar el subárbol o reubicar sus hijos; el backend vuelve a validar orden, ciclos y compatibilidad de tipos.
+
 ## Flujo offline
 
 1. Cada mutación recibe una `idempotency_key` antes de almacenarse localmente.

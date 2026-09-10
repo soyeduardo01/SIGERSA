@@ -25,9 +25,9 @@ El contrato normativo y legible por herramientas es `.sdd/specs/openapi-v1.json`
 | `DELETE /parameters/{id}` | Administrador | Baja lógica. |
 | `GET /all-items` | Autenticado | Lee la plantilla mutable. |
 | `POST /all-items` | Administrador | Agrega un nodo. |
-| `PUT /all-items/{id}` | Administrador | Edita texto o jerarquía, rechazando ciclos. |
-| `DELETE /all-items/{id}` | Administrador | Elimina un nodo sin descendientes. |
-| `PUT /all-items/order` | Administrador | Reordena todos los nodos en una transacción. |
+| `PUT /all-items/{id}` | Administrador | Edita texto o jerarquía, actualiza las referencias de hijos y rechaza ciclos o tipos incompatibles. |
+| `DELETE /all-items/{id}` | Administrador | Elimina una hoja; si tiene hijos exige `childStrategy=SUBTREE` o `REPARENT`, con `reparentToItems` opcional. |
+| `PUT /all-items/order` | Administrador | Reordena todos los nodos en una transacción, sin permitir hijos antes de sus padres. |
 | `POST /inspection-templates/publish-all-items` | Administrador | Publica una versión inmutable de la ficha y reglas. |
 
 ## 4. Evaluación, riesgo y evidencias

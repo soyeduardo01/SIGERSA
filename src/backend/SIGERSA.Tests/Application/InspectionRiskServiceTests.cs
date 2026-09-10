@@ -41,8 +41,8 @@ public sealed class InspectionRiskServiceTests
         public Task<IReadOnlyList<AllItem>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(items);
         public Task<AllItem?> GetByIdAsync(int item, CancellationToken cancellationToken = default) => Task.FromResult(items.SingleOrDefault(value => value.Items == item));
         public Task<AllItem> CreateAsync(AllItemDraft item, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<bool> UpdateAsync(int item, AllItemDraft value, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<bool> DeleteAsync(int item, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<bool> UpdateAsync(int item, AllItemDraft value, IReadOnlyCollection<int> childrenToReparent, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> ApplyDeleteAsync(IReadOnlyCollection<int> itemsToDelete, IReadOnlyDictionary<int, string?> childrenToReparent, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<AllItem>> ReorderAsync(IReadOnlyList<int> orderedItems, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 }

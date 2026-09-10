@@ -36,7 +36,11 @@ public sealed class AllItemsRepository(IDbConnectionFactory connectionFactory)
         }
     }
 
-    public async Task<bool> UpdateAsync(int items, AllItemDraft item, CancellationToken cancellationToken = default)
+    public async Task<bool> UpdateAsync(
+        int items,
+        AllItemDraft item,
+        IReadOnlyCollection<int> childrenToReparent,
+        CancellationToken cancellationToken = default)
     {
         const string sql = """
             UPDATE "SIGERSA"."AllItems"
@@ -46,19 +50,71 @@ public sealed class AllItemsRepository(IDbConnectionFactory connectionFactory)
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
+        await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
-            return await connection.ExecuteAsync(new CommandDefinition(
-                Sql(sql), new { Items = items, item.ItemsId, item.Description, item.SectionType, item.Parents }, cancellationToken: cancellationToken)) == 1;
+            var changed = await connection.ExecuteAsync(new CommandDefinition(
+                Sql(sql), new { Items = items, item.ItemsId, item.Description, item.SectionType, item.Parents }, transaction, cancellationToken: cancellationToken)) == 1;
+            if (!changed)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            if (childrenToReparent.Count > 0)
+            {
+                var reparented = await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                    UPDATE "SIGERSA"."AllItems"
+                    SET "Parents" = @NewParentCode
+                    WHERE "Items" = ANY(@ChildItems);
+                    """), new { NewParentCode = item.ItemsId, ChildItems = childrenToReparent.ToArray() }, transaction, cancellationToken: cancellationToken));
+                if (reparented != childrenToReparent.Count)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return false;
+                }
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return true;
         }
     }
 
-    public async Task<bool> DeleteAsync(int items, CancellationToken cancellationToken = default)
+    public async Task<int> ApplyDeleteAsync(
+        IReadOnlyCollection<int> itemsToDelete,
+        IReadOnlyDictionary<int, string?> childrenToReparent,
+        CancellationToken cancellationToken = default)
     {
-        const string sql = """DELETE FROM "SIGERSA"."AllItems" WHERE "Items" = @Items;""";
+        if (itemsToDelete.Count == 0) return 0;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
+        await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
-            return await connection.ExecuteAsync(new CommandDefinition(Sql(sql), new { Items = items }, cancellationToken: cancellationToken)) == 1;
+            foreach (var child in childrenToReparent)
+            {
+                var updated = await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                    UPDATE "SIGERSA"."AllItems"
+                    SET "Parents" = @ParentCode
+                    WHERE "Items" = @ChildItem;
+                    """), new { ChildItem = child.Key, ParentCode = child.Value }, transaction, cancellationToken: cancellationToken));
+                if (updated != 1)
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+                    return 0;
+                }
+            }
+
+            var deleted = await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                DELETE FROM "SIGERSA"."AllItems"
+                WHERE "Items" = ANY(@ItemsToDelete);
+                """), new { ItemsToDelete = itemsToDelete.ToArray() }, transaction, cancellationToken: cancellationToken));
+            if (deleted != itemsToDelete.Count)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+                return 0;
+            }
+
+            await transaction.CommitAsync(cancellationToken);
+            return deleted;
         }
     }
 

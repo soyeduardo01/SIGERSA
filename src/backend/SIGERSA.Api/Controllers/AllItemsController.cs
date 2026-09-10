@@ -31,9 +31,13 @@ public sealed class AllItemsController(AllItemsService service) : ControllerBase
 
     [HttpDelete("{id:int}")]
     [Authorize(Policy = "Administrator")]
-    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    public async Task<IActionResult> Delete(
+        int id,
+        [FromQuery] string? childStrategy,
+        [FromQuery] int? reparentToItems,
+        CancellationToken cancellationToken)
     {
-        await service.DeleteAsync(id, cancellationToken);
+        await service.DeleteAsync(id, childStrategy, reparentToItems, cancellationToken);
         return NoContent();
     }
 

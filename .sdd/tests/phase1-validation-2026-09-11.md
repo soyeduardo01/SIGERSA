@@ -8,8 +8,8 @@ Rama: `dev-eduardo`
 | Alcance | Resultado | Evidencia |
 | --- | --- | --- |
 | Paso 1 — Base de datos | Aprobado | Migraciones `001` a `006` aplicadas sobre una base vacía y las incrementales aplicadas sobre la base existente. |
-| Paso 2 — Código backend | Aprobado | Compilación .NET 10 sin advertencias; 50 pruebas unitarias aprobadas; API inició y respondió estado `200`. |
-| Paso 3 — PWA | Aprobado localmente | TypeScript, formato, lint, 4 pruebas y build PWA aprobados; ficha por evaluación, CRUD/reordenamiento, recuperación OTP y cola offline implementados. El flujo login/recuperación también fue inspeccionado en navegador real. |
+| Paso 2 — Código backend | Aprobado | Compilación .NET 10 sin advertencias; 55 pruebas unitarias aprobadas; API inició y respondió estado `200`. |
+| Paso 3 — PWA | Aprobado localmente | TypeScript, formato, lint, 5 pruebas y build PWA aprobados; ficha por evaluación, CRUD/reordenamiento, recuperación OTP y cola offline implementados. El flujo login/recuperación también fue inspeccionado en navegador real. |
 | Paso 2 — Supabase remoto | Pendiente de credencial | El adaptador y sus pruebas están aprobados, pero la clave local de servidor fue rechazada con `401`; la clave secreta recibida estaba enmascarada y no puede reconstruirse. |
 
 ## Paso 1 — Comprobaciones ejecutadas
@@ -31,7 +31,7 @@ En la base local se ejecutó, dentro de una transacción revertida, el ciclo com
 ## Paso 2 — Comprobaciones ejecutadas
 
 - Solución `SIGERSA.sln`: compilación aprobada en .NET 10, cero errores y cero advertencias.
-- Pruebas backend: `50/50` aprobadas.
+- Pruebas backend: `55/55` aprobadas.
 - Formato backend: `dotnet format --verify-no-changes`, aprobado.
 - Arranque real de la API con configuración local ignorada: aprobado.
 - `GET /api/v1/system/status`: HTTP `200`, servicio `ok`, .NET `10.0`.
@@ -42,6 +42,7 @@ En la base local se ejecutó, dentro de una transacción revertida, el ciclo com
 - Concurrencia/idempotencia: conflicto optimista y reutilización segura de operación cubiertos por pruebas y flujo de persistencia.
 - SMTP: configuración solo local; el flujo OTP usa el adaptador SMTP y no registra el código.
 - Supabase Storage: autorización firmada posterior a validar asignación, ruta determinista, verificación remota y persistencia idempotente de ruta, tamaño, MIME y SHA-256 comprobadas con dobles de prueba.
+- Ficha mutable: la eliminación de padres exige elegir entre subárbol y reubicación; el orden conserva padres antes que hijos y las combinaciones `C/S/SS/A/I` se validan. Las operaciones se probaron contra API y PostgreSQL reales: ausencia de estrategia devolvió `409`, `REPARENT` conservó y reasignó el hijo, `SUBTREE` dejó cero nodos temporales, el reordenamiento completo conservó 90 nodos y el cambio de código del padre actualizó atómicamente la referencia del hijo.
 - Navegador: se verificaron la pantalla de inicio de sesión, el enlace de recuperación, el formulario de solicitud de OTP, la validación obligatoria del correo y el retorno al login. Playwright CLI no pudo usar su distribución predeterminada porque Google Chrome no está instalado; la comprobación se completó con el navegador integrado de Codex.
 
 ## Flujo E2E ejecutado
