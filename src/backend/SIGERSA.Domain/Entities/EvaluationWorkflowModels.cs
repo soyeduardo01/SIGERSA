@@ -61,7 +61,15 @@ public sealed record EvaluationCalculationInput(
     Guid EvaluationId,
     long RowVersion,
     IReadOnlyList<EvaluationFormItem> Items,
-    IReadOnlyList<EvaluationAnswer> Answers);
+    IReadOnlyList<EvaluationAnswer> Answers,
+    decimal? MonthlyProduction,
+    bool? HaccpImplemented,
+    decimal? HaccpPercentage,
+    bool? IsInabieSupplier,
+    string? InabieDistributionCode,
+    int MicrobiologicalRejectionsLastFiveYears,
+    bool? MicrobiologicalSamplingPlan,
+    string? SamplingApplicationCode);
 
 public sealed record EvaluationCalculation(
     Guid EvaluationId,

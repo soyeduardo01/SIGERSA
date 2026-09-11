@@ -9,6 +9,11 @@ namespace SIGERSA.Api.Controllers;
 [Route("api/v1/parameters")]
 public sealed class ParametersController(ParametersService service) : ControllerBase
 {
+    [HttpGet]
+    [Authorize(Policy = "Administrator")]
+    public Task<IReadOnlyList<ParameterControl>> GetAll(string? search, CancellationToken cancellationToken) =>
+        service.GetAllActiveAsync(search, cancellationToken);
+
     [HttpGet("{keyWord}")]
     [Authorize]
     public Task<IReadOnlyList<ParameterControl>> Get(string keyWord, int? companyCode, CancellationToken cancellationToken) =>

@@ -14,10 +14,12 @@ import {
 import { alerts } from '../../lib/alerts'
 import { formatIdentification, formatPhone, formatStatusLabel } from '../../lib/formatters'
 import { UserFormModal } from './UserFormModal'
+import { useParameterOptions } from '../../hooks/useParameterOptions'
 
 const emptyPage: ManagedUsersPage = { items: [], page: 1, pageSize: 10, total: 0 }
 
 export function UsersManagement() {
+  const userStates = useParameterOptions('ESTADO_USUARIO_GESTION')
   const [result, setResult] = useState<ManagedUsersPage>(emptyPage)
   const [options, setOptions] = useState<UserManagementOptions | null>(null)
   const [searchInput, setSearchInput] = useState('')
@@ -193,8 +195,11 @@ export function UsersManagement() {
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
             >
               <option value="">Todos</option>
-              <option value="ACTIVO">Activo</option>
-              <option value="SUSPENDIDO">Suspendido</option>
+              {userStates.options.map((item) => (
+                <option key={item.parametersId} value={item.stringData ?? ''}>
+                  {formatStatusLabel(item.stringData ?? '')}
+                </option>
+              ))}
             </select>
           </label>
           <button className="text-brand-800 mt-auto min-h-11 rounded-xl border border-brand-700 px-5 font-bold">

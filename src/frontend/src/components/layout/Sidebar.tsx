@@ -41,6 +41,12 @@ const navigation: NavigationItem[] = [
     icon: 'M7 3h10v4h4v14H3V7h4V3Zm2 2v4h6V5H9Zm-2 8h10M7 17h7',
   },
   {
+    module: 'inspecciones',
+    to: '/inspecciones',
+    label: 'Inspecciones',
+    icon: 'M4 5h16v14H4V5Zm4 4h8M8 13h5m5 3 2 2 4-5',
+  },
+  {
     module: 'programacion',
     to: '/programacion',
     label: 'Programación',
@@ -166,17 +172,21 @@ export function Sidebar({ mobile = false, currentModule = 'resumen', onNavigate 
 
   return (
     <div className="relative flex h-full flex-col overflow-hidden bg-[linear-gradient(165deg,#043a2e_0%,#0A4D3C_58%,#063e31_100%)] text-white">
-      <span className="pointer-events-none absolute -right-36 bottom-24 z-0 size-80 rounded-full border-[4rem] border-emerald-400/6 opacity-45 blur-2xl" aria-hidden="true" />
-      <span className="pointer-events-none absolute -bottom-40 -left-40 z-0 size-96 rounded-full border-[5rem] border-emerald-500/8 opacity-40 blur-3xl" aria-hidden="true" />
+      <span
+        className="pointer-events-none absolute -right-36 bottom-24 z-0 size-80 rounded-full border-[4rem] border-emerald-300/20 opacity-75 blur-md"
+        aria-hidden="true"
+      />
+      <span
+        className="pointer-events-none absolute -bottom-40 -left-40 z-0 size-96 rounded-full border-[5rem] border-emerald-400/16 opacity-70 blur-lg"
+        aria-hidden="true"
+      />
       <div className="relative z-10 flex h-20 items-center gap-3 px-5">
-        <span className="grid size-11 place-items-center rounded-xl bg-brand-500 shadow-lg shadow-black/20">
-          <svg viewBox="0 0 32 32" className="size-7" aria-hidden="true">
-            <path
-              fill="currentColor"
-              d="M16 3C9.4 3 4 7 4 12c0 3.3 2.4 6.2 6 7.8V25a6 6 0 0 0 12 0v-5.2c3.6-1.6 6-4.5 6-7.8 0-5-5.4-9-12-9Zm0 7 3.5 4.8L16 19.5l-3.5-4.7L16 10Z"
-            />
-          </svg>
-        </span>
+        <img
+          src="/assets/sigersa-icon.png"
+          alt=""
+          className="size-11 rounded-xl object-cover shadow-lg shadow-black/20"
+          aria-hidden="true"
+        />
         <div>
           <p className="text-xl font-extrabold tracking-tight">SIGERSA</p>
           <p className="text-[0.66rem] font-semibold tracking-[0.14em] text-emerald-100 uppercase">

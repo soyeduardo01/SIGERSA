@@ -6,6 +6,7 @@ const apiMocks = vi.hoisted(() => ({
   createAllItem: vi.fn(),
   deleteAllItem: vi.fn(),
   getAllItems: vi.fn(),
+  getParameters: vi.fn(),
   reorderAllItems: vi.fn(),
   updateAllItem: vi.fn(),
 }))
@@ -25,6 +26,13 @@ describe('AllItemsAdmin', () => {
     apiMocks.getAllItems.mockResolvedValue([
       { items: 1, itemsId: '1', description: 'Categoría', sectionType: 'C', parents: null },
       { items: 2, itemsId: '1.1', description: 'Pregunta', sectionType: 'I', parents: '1' },
+    ])
+    apiMocks.getParameters.mockResolvedValue([
+      { parametersId: 1, cCode: 'C', stringData: 'Capítulo', numericData: 1 },
+      { parametersId: 2, cCode: 'S', stringData: 'Sección', numericData: 2 },
+      { parametersId: 3, cCode: 'SS', stringData: 'Subsección', numericData: 3 },
+      { parametersId: 4, cCode: 'A', stringData: 'Agrupación', numericData: 4 },
+      { parametersId: 5, cCode: 'I', stringData: 'Pregunta', numericData: 5 },
     ])
     apiMocks.deleteAllItem.mockResolvedValue(undefined)
   })

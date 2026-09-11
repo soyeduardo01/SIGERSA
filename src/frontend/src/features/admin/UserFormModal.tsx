@@ -1,8 +1,14 @@
 import { useState, type FormEvent } from 'react'
 import { PasswordValidatorUI } from '../../components/feedback/PasswordValidatorUI'
 import type { ManagedUser, ManagedUserDraft, UserManagementOptions } from '../../lib/api'
-import { formatCedula, formatIdentification, formatPhone } from '../../lib/formatters'
+import {
+  formatCedula,
+  formatIdentification,
+  formatPhone,
+  formatStatusLabel,
+} from '../../lib/formatters'
 import { isPasswordValid } from '../../lib/passwordPolicy'
+import { useParameterOptions } from '../../hooks/useParameterOptions'
 
 interface UserFormModalProps {
   user: ManagedUser | null
@@ -15,15 +21,15 @@ function initialDraft(user: ManagedUser | null): ManagedUserDraft {
   return {
     nombreCompleto: user?.nombreCompleto ?? '',
     correo: user?.correo ?? '',
-    tipoIdentificacion: user?.tipoIdentificacion ?? 'CEDULA',
+    tipoIdentificacion: user?.tipoIdentificacion ?? '',
     identificacion: formatIdentification(
       user?.identificacion ?? '',
-      user?.tipoIdentificacion ?? 'CEDULA',
+      user?.tipoIdentificacion ?? '',
     ),
     telefono: formatPhone(user?.telefono ?? ''),
     empresaId: user?.empresaId ?? null,
     rol: user?.roles[0] ?? '',
-    estado: user?.estado ?? 'ACTIVO',
+    estado: user?.estado ?? '',
     temporaryPassword: '',
     versionFila: user?.versionFila ?? null,
   }
@@ -32,6 +38,8 @@ function initialDraft(user: ManagedUser | null): ManagedUserDraft {
 export function UserFormModal({ user, options, onClose, onSave }: UserFormModalProps) {
   const [draft, setDraft] = useState(() => initialDraft(user))
   const [saving, setSaving] = useState(false)
+  const identificationTypes = useParameterOptions('TIPO_IDENTIFICACION')
+  const userStates = useParameterOptions('ESTADO_USUARIO_GESTION')
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -50,12 +58,15 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="user-modal-title"
+      className="sigersa-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="presentation"
     >
-      <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card bg-white shadow-2xl">
+      <div
+        className="sigersa-modal-panel w-full max-w-3xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="user-modal-title"
+      >
         <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
           <div>
             <p className="text-xs font-bold tracking-[0.14em] text-brand-700 uppercase">
@@ -112,6 +123,7 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
           <label className="text-sm font-bold text-ink-body">
             Tipo de identificación
             <select
+              required
               value={draft.tipoIdentificacion}
               onChange={(event) => {
                 const type = event.target.value
@@ -123,10 +135,12 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
               }}
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
             >
-              <option value="CEDULA">Cédula</option>
-              <option value="PASAPORTE">Pasaporte</option>
-              <option value="RNC">RNC</option>
-              <option value="OTRO">Otro</option>
+              <option value="">Seleccione</option>
+              {identificationTypes.options.map((option) => (
+                <option key={option.parametersId} value={option.stringData ?? ''}>
+                  {formatStatusLabel(option.stringData ?? '')}
+                </option>
+              ))}
             </select>
           </label>
           <label className="text-sm font-bold text-ink-body">
@@ -184,14 +198,19 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
           <label className="text-sm font-bold text-ink-body">
             Estado
             <select
+              required
               value={draft.estado}
               onChange={(event) =>
                 setDraft({ ...draft, estado: event.target.value as ManagedUserDraft['estado'] })
               }
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
             >
-              <option value="ACTIVO">Activo</option>
-              <option value="SUSPENDIDO">Suspendido</option>
+              <option value="">Seleccione</option>
+              {userStates.options.map((option) => (
+                <option key={option.parametersId} value={option.stringData ?? ''}>
+                  {formatStatusLabel(option.stringData ?? '')}
+                </option>
+              ))}
             </select>
           </label>
           <label className="text-sm font-bold text-ink-body">

@@ -19,6 +19,145 @@ export interface SessionIdentity {
   initials: string
 }
 
+export interface ParameterControl {
+  parametersId: number
+  keyWord: string
+  companyCode: number | null
+  oCode: number | null
+  cCode: string | null
+  numericData: number | null
+  doubleData: number | null
+  stringData: string | null
+  booleanData: boolean | null
+  dateData: string | null
+  status: boolean
+}
+
+export interface ParameterControlDraft {
+  keyWord: string
+  companyCode: number | null
+  oCode: number | null
+  cCode: string | null
+  numericData: number | null
+  doubleData: number | null
+  stringData: string | null
+  booleanData: boolean | null
+  dateData: string | null
+}
+
+export interface UserProfile {
+  id: string
+  fullName: string
+  email: string
+  phone: string | null
+  rowVersion: number
+}
+
+export interface EstablishmentSummary {
+  id: string
+  code: string
+  name: string
+  companyId: string
+  companyName: string
+  provinceName: string | null
+  municipalityName: string | null
+  phone: string | null
+  email: string | null
+  status: string
+  rowVersion: number
+}
+
+export interface EstablishmentsPage {
+  items: EstablishmentSummary[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface EstablishmentOption {
+  id: string
+  code: string
+  name: string
+}
+
+export interface MunicipalityOption extends EstablishmentOption {
+  provinceId: string
+}
+
+export interface SubcategoryOption extends EstablishmentOption {
+  categoryId: string
+  riskLevel: number | null
+}
+
+export interface EstablishmentOptions {
+  companies: EstablishmentOption[]
+  provinces: EstablishmentOption[]
+  municipalities: MunicipalityOption[]
+  dpsDas: EstablishmentOption[]
+  commercializations: EstablishmentOption[]
+  markets: EstablishmentOption[]
+  categories: EstablishmentOption[]
+  subcategories: SubcategoryOption[]
+  statuses: ParameterControl[]
+  haccpLevels: ParameterControl[]
+  samplingApplications: ParameterControl[]
+  inabieDistributions: ParameterControl[]
+}
+
+export interface EstablishmentContactDraft {
+  type: 'PRINCIPAL' | 'LEGAL'
+  fullName: string
+  identification: string | null
+  phone: string | null
+  email: string | null
+}
+
+export interface EstablishmentProductDraft {
+  subcategoryId: string
+  description: string
+  monthlyVolume: number | null
+  unit: string | null
+}
+
+export interface EstablishmentDraft {
+  companyId: string
+  municipalityId: string | null
+  dpsDasId: string | null
+  commercializationId: string | null
+  code: string
+  name: string
+  street: string | null
+  addressNumber: string | null
+  phone: string | null
+  email: string | null
+  operationsStartDate: string | null
+  sanitaryPermitNumber: string | null
+  sanitaryPermitExpiresAt: string | null
+  productsDescription: string | null
+  annualProduction: number | null
+  femaleEmployees: number | null
+  maleEmployees: number | null
+  microbiologicalRejectionsLastFiveYears: number
+  haccpImplemented: boolean | null
+  haccpPercentage: number | null
+  microbiologicalSamplingPlan: boolean | null
+  samplingApplicationCode: string | null
+  isInabieSupplier: boolean | null
+  inabieDistributionCode: string | null
+  status: string
+  marketIds: string[]
+  contacts: EstablishmentContactDraft[]
+  products: EstablishmentProductDraft[]
+  rowVersion: number | null
+}
+
+export interface EstablishmentDetails {
+  id: string
+  data: EstablishmentDraft
+  companyName: string
+  provinceId: string | null
+}
+
 export class ApiError extends Error {
   readonly status?: number
 
@@ -157,7 +296,7 @@ export interface ManagedUser {
   roles: string[]
   empresaId: string | null
   empresaNombre: string | null
-  estado: 'ACTIVO' | 'SUSPENDIDO'
+  estado: string
   activo: boolean
   versionFila: number
 }
@@ -183,7 +322,7 @@ export interface ManagedUserDraft {
   telefono: string
   empresaId: string | null
   rol: string
-  estado: 'ACTIVO' | 'SUSPENDIDO'
+  estado: string
   temporaryPassword: string
   versionFila: number | null
 }
@@ -494,6 +633,91 @@ export async function apiFetch(path: string, init: RequestInit = {}, retry = tru
 
 export async function getAllItems() {
   return getJson<AllItem[]>('/api/v1/all-items')
+}
+
+export async function getParameters(keyWord: string, companyCode?: number) {
+  const query = new URLSearchParams()
+  if (companyCode !== undefined) query.set('companyCode', String(companyCode))
+  const suffix = query.size > 0 ? `?${query}` : ''
+  return getJson<ParameterControl[]>(`/api/v1/parameters/${encodeURIComponent(keyWord)}${suffix}`)
+}
+
+export async function getAllParameters(search = '') {
+  const query = new URLSearchParams()
+  if (search) query.set('search', search)
+  const suffix = query.size ? `?${query}` : ''
+  return getJson<ParameterControl[]>(`/api/v1/parameters${suffix}`)
+}
+
+export async function createParameter(draft: ParameterControlDraft) {
+  return sendJson<{ parametersId: number }>('/api/v1/parameters', 'POST', draft)
+}
+
+export async function updateParameter(id: number, draft: ParameterControlDraft) {
+  return sendJson<void>(`/api/v1/parameters/${id}`, 'PUT', draft)
+}
+
+export async function deleteParameter(id: number) {
+  const response = await apiFetch(`/api/v1/parameters/${id}`, { method: 'DELETE' })
+  if (!response.ok) throw await apiError(response)
+}
+
+export async function getProfile() {
+  return getJson<UserProfile>('/api/v1/profile')
+}
+
+export async function getEstablishments(filters: {
+  search?: string
+  status?: string
+  page?: number
+  pageSize?: number
+}) {
+  const query = new URLSearchParams()
+  if (filters.search) query.set('search', filters.search)
+  if (filters.status) query.set('status', filters.status)
+  query.set('page', String(filters.page ?? 1))
+  query.set('pageSize', String(filters.pageSize ?? 10))
+  return getJson<EstablishmentsPage>(`/api/v1/establishments?${query}`)
+}
+
+export async function getEstablishment(id: string) {
+  return getJson<EstablishmentDetails>(`/api/v1/establishments/${id}`)
+}
+
+export async function getEstablishmentOptions() {
+  return getJson<EstablishmentOptions>('/api/v1/establishments/options')
+}
+
+export async function createEstablishment(draft: EstablishmentDraft) {
+  return sendJson<{ id: string }>('/api/v1/establishments', 'POST', draft)
+}
+
+export async function updateEstablishment(id: string, draft: EstablishmentDraft) {
+  return sendJson<void>(`/api/v1/establishments/${id}`, 'PUT', draft)
+}
+
+export async function updateProfile(input: {
+  fullName: string
+  email: string
+  phone: string | null
+  rowVersion: number
+}) {
+  return sendJson<UserProfile>('/api/v1/profile', 'PUT', input)
+}
+
+export async function changeProfilePassword(input: {
+  currentPassword: string
+  newPassword: string
+  confirmPassword: string
+  rowVersion: number
+}) {
+  return sendJson<void>('/api/v1/profile/password', 'PUT', input)
+}
+
+export function updateSessionIdentity(userName: string, email: string) {
+  const session = getSession()
+  if (!session) return
+  saveSession({ ...session, userName, email })
 }
 
 export async function createAllItem(draft: AllItemDraft) {

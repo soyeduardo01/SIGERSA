@@ -5,12 +5,15 @@ import { formatStatusLabel } from '../../lib/formatters'
 import { offlineDb, type SyncQueueItem } from '../../offline/database'
 import { flushSyncQueue, subscribeToSyncQueue } from '../../offline/syncQueue'
 import { AllItemsAdmin } from '../admin/AllItemsAdmin'
+import { ParametersManagement } from '../admin/ParametersManagement'
 import { CasesManagement } from '../cases/CasesManagement'
 import { CorrectionsManagement } from '../corrections/CorrectionsManagement'
 import { EvaluationsManagement } from '../evaluations/EvaluationsManagement'
 import { EvidenceManagement } from '../evidences/EvidenceManagement'
+import { EstablishmentsManagement } from '../establishments/EstablishmentsManagement'
 import { RequestsManagement } from '../requests/RequestsManagement'
 import { SchedulingManagement } from '../scheduling/SchedulingManagement'
+import { ProfileManagement } from '../profile/ProfileManagement'
 import { DashboardOverview } from './DashboardOverview'
 import { OperationalModulePage, type OperationalModuleConfig } from './OperationalModulePage'
 
@@ -39,38 +42,16 @@ export function CompaniesPage() {
       actionLabel="Nueva empresa"
       referenceLabel="RNC o código"
       detailLabel="Razón social y datos de contacto"
-      statuses={['ACTIVA', 'INACTIVA', 'PENDIENTE']}
+      statusKeyWord="ESTADO_EMPRESA"
       editors={['ADMINISTRADOR', 'ADMINISTRADOR_EMPRESA', 'COORDINADOR']}
     />
   )
 }
 export function EstablishmentsPage() {
-  return (
-    <Workspace
-      title="Establecimientos"
-      eyebrow="Registro sanitario"
-      description="Consulte y mantenga establecimientos de acuerdo con la empresa, territorio y asignación autorizada."
-      actionLabel="Nuevo establecimiento"
-      referenceLabel="Código"
-      detailLabel="Nombre, dirección y actividad"
-      statuses={['ACTIVO', 'INACTIVO', 'PENDIENTE']}
-      editors={['ADMINISTRADOR', 'ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO', 'COORDINADOR']}
-    />
-  )
+  return <EstablishmentsManagement />
 }
 export function ParametersPage() {
-  return (
-    <Workspace
-      title="Parámetros y catálogos"
-      eyebrow="Configuración"
-      description="Consulte los valores activos de ParametersControl. Solo el Administrador puede crear, modificar o desactivar valores."
-      actionLabel="Nuevo parámetro"
-      referenceLabel="KeyWord / Código"
-      detailLabel="Valor y ámbito"
-      statuses={['ACTIVO', 'INACTIVO']}
-      editors={['ADMINISTRADOR']}
-    />
-  )
+  return <ParametersManagement />
 }
 export function RequestsPage() {
   return <RequestsManagement />
@@ -84,7 +65,7 @@ export function AlertsPage() {
       actionLabel="Nueva alerta"
       referenceLabel="Código de alerta"
       detailLabel="Origen, categoría y descripción"
-      statuses={['RECIBIDA', 'EN_ANALISIS', 'VINCULADA', 'CERRADA']}
+      statusKeyWord="ESTADO_ALERTA"
       editors={['ADMINISTRADOR', 'COORDINADOR']}
     />
   )
@@ -104,7 +85,7 @@ export function FindingsPage() {
       actionLabel="Nuevo hallazgo"
       referenceLabel="Ítem / Hallazgo"
       detailLabel="Descripción y severidad"
-      statuses={['ABIERTO', 'EN_CORRECCION', 'VALIDADO', 'CERRADO']}
+      statusKeyWord="ESTADO_HALLAZGO"
       editors={['ADMINISTRADOR', 'TECNICO_EVALUADOR']}
     />
   )
@@ -124,7 +105,7 @@ export function ReportsPage() {
       actionLabel="Nuevo informe"
       referenceLabel="Informe"
       detailLabel="Período, indicador y alcance"
-      statuses={['BORRADOR', 'GENERADO', 'PUBLICADO']}
+      statusKeyWord="ESTADO_INFORME"
       editors={['ADMINISTRADOR', 'COORDINADOR']}
     />
   )
@@ -138,7 +119,7 @@ export function AuditPage() {
       actionLabel="Exportar consulta"
       referenceLabel="Correlación / Actor"
       detailLabel="Evento, recurso y resultado"
-      statuses={['EXITOSO', 'DENEGADO', 'ERROR']}
+      statusKeyWord="RESULTADO_AUDITORIA"
       editors={[]}
     />
   )
@@ -148,56 +129,17 @@ export function EvaluationsPage() {
   return <EvaluationsManagement />
 }
 
+export function InspectionsPage() {
+  return <EvaluationsManagement mode="inspection" />
+}
+
 export function FichasPage() {
   const canEdit = useRole('ADMINISTRADOR')
   return <AllItemsAdmin readOnly={!canEdit} />
 }
 
 export function ProfilePage() {
-  const { identity, roleLabel, roles } = useAuth()
-  return (
-    <section aria-labelledby="profile-title">
-      <p className="text-xs font-bold tracking-[0.14em] text-brand-700 uppercase">Cuenta</p>
-      <h1 id="profile-title" className="mt-2 text-2xl font-extrabold text-ink-strong">
-        Mi perfil
-      </h1>
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
-        <article className="rounded-card bg-white p-6 shadow-card">
-          <h2 className="font-extrabold text-ink-strong">Datos de la sesión</h2>
-          <dl className="mt-5 grid gap-4 text-sm">
-            <div>
-              <dt className="font-bold text-ink-muted">Nombre</dt>
-              <dd className="mt-1 text-ink-strong">{identity?.name ?? 'Usuario SIGERSA'}</dd>
-            </div>
-            <div>
-              <dt className="font-bold text-ink-muted">Correo</dt>
-              <dd className="mt-1 text-ink-strong">{identity?.email || 'No disponible'}</dd>
-            </div>
-            <div>
-              <dt className="font-bold text-ink-muted">Rol principal</dt>
-              <dd className="mt-1 text-ink-strong">{roleLabel}</dd>
-            </div>
-          </dl>
-        </article>
-        <article className="rounded-card bg-white p-6 shadow-card">
-          <h2 className="font-extrabold text-ink-strong">Permisos activos</h2>
-          <p className="mt-2 text-sm text-ink-muted">
-            Los accesos dependen además del ámbito y de la propiedad de cada recurso.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {roles.map((role) => (
-              <span
-                key={role}
-                className="text-brand-800 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-bold"
-              >
-                {role}
-              </span>
-            ))}
-          </div>
-        </article>
-      </div>
-    </section>
-  )
+  return <ProfileManagement />
 }
 
 export function NotificationsPage() {

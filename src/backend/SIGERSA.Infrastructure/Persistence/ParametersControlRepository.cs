@@ -7,6 +7,30 @@ namespace SIGERSA.Infrastructure.Persistence;
 public sealed class ParametersControlRepository(IDbConnectionFactory connectionFactory)
     : DapperRepositoryBase(connectionFactory), IParametersControlRepository
 {
+    public async Task<IReadOnlyList<ParameterControl>> GetAllActiveAsync(string? search, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT
+                "ParametersId", "KeyWord", "CompanyCode", "OCode", "CCode",
+                "NumericData", "DoubleData", "StringData", "BooleanData", "DateData",
+                "Status", "CUser", "CDate", "MUser", "MDate", "DUser", "DDate"
+            FROM "SIGERSA"."ParametersControl"
+            WHERE "Status" = true
+              AND (@Search IS NULL
+                OR "KeyWord" ILIKE '%' || @Search || '%'
+                OR COALESCE("CCode", '') ILIKE '%' || @Search || '%'
+                OR COALESCE("StringData", '') ILIKE '%' || @Search || '%')
+            ORDER BY "KeyWord", "NumericData" NULLS LAST, "StringData" NULLS LAST, "ParametersId";
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            var command = new CommandDefinition(Sql(sql), new { Search = search }, cancellationToken: cancellationToken);
+            var rows = await connection.QueryAsync<ParameterControlRow>(command);
+            return rows.Select(row => row.ToDomain()).ToArray();
+        }
+    }
+
     public async Task<IReadOnlyList<ParameterControl>> GetActiveAsync(string keyWord, int? companyCode, CancellationToken cancellationToken = default)
     {
         const string sql = """

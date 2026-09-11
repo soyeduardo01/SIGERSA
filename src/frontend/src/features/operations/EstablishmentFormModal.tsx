@@ -1,135 +1,129 @@
-import { useEffect, useId, useState, type DragEvent, type FormEvent, type ReactNode } from 'react'
-import { alerts } from '../../lib/alerts'
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type ReactNode,
+  type SetStateAction,
+} from 'react'
+import type {
+  EstablishmentContactDraft,
+  EstablishmentDetails,
+  EstablishmentDraft,
+  EstablishmentOptions,
+} from '../../lib/api'
+import { formatStatusLabel } from '../../lib/formatters'
 
 interface EstablishmentFormModalProps {
   open: boolean
+  options: EstablishmentOptions
+  initial?: EstablishmentDetails | null
+  saving?: boolean
   onClose: () => void
+  onSave: (draft: EstablishmentDraft) => Promise<void>
 }
 
-type FieldIconName =
-  | 'building'
-  | 'calendar'
-  | 'code'
-  | 'list'
-  | 'mail'
-  | 'note'
-  | 'pin'
-  | 'phone'
-  | 'risk'
-  | 'status'
-  | 'store'
-  | 'user'
+type Tab = 'general' | 'production' | 'controls' | 'contacts'
 
-const fieldIconPaths: Record<FieldIconName, string> = {
-  building: 'M4 21V8l8-4 8 4v13M8 21v-5h8v5M8 10h.01M12 10h.01M16 10h.01',
-  calendar: 'M6 2v3m12-3v3M4 9h16M5 5h14a2 2 0 0 1 2 2v13H3V7a2 2 0 0 1 2-2Z',
-  code: 'M9 5h6m-7 3h8m-9 13h10a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2Z',
-  list: 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01',
-  mail: 'M3 6h18v12H3V6Zm0 1 9 6 9-6',
-  note: 'M6 3h12v18H6V3Zm3 5h6M9 12h6M9 16h4',
-  pin: 'M12 21s6-5.2 6-12a6 6 0 1 0-12 0c0 6.8 6 12 6 12Zm0-9a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
-  phone:
-    'M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-4-1-2 2a14 14 0 0 1-9-9l2-2-1-4Z',
-  risk: 'M5 20v-6h3v6H5Zm6 0V9h3v11h-3Zm6 0V4h3v16h-3Z',
-  status: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm-4-9 2.5 2.5L16 9',
-  store: 'M4 10h16M5 10v10h14V10M3 10l2-6h14l2 6M9 14h6v6',
-  user: 'M20 21a8 8 0 0 0-16 0m8-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
+const tabs: Array<[Tab, string]> = [
+  ['general', 'Datos generales'],
+  ['production', 'Producción y mercado'],
+  ['controls', 'Controles y estado'],
+  ['contacts', 'Contactos'],
+]
+
+const inputClass =
+  'mt-1.5 min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-ink-strong outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100 disabled:cursor-not-allowed disabled:bg-slate-100'
+
+const emptyContact = (type: 'PRINCIPAL' | 'LEGAL'): EstablishmentContactDraft => ({
+  type,
+  fullName: '',
+  identification: null,
+  phone: null,
+  email: null,
+})
+
+function newDraft(options: EstablishmentOptions): EstablishmentDraft {
+  return {
+    companyId: '',
+    municipalityId: null,
+    dpsDasId: null,
+    commercializationId: null,
+    code: '',
+    name: '',
+    street: null,
+    addressNumber: null,
+    phone: null,
+    email: null,
+    operationsStartDate: null,
+    sanitaryPermitNumber: null,
+    sanitaryPermitExpiresAt: null,
+    productsDescription: null,
+    annualProduction: null,
+    femaleEmployees: null,
+    maleEmployees: null,
+    microbiologicalRejectionsLastFiveYears: 0,
+    haccpImplemented: false,
+    haccpPercentage: null,
+    microbiologicalSamplingPlan: false,
+    samplingApplicationCode: null,
+    isInabieSupplier: false,
+    inabieDistributionCode: null,
+    status: options.statuses[0]?.stringData ?? '',
+    marketIds: [],
+    contacts: [],
+    products: [],
+    rowVersion: null,
+  }
 }
 
-function FieldIcon({ name }: { name: FieldIconName }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="size-[18px]"
-      fill="none"
-      stroke="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        d={fieldIconPaths[name]}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-    </svg>
-  )
-}
-
-function Icon({ children }: { children: ReactNode }) {
-  return (
-    <span className="grid size-11 shrink-0 place-items-center rounded-l-xl bg-brand-50 text-brand-700">
-      {children}
-    </span>
-  )
-}
-
-function InputFrame({ children, icon }: { children: ReactNode; icon: ReactNode }) {
-  return (
-    <span className="flex min-h-11 overflow-hidden rounded-xl border border-slate-200 bg-white transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
-      <Icon>{icon}</Icon>
-      {children}
-    </span>
-  )
-}
-
-function Label({ children, required = false }: { children: ReactNode; required?: boolean }) {
-  return (
-    <span className="mb-1.5 block text-xs font-bold text-ink-strong">
-      {children} {required && <span className="text-red-600">*</span>}
-    </span>
-  )
-}
-
-const fieldClass =
-  'min-w-0 flex-1 bg-transparent px-3 text-sm text-ink-strong outline-none placeholder:text-slate-400'
-
-function SelectControl({
-  children,
-  defaultValue,
-  label,
-  required = false,
-}: {
-  children: ReactNode
-  defaultValue?: string
-  label: string
-  required?: boolean
-}) {
-  return (
-    <span className="relative flex min-w-0 flex-1">
-      <select
-        aria-label={label}
-        required={required}
-        defaultValue={defaultValue}
-        className={`${fieldClass} h-11 appearance-none border-0 pr-10 focus:ring-0`}
-      >
-        {children}
-      </select>
-      <svg
-        viewBox="0 0 24 24"
-        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-slate-400"
-        fill="none"
-        stroke="currentColor"
-        aria-hidden="true"
-      >
-        <path d="m7 10 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
-      </svg>
-    </span>
-  )
-}
-
-export function EstablishmentFormModal({ open, onClose }: EstablishmentFormModalProps) {
+export function EstablishmentFormModal(props: EstablishmentFormModalProps) {
+  const { open, options, initial, saving = false, onClose, onSave } = props
   const titleId = useId()
-  const [tab, setTab] = useState<'general' | 'documents'>('general')
-  const [observations, setObservations] = useState('')
-  const [active, setActive] = useState(true)
-  const [fileCount, setFileCount] = useState(0)
-  const [dragging, setDragging] = useState(false)
+  const [tab, setTab] = useState<Tab>('general')
+  const [draft, setDraft] = useState<EstablishmentDraft>(() => newDraft(options))
+  const [provinceId, setProvinceId] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [subcategoryId, setSubcategoryId] = useState('')
+  const [productDescription, setProductDescription] = useState('')
+  const [monthlyVolume, setMonthlyVolume] = useState('')
+  const [unit, setUnit] = useState('')
+  const [owner, setOwner] = useState(() => emptyContact('PRINCIPAL'))
+  const [representative, setRepresentative] = useState(() => emptyContact('LEGAL'))
 
   useEffect(() => {
     if (!open) return
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-    }
+    const source = initial?.data ?? newDraft(options)
+    const product = source.products[0]
+    queueMicrotask(() => {
+      setDraft(source)
+      setProvinceId(initial?.provinceId ?? '')
+      setCategoryId(
+        product
+          ? (options.subcategories.find((value) => value.id === product.subcategoryId)
+              ?.categoryId ?? '')
+          : '',
+      )
+      setSubcategoryId(product?.subcategoryId ?? '')
+      setProductDescription(product?.description ?? '')
+      setMonthlyVolume(product?.monthlyVolume?.toString() ?? '')
+      setUnit(product?.unit ?? '')
+      setOwner(
+        source.contacts.find((contact) => contact.type === 'PRINCIPAL') ??
+          emptyContact('PRINCIPAL'),
+      )
+      setRepresentative(
+        source.contacts.find((contact) => contact.type === 'LEGAL') ?? emptyContact('LEGAL'),
+      )
+      setTab('general')
+    })
+  }, [initial, open, options])
+
+  useEffect(() => {
+    if (!open) return
+    const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose()
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', closeOnEscape)
@@ -139,22 +133,54 @@ export function EstablishmentFormModal({ open, onClose }: EstablishmentFormModal
     }
   }, [onClose, open])
 
+  const municipalities = useMemo(
+    () => options.municipalities.filter((value) => value.provinceId === provinceId),
+    [options.municipalities, provinceId],
+  )
+  const subcategories = useMemo(
+    () => options.subcategories.filter((value) => value.categoryId === categoryId),
+    [categoryId, options.subcategories],
+  )
+
   if (!open) return null
 
-  function acceptDrop(event: DragEvent<HTMLLabelElement>) {
-    event.preventDefault()
-    setDragging(false)
-    setFileCount(event.dataTransfer.files.length)
+  function update<K extends keyof EstablishmentDraft>(key: K, value: EstablishmentDraft[K]) {
+    setDraft((current) => ({ ...current, [key]: value }))
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    await alerts.success('Registro preparado', 'El formulario base validó los datos correctamente.')
-    onClose()
+  function updateContact(
+    setter: Dispatch<SetStateAction<EstablishmentContactDraft>>,
+    key: keyof EstablishmentContactDraft,
+    value: string,
+  ) {
+    setter((current) => ({ ...current, [key]: value || null }))
   }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    const contacts = [owner, representative].filter((contact) => contact.fullName.trim())
+    const products =
+      subcategoryId && productDescription.trim()
+        ? [
+            {
+              subcategoryId,
+              description: productDescription.trim(),
+              monthlyVolume: numberValue(monthlyVolume),
+              unit: unit.trim() || null,
+            },
+          ]
+        : []
+    await onSave({ ...draft, contacts, products })
+  }
+
+  const missingCatalogs = [
+    options.companies.length === 0 && 'empresas',
+    options.provinces.length === 0 && 'provincias',
+    options.statuses.length === 0 && 'estados de establecimiento',
+  ].filter(Boolean) as string[]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6">
+    <div className="sigersa-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
       <button
         type="button"
         className="absolute inset-0 cursor-default"
@@ -162,7 +188,7 @@ export function EstablishmentFormModal({ open, onClose }: EstablishmentFormModal
         onClick={onClose}
       />
       <div
-        className="relative z-10 flex max-h-[94dvh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl shadow-slate-950/30"
+        className="sigersa-modal-panel relative z-10 flex w-full max-w-5xl flex-col overflow-hidden"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -170,7 +196,13 @@ export function EstablishmentFormModal({ open, onClose }: EstablishmentFormModal
         <header className="flex shrink-0 items-start justify-between border-b border-slate-100 px-5 py-4 sm:px-7">
           <div className="flex gap-4">
             <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-700">
-              <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor">
+              <svg
+                viewBox="0 0 24 24"
+                className="size-6"
+                fill="none"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
                 <path
                   strokeWidth="1.8"
                   d="M4 21V8l8-4 8 4v13M8 21v-5h8v5M8 10h.01M12 10h.01M16 10h.01"
@@ -179,10 +211,10 @@ export function EstablishmentFormModal({ open, onClose }: EstablishmentFormModal
             </span>
             <div>
               <h2 id={titleId} className="text-xl font-extrabold tracking-tight text-ink-strong">
-                Registrar establecimiento
+                {initial ? 'Editar establecimiento' : 'Registrar establecimiento'}
               </h2>
               <p className="mt-1 text-sm text-ink-muted">
-                Complete la información para incorporarlo al sistema.
+                Datos definidos por la ficha oficial de inspección BPM.
               </p>
             </div>
           </div>
@@ -196,283 +228,638 @@ export function EstablishmentFormModal({ open, onClose }: EstablishmentFormModal
           </button>
         </header>
 
-        <div className="flex shrink-0 gap-1 border-b border-slate-100 px-5 sm:px-7" role="tablist">
-          {[
-            ['general', 'Datos generales'],
-            ['documents', 'Documentación y estado'],
-          ].map(([value, label]) => {
-            const selected = tab === value
-            return (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => setTab(value as typeof tab)}
-                className={`border-b-2 px-4 py-3 text-xs font-bold transition ${selected ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
-              >
-                {label}
-              </button>
-            )
-          })}
+        <div
+          className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-100 px-5 sm:px-7"
+          role="tablist"
+        >
+          {tabs.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={tab === value}
+              onClick={() => setTab(value)}
+              className={`border-b-2 px-4 py-3 text-xs font-bold whitespace-nowrap transition ${tab === value ? 'border-brand-600 text-brand-700' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         <form
           id="establishment-form"
           onSubmit={(event) => void submit(event)}
-          className="min-h-0 flex-1 overflow-y-auto"
+          className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7"
         >
-          {tab === 'general' ? (
-            <section className="grid gap-4 p-5 sm:grid-cols-2 sm:p-7 lg:grid-cols-6">
-              <label className="block lg:col-span-3">
-                <Label required>Código del establecimiento</Label>
-                <InputFrame icon={<FieldIcon name="code" />}>
-                  <input className={fieldClass} placeholder="EST-5621" />
-                </InputFrame>
-                <small className="mt-1 block text-[0.65rem] text-ink-muted">
-                  Se generará automáticamente si se deja en blanco.
-                </small>
-              </label>
-              <label className="block lg:col-span-3">
-                <Label required>Nombre comercial</Label>
-                <InputFrame icon={<FieldIcon name="store" />}>
-                  <input
-                    required
-                    className={fieldClass}
-                    placeholder="Ej.: Restaurant El Buen Sabor"
-                  />
-                </InputFrame>
-              </label>
-
-              <div className="block lg:col-span-2">
-                <Label required>Tipo de establecimiento</Label>
-                <InputFrame icon={<FieldIcon name="list" />}>
-                  <SelectControl required defaultValue="" label="Tipo de establecimiento">
-                    <option value="" disabled>
-                      Seleccione un tipo
-                    </option>
-                    <option>Restaurante</option>
-                    <option>Supermercado</option>
-                    <option>Industria alimentaria</option>
-                  </SelectControl>
-                </InputFrame>
-              </div>
-              <div className="block lg:col-span-2">
-                <Label required>Provincia</Label>
-                <InputFrame icon={<FieldIcon name="pin" />}>
-                  <SelectControl required defaultValue="" label="Provincia">
-                    <option value="" disabled>
-                      Seleccione una provincia
-                    </option>
-                    <option>Distrito Nacional</option>
-                    <option>Santo Domingo</option>
-                    <option>Santiago</option>
-                  </SelectControl>
-                </InputFrame>
-              </div>
-              <div className="block lg:col-span-2">
-                <Label required>Municipio</Label>
-                <InputFrame icon={<FieldIcon name="building" />}>
-                  <SelectControl required defaultValue="" label="Municipio">
-                    <option value="" disabled>
-                      Seleccione un municipio
-                    </option>
-                    <option>Santo Domingo Este</option>
-                    <option>Santo Domingo Norte</option>
-                  </SelectControl>
-                </InputFrame>
-              </div>
-
-              <label className="block lg:col-span-6">
-                <Label required>Dirección</Label>
-                <InputFrame icon={<FieldIcon name="pin" />}>
-                  <input
-                    required
-                    className={fieldClass}
-                    placeholder="Calle, avenida, número, referencia..."
-                  />
-                </InputFrame>
-              </label>
-
-              <label className="block lg:col-span-2">
-                <Label required>Responsable</Label>
-                <InputFrame icon={<FieldIcon name="user" />}>
-                  <input required className={fieldClass} placeholder="Nombre del responsable" />
-                </InputFrame>
-              </label>
-              <label className="block lg:col-span-2">
-                <Label required>Teléfono</Label>
-                <InputFrame icon={<FieldIcon name="phone" />}>
-                  <input
-                    required
-                    type="tel"
-                    className={fieldClass}
-                    placeholder="Ej. 809 555 0100"
-                  />
-                </InputFrame>
-              </label>
-              <label className="block lg:col-span-2">
-                <Label required>Correo electrónico</Label>
-                <InputFrame icon={<FieldIcon name="mail" />}>
-                  <input
-                    required
-                    type="email"
-                    className={fieldClass}
-                    placeholder="nombre@empresa.com"
-                  />
-                </InputFrame>
-              </label>
-
-              <div className="block lg:col-span-2">
-                <Label required>Nivel de riesgo</Label>
-                <InputFrame icon={<FieldIcon name="risk" />}>
-                  <SelectControl required defaultValue="" label="Nivel de riesgo">
-                    <option value="" disabled>
-                      Seleccione un nivel
-                    </option>
-                    <option>Bajo</option>
-                    <option>Medio</option>
-                    <option>Alto</option>
-                  </SelectControl>
-                </InputFrame>
-              </div>
-              <div className="block lg:col-span-2">
-                <Label required>Estado</Label>
-                <InputFrame icon={<FieldIcon name="status" />}>
-                  <SelectControl required label="Estado">
-                    <option>Activo</option>
-                    <option>En revisión</option>
-                    <option>Suspendido</option>
-                  </SelectControl>
-                </InputFrame>
-              </div>
-              <label className="block lg:col-span-2">
-                <Label required>Fecha de registro</Label>
-                <InputFrame icon={<FieldIcon name="calendar" />}>
-                  <input required type="date" className={fieldClass} />
-                </InputFrame>
-              </label>
-
-              <label className="block lg:col-span-6">
-                <Label>Observaciones</Label>
-                <span className="relative flex overflow-hidden rounded-xl border border-slate-200 bg-white focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-100">
-                  <Icon>
-                    <FieldIcon name="note" />
-                  </Icon>
-                  <textarea
-                    value={observations}
-                    onChange={(event) => setObservations(event.target.value)}
-                    maxLength={500}
-                    rows={3}
-                    className="min-w-0 flex-1 resize-none bg-transparent p-3 pr-16 text-sm outline-none"
-                    placeholder="Información adicional sobre el establecimiento..."
-                  />
-                  <small className="absolute right-3 bottom-2 text-[0.65rem] text-ink-muted">
-                    {observations.length}/500
-                  </small>
-                </span>
-              </label>
-            </section>
-          ) : (
-            <section className="grid gap-6 p-5 sm:p-7 lg:grid-cols-5">
-              <div className="lg:col-span-3">
-                <Label>Documentos del establecimiento</Label>
-                <label
-                  className={`mt-2 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 text-center transition ${dragging ? 'border-brand-500 bg-brand-50' : 'hover:border-brand-400 border-slate-200 bg-slate-50 hover:bg-brand-50/60'}`}
-                  onDragEnter={(event) => {
-                    event.preventDefault()
-                    setDragging(true)
-                  }}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={acceptDrop}
-                >
-                  <input
-                    type="file"
-                    multiple
-                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                    className="hidden"
-                    onChange={(event) => setFileCount(event.target.files?.length ?? 0)}
-                  />
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="size-10 text-brand-600"
-                    fill="none"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeWidth="1.6"
-                      d="M7 18a5 5 0 0 1 1-9.9A6 6 0 0 1 19.7 10 4 4 0 0 1 19 18H7Zm5-8v7m-3-4 3-3 3 3"
-                    />
-                  </svg>
-                  <strong className="mt-3 text-sm text-ink-strong">
-                    Arrastre y suelte archivos aquí
-                  </strong>
-                  <span className="mt-1 text-xs text-brand-700">o haga clic para seleccionar</span>
-                  <small className="mt-3 text-[0.65rem] text-ink-muted">
-                    {fileCount > 0
-                      ? `${fileCount} archivo(s) seleccionado(s)`
-                      : 'PDF, JPG, PNG, DOC, DOCX · Máx. 10 MB'}
-                  </small>
-                </label>
-              </div>
-              <div className="lg:col-span-2 lg:border-l lg:border-slate-100 lg:pl-6">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-bold text-ink-strong">Activo en el sistema</p>
-                    <p className="mt-1 text-xs leading-5 text-ink-muted">
-                      Disponible para evaluaciones e inspecciones.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={active}
-                    onClick={() => setActive((value) => !value)}
-                    className={`relative h-7 w-12 shrink-0 rounded-full transition ${active ? 'bg-brand-600' : 'bg-slate-300'}`}
-                  >
-                    <span
-                      className={`absolute top-1 size-5 rounded-full bg-white shadow transition-all ${active ? 'right-1' : 'left-1'}`}
-                    />
-                  </button>
-                </div>
-                <div className="mt-6 flex gap-3 rounded-2xl bg-gradient-to-br from-emerald-50 to-green-100/60 p-4 text-brand-900">
-                  <span className="text-2xl">❧</span>
-                  <p className="text-xs leading-5">
-                    Un registro preciso ayuda a construir un entorno más seguro para una mejor
-                    salud.
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
+          {missingCatalogs.length > 0 && <CatalogNotice names={missingCatalogs} />}
+          <FormSections
+            isEditing={Boolean(initial)}
+            tab={tab}
+            draft={draft}
+            options={options}
+            provinceId={provinceId}
+            categoryId={categoryId}
+            subcategoryId={subcategoryId}
+            municipalities={municipalities}
+            subcategories={subcategories}
+            productDescription={productDescription}
+            monthlyVolume={monthlyVolume}
+            unit={unit}
+            owner={owner}
+            representative={representative}
+            update={update}
+            setProvinceId={setProvinceId}
+            setCategoryId={setCategoryId}
+            setSubcategoryId={setSubcategoryId}
+            setProductDescription={setProductDescription}
+            setMonthlyVolume={setMonthlyVolume}
+            setUnit={setUnit}
+            updateOwner={(key, value) => updateContact(setOwner, key, value)}
+            updateRepresentative={(key, value) => updateContact(setRepresentative, key, value)}
+          />
         </form>
 
-        <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-slate-100 px-5 py-4 sm:px-7">
           <button
             type="button"
-            className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-ink-body shadow-sm hover:bg-slate-50"
+            onClick={onClose}
+            className="rounded-xl px-4 py-2.5 text-xs font-bold text-ink-body hover:bg-slate-100"
           >
-            Guardar borrador
+            Cancelar
           </button>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-xl px-4 py-2.5 text-xs font-bold text-ink-body hover:bg-slate-100 sm:flex-none"
-            >
-              Cancelar
-            </button>
-            <button
-              form="establishment-form"
-              type="submit"
-              className="hover:bg-brand-800 flex-1 rounded-xl bg-brand-700 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-900/15 sm:flex-none"
-            >
-              Guardar registro
-            </button>
-          </div>
+          <button
+            form="establishment-form"
+            type="submit"
+            disabled={saving || missingCatalogs.length > 0}
+            className="hover:bg-brand-800 rounded-xl bg-brand-700 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-900/15 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? 'Guardando…' : initial ? 'Guardar cambios' : 'Registrar establecimiento'}
+          </button>
         </footer>
       </div>
     </div>
   )
+}
+
+interface FormSectionsProps {
+  isEditing: boolean
+  tab: Tab
+  draft: EstablishmentDraft
+  options: EstablishmentOptions
+  provinceId: string
+  categoryId: string
+  subcategoryId: string
+  municipalities: EstablishmentOptions['municipalities']
+  subcategories: EstablishmentOptions['subcategories']
+  productDescription: string
+  monthlyVolume: string
+  unit: string
+  owner: EstablishmentContactDraft
+  representative: EstablishmentContactDraft
+  update: <K extends keyof EstablishmentDraft>(key: K, value: EstablishmentDraft[K]) => void
+  setProvinceId: (value: string) => void
+  setCategoryId: (value: string) => void
+  setSubcategoryId: (value: string) => void
+  setProductDescription: (value: string) => void
+  setMonthlyVolume: (value: string) => void
+  setUnit: (value: string) => void
+  updateOwner: (key: keyof EstablishmentContactDraft, value: string) => void
+  updateRepresentative: (key: keyof EstablishmentContactDraft, value: string) => void
+}
+
+function FormSections(props: FormSectionsProps) {
+  const { tab, draft, options, update, isEditing } = props
+  if (tab === 'general') {
+    return (
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+        <Field label="Empresa" required className="lg:col-span-3">
+          <select
+            required
+            disabled={isEditing}
+            value={draft.companyId}
+            onChange={(event) => update('companyId', event.target.value)}
+            className={inputClass}
+          >
+            <option value="">Seleccione</option>
+            {options.companies.map((value) => (
+              <option key={value.id} value={value.id}>
+                {value.name} · {value.code}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Código" required className="lg:col-span-3">
+          <input
+            required
+            maxLength={50}
+            value={draft.code}
+            onChange={(event) => update('code', event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Nombre o razón social" required className="lg:col-span-6">
+          <input
+            required
+            maxLength={250}
+            value={draft.name}
+            onChange={(event) => update('name', event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Calle" className="lg:col-span-4">
+          <input
+            maxLength={250}
+            value={draft.street ?? ''}
+            onChange={(event) => update('street', event.target.value || null)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Número" className="lg:col-span-2">
+          <input
+            maxLength={50}
+            value={draft.addressNumber ?? ''}
+            onChange={(event) => update('addressNumber', event.target.value || null)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Provincia" required className="lg:col-span-2">
+          <select
+            required
+            value={props.provinceId}
+            onChange={(event) => {
+              props.setProvinceId(event.target.value)
+              update('municipalityId', null)
+            }}
+            className={inputClass}
+          >
+            <option value="">Seleccione</option>
+            {options.provinces.map((value) => (
+              <option key={value.id} value={value.id}>
+                {value.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Municipio" required className="lg:col-span-2">
+          <select
+            required
+            disabled={!props.provinceId}
+            value={draft.municipalityId ?? ''}
+            onChange={(event) => update('municipalityId', event.target.value || null)}
+            className={inputClass}
+          >
+            <option value="">Seleccione</option>
+            {props.municipalities.map((value) => (
+              <option key={value.id} value={value.id}>
+                {value.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="DPS/DAS" className="lg:col-span-2">
+          <select
+            value={draft.dpsDasId ?? ''}
+            onChange={(event) => update('dpsDasId', event.target.value || null)}
+            className={inputClass}
+          >
+            <option value="">Seleccione</option>
+            {options.dpsDas.map((value) => (
+              <option key={value.id} value={value.id}>
+                {value.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Teléfono" className="lg:col-span-3">
+          <input
+            type="tel"
+            maxLength={40}
+            value={draft.phone ?? ''}
+            onChange={(event) => update('phone', event.target.value || null)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Correo electrónico" className="lg:col-span-3">
+          <input
+            type="email"
+            maxLength={320}
+            value={draft.email ?? ''}
+            onChange={(event) => update('email', event.target.value || null)}
+            className={inputClass}
+          />
+        </Field>
+      </section>
+    )
+  }
+
+  if (tab === 'production') {
+    return (
+      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-6">
+        <Field label="Fecha de inicio de operaciones" className="lg:col-span-2">
+          <input
+            type="date"
+            value={dateValue(draft.operationsStartDate)}
+            onChange={(event) => update('operationsStartDate', event.target.value || null)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="No. del Permiso Sanitario" className="lg:col-span-2">
+          <input
+            maxLength={100}
+            value={draft.sanitaryPermitNumber ?? ''}
+            onChange={(event) => update('sanitaryPermitNumber', event.target.value || null)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Vencimiento del permiso" className="lg:col-span-2">
+          <input
+            type="date"
+            value={dateValue(draft.sanitaryPermitExpiresAt)}
+            onChange={(event) => update('sanitaryPermitExpiresAt', event.target.value || null)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Productos elaborados" className="lg:col-span-4">
+          <textarea
+            rows={3}
+            value={draft.productsDescription ?? ''}
+            onChange={(event) => update('productsDescription', event.target.value || null)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Producción anual" className="lg:col-span-2">
+          <input
+            type="number"
+            min="0"
+            step="0.0001"
+            value={draft.annualProduction ?? ''}
+            onChange={(event) => update('annualProduction', numberValue(event.target.value))}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Comercialización" className="lg:col-span-3">
+          <select
+            value={draft.commercializationId ?? ''}
+            onChange={(event) => update('commercializationId', event.target.value || null)}
+            className={inputClass}
+          >
+            <option value="">Seleccione</option>
+            {options.commercializations.map((value) => (
+              <option key={value.id} value={value.id}>
+                {value.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <fieldset className="lg:col-span-3">
+          <legend className="text-xs font-bold text-ink-strong">Mercado objetivo</legend>
+          <div className="mt-2 grid gap-2 rounded-xl border border-slate-200 p-3">
+            {options.markets.map((value) => (
+              <label key={value.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={draft.marketIds.includes(value.id)}
+                  onChange={(event) =>
+                    update(
+                      'marketIds',
+                      event.target.checked
+                        ? [...draft.marketIds, value.id]
+                        : draft.marketIds.filter((id) => id !== value.id),
+                    )
+                  }
+                />
+                {value.name}
+              </label>
+            ))}
+            {options.markets.length === 0 && (
+              <span className="text-xs text-amber-700">Catálogo sin datos.</span>
+            )}
+          </div>
+        </fieldset>
+        <Field label="Categoría de alimento" className="lg:col-span-3">
+          <select
+            value={props.categoryId}
+            onChange={(event) => {
+              props.setCategoryId(event.target.value)
+              props.setSubcategoryId('')
+            }}
+            className={inputClass}
+          >
+            <option value="">Seleccione</option>
+            {options.categories.map((value) => (
+              <option key={value.id} value={value.id}>
+                {value.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Subcategoría" className="lg:col-span-3">
+          <select
+            disabled={!props.categoryId}
+            value={props.subcategoryId}
+            onChange={(event) => props.setSubcategoryId(event.target.value)}
+            className={inputClass}
+          >
+            <option value="">Seleccione</option>
+            {props.subcategories.map((value) => (
+              <option key={value.id} value={value.id}>
+                {value.name}
+                {value.riskLevel ? ` · Riesgo ${value.riskLevel}` : ' · Riesgo pendiente'}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Descripción del producto" className="lg:col-span-3">
+          <input
+            maxLength={300}
+            value={props.productDescription}
+            onChange={(event) => props.setProductDescription(event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Volumen mensual" className="lg:col-span-2">
+          <input
+            type="number"
+            min="0"
+            step="0.0001"
+            value={props.monthlyVolume}
+            onChange={(event) => props.setMonthlyVolume(event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Unidad" className="lg:col-span-1">
+          <input
+            maxLength={30}
+            value={props.unit}
+            onChange={(event) => props.setUnit(event.target.value)}
+            className={inputClass}
+          />
+        </Field>
+      </section>
+    )
+  }
+
+  if (tab === 'controls') {
+    return (
+      <section className="grid gap-5 md:grid-cols-2">
+        <ToggleCard
+          label="¿Tienen implementado el sistema HACCP?"
+          checked={draft.haccpImplemented === true}
+          onChange={(checked) => {
+            update('haccpImplemented', checked)
+            update('haccpPercentage', null)
+          }}
+        >
+          <select
+            disabled={draft.haccpImplemented !== true}
+            value={draft.haccpPercentage ?? ''}
+            onChange={(event) => update('haccpPercentage', numberValue(event.target.value))}
+            className={inputClass}
+          >
+            <option value="">Nivel de implementación</option>
+            {options.haccpLevels.map((value) => (
+              <option key={value.parametersId} value={haccpPercent(value.stringData)}>
+                {formatStatusLabel(value.stringData ?? '')}
+              </option>
+            ))}
+          </select>
+        </ToggleCard>
+        <ToggleCard
+          label="¿Tienen un plan de muestreo microbiológico?"
+          checked={draft.microbiologicalSamplingPlan === true}
+          onChange={(checked) => {
+            update('microbiologicalSamplingPlan', checked)
+            update('samplingApplicationCode', null)
+          }}
+        >
+          <select
+            disabled={draft.microbiologicalSamplingPlan !== true}
+            value={draft.samplingApplicationCode ?? ''}
+            onChange={(event) => update('samplingApplicationCode', event.target.value || null)}
+            className={inputClass}
+          >
+            <option value="">¿Dónde lo aplican?</option>
+            {options.samplingApplications.map((value) => (
+              <option key={value.parametersId} value={value.stringData ?? ''}>
+                {formatStatusLabel(value.stringData ?? '')}
+              </option>
+            ))}
+          </select>
+        </ToggleCard>
+        <ToggleCard
+          label="¿Son suplidores del INABIE?"
+          checked={draft.isInabieSupplier === true}
+          onChange={(checked) => {
+            update('isInabieSupplier', checked)
+            update('inabieDistributionCode', null)
+          }}
+        >
+          <select
+            disabled={draft.isInabieSupplier !== true}
+            value={draft.inabieDistributionCode ?? ''}
+            onChange={(event) => update('inabieDistributionCode', event.target.value || null)}
+            className={inputClass}
+          >
+            <option value="">¿Cómo lo distribuyen?</option>
+            {options.inabieDistributions.map((value) => (
+              <option key={value.parametersId} value={value.stringData ?? ''}>
+                {formatStatusLabel(value.stringData ?? '')}
+              </option>
+            ))}
+          </select>
+        </ToggleCard>
+        <div className="grid gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:grid-cols-2">
+          <Field label="Empleados mujeres">
+            <input
+              type="number"
+              min="0"
+              value={draft.femaleEmployees ?? ''}
+              onChange={(event) => update('femaleEmployees', numberValue(event.target.value))}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Empleados hombres">
+            <input
+              type="number"
+              min="0"
+              value={draft.maleEmployees ?? ''}
+              onChange={(event) => update('maleEmployees', numberValue(event.target.value))}
+              className={inputClass}
+            />
+          </Field>
+        </div>
+        <Field
+          label="Rechazos microbiológicos en los últimos 5 años"
+          required
+          className="md:col-span-2"
+        >
+          <input
+            required
+            type="number"
+            min="0"
+            step="1"
+            value={draft.microbiologicalRejectionsLastFiveYears}
+            onChange={(event) =>
+              update('microbiologicalRejectionsLastFiveYears', Number(event.target.value))
+            }
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Estado" required className="md:col-span-2">
+          <select
+            required
+            value={draft.status}
+            onChange={(event) => update('status', event.target.value)}
+            className={inputClass}
+          >
+            <option value="">Seleccione</option>
+            {options.statuses.map((value) => (
+              <option key={value.parametersId} value={value.stringData ?? ''}>
+                {formatStatusLabel(value.stringData ?? '')}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </section>
+    )
+  }
+
+  return (
+    <section className="grid gap-5 lg:grid-cols-2">
+      <ContactFields title="Propietario" value={props.owner} onChange={props.updateOwner} />
+      <ContactFields
+        title="Representante legal"
+        value={props.representative}
+        onChange={props.updateRepresentative}
+      />
+    </section>
+  )
+}
+
+function Field({
+  label,
+  required = false,
+  className = '',
+  children,
+}: {
+  label: string
+  required?: boolean
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <label className={`block text-xs font-bold text-ink-strong ${className}`}>
+      {label}
+      {required && <span className="text-red-600"> *</span>}
+      {children}
+    </label>
+  )
+}
+
+function ToggleCard({
+  label,
+  checked,
+  onChange,
+  children,
+}: {
+  label: string
+  checked: boolean
+  onChange: (value: boolean) => void
+  children: ReactNode
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm font-bold text-ink-strong">{label}</p>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          onClick={() => onChange(!checked)}
+          className={`relative h-7 w-12 shrink-0 rounded-full transition ${checked ? 'bg-brand-600' : 'bg-slate-300'}`}
+        >
+          <span
+            className={`absolute top-1 size-5 rounded-full bg-white shadow transition-all ${checked ? 'right-1' : 'left-1'}`}
+          />
+        </button>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function ContactFields({
+  title,
+  value,
+  onChange,
+}: {
+  title: string
+  value: EstablishmentContactDraft
+  onChange: (key: keyof EstablishmentContactDraft, value: string) => void
+}) {
+  return (
+    <fieldset className="grid gap-4 rounded-2xl border border-slate-100 p-5">
+      <legend className="text-brand-800 px-2 text-sm font-extrabold">{title}</legend>
+      <Field label="Nombre completo">
+        <input
+          maxLength={250}
+          value={value.fullName}
+          onChange={(event) => onChange('fullName', event.target.value)}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="Cédula de identidad">
+        <input
+          maxLength={100}
+          value={value.identification ?? ''}
+          onChange={(event) => onChange('identification', event.target.value)}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="Teléfono celular">
+        <input
+          type="tel"
+          maxLength={40}
+          value={value.phone ?? ''}
+          onChange={(event) => onChange('phone', event.target.value)}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="Correo electrónico">
+        <input
+          type="email"
+          maxLength={320}
+          value={value.email ?? ''}
+          onChange={(event) => onChange('email', event.target.value)}
+          className={inputClass}
+        />
+      </Field>
+    </fieldset>
+  )
+}
+
+function CatalogNotice({ names }: { names: string[] }) {
+  return (
+    <div
+      role="alert"
+      className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+    >
+      No se puede completar el registro porque faltan datos en los catálogos de {names.join(', ')}.
+    </div>
+  )
+}
+
+function numberValue(value: string) {
+  return value === '' ? null : Number(value)
+}
+
+function dateValue(value: string | null) {
+  return value ? value.slice(0, 10) : ''
+}
+
+function haccpPercent(value: string | null) {
+  if (value === '25_POR_CIENTO') return 25
+  if (value === '75_POR_CIENTO') return 75
+  if (value === 'TODAS_LAS_LINEAS') return 100
+  return ''
 }

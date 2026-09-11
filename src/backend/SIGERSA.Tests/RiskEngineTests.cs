@@ -87,6 +87,24 @@ public sealed class RiskEngineTests
     }
 
     [Fact]
+    public void OfficialSixFactorWeightsShouldProduceExpectedEstablishmentRisk()
+    {
+        RiskFactor[] factors =
+        [
+            new(0.16m, 3m),
+            new(0.09m, 2.33m),
+            new(0.56m, 1.67m),
+            new(0.05m, 1m),
+            new(0.06m, 2.33m),
+            new(0.08m, 1.67m)
+        ];
+
+        var result = RiskEngine.CalculateEstablishmentRisk(factors);
+
+        Assert.Equal(1.9483m, result);
+    }
+
+    [Fact]
     public void CalculateEstablishmentRiskShouldBeNonCalculableWhenAFactorHasNoScore()
     {
         RiskFactor[] factors = [new(0.50m, 3m), new(0.50m, null)];

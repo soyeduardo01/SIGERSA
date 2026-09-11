@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
+import { useParameterOptions } from '../../hooks/useParameterOptions'
 
 export interface OperationalModuleConfig {
   title: string
@@ -9,7 +10,7 @@ export interface OperationalModuleConfig {
   actionLabel: string
   referenceLabel: string
   detailLabel: string
-  statuses: string[]
+  statusKeyWord: string
   canCreate: boolean
 }
 
@@ -22,12 +23,13 @@ interface DraftRecord {
 }
 
 export function OperationalModulePage({ config }: { config: OperationalModuleConfig }) {
+  const statuses = useParameterOptions(config.statusKeyWord)
   const [records, setRecords] = useState<DraftRecord[]>([])
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<DraftRecord | null>(null)
-  const [draft, setDraft] = useState({ reference: '', detail: '', status: config.statuses[0] })
+  const [draft, setDraft] = useState({ reference: '', detail: '', status: '' })
 
   const filtered = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -42,7 +44,7 @@ export function OperationalModulePage({ config }: { config: OperationalModuleCon
 
   function openCreate() {
     setEditing(null)
-    setDraft({ reference: '', detail: '', status: config.statuses[0] })
+    setDraft({ reference: '', detail: '', status: statuses.options[0]?.stringData ?? '' })
     setModalOpen(true)
   }
 
@@ -125,8 +127,10 @@ export function OperationalModulePage({ config }: { config: OperationalModuleCon
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
             >
               <option value="">Todos</option>
-              {config.statuses.map((item) => (
-                <option key={item}>{item}</option>
+              {statuses.options.map((item) => (
+                <option key={item.parametersId} value={item.stringData ?? ''}>
+                  {formatStatusLabel(item.stringData ?? '')}
+                </option>
               ))}
             </select>
           </label>
@@ -201,12 +205,15 @@ export function OperationalModulePage({ config }: { config: OperationalModuleCon
 
       {modalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="operation-modal-title"
+          className="sigersa-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="presentation"
         >
-          <div className="w-full max-w-xl rounded-card bg-white shadow-2xl">
+          <div
+            className="sigersa-modal-panel w-full max-w-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="operation-modal-title"
+          >
             <div className="flex justify-between border-b border-slate-200 px-6 py-5">
               <h2 id="operation-modal-title" className="text-xl font-extrabold text-ink-strong">
                 {editing ? `Editar ${config.actionLabel}` : config.actionLabel}
@@ -247,8 +254,10 @@ export function OperationalModulePage({ config }: { config: OperationalModuleCon
                   onChange={(event) => setDraft({ ...draft, status: event.target.value })}
                   className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
                 >
-                  {config.statuses.map((item) => (
-                    <option key={item}>{item}</option>
+                  {statuses.options.map((item) => (
+                    <option key={item.parametersId} value={item.stringData ?? ''}>
+                      {formatStatusLabel(item.stringData ?? '')}
+                    </option>
                   ))}
                 </select>
               </label>

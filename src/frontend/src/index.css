@@ -39,6 +39,20 @@ body {
   margin: 0;
 }
 
+.sigersa-modal-overlay {
+  background: rgb(2 6 23 / 55%);
+  backdrop-filter: blur(4px);
+}
+
+.sigersa-modal-panel {
+  max-height: 94dvh;
+  overflow-y: auto;
+  border: 1px solid rgb(226 232 240 / 80%);
+  border-radius: 1.5rem;
+  background: white;
+  box-shadow: 0 28px 80px rgb(2 6 23 / 30%);
+}
+
 button,
 a {
   -webkit-tap-highlight-color: transparent;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { FormSkeleton } from '../../components/feedback/Skeletons'
+import { useParameterOptions } from '../../hooks/useParameterOptions'
 import {
   calculateEvaluation,
   getEvaluationForm,
@@ -9,6 +10,7 @@ import {
 import { offlineDb } from '../../offline/database'
 import { flushSyncQueue, queueAnswer, queueEvidence } from '../../offline/syncQueue'
 import { alerts } from '../../lib/alerts'
+import { formatStatusLabel } from '../../lib/formatters'
 
 const ratingOptions = [
   { code: 'CUMPLE', short: 'C', label: 'Cumple' },
@@ -30,7 +32,8 @@ export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvalua
   const [items, setItems] = useState<EvaluationFormItem[]>([])
   const [ratings, setRatings] = useState<Record<number, string>>({})
   const [calculation, setCalculation] = useState<EvaluationCalculation | null>(null)
-  const [productRisk, setProductRisk] = useState(1)
+  const [productRisk, setProductRisk] = useState<number | null>(null)
+  const productRiskOptions = useParameterOptions('NIVEL_RIESGO_ALIMENTO')
   const [message, setMessage] = useState('Indique una evaluación asignada para cargar su ficha.')
   const [loadingForm, setLoadingForm] = useState(() => {
     const stored = localStorage.getItem('sigersa.active-evaluation') ?? ''
@@ -89,6 +92,16 @@ export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvalua
     }
   }, [evaluationId])
 
+  useEffect(() => {
+    if (productRisk !== null) return
+    const firstValue = productRiskOptions.options.find(
+      (option) => option.numericData !== null,
+    )?.numericData
+    if (firstValue !== undefined && firstValue !== null) {
+      queueMicrotask(() => setProductRisk(firstValue))
+    }
+  }, [productRisk, productRiskOptions.options])
+
   const answered = Object.keys(ratings).length
   const questions = useMemo(() => items.filter((item) => item.isEvaluable).length, [items])
 
@@ -125,7 +138,7 @@ export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvalua
   }
 
   async function calculate() {
-    if (!evaluationId || !navigator.onLine) {
+    if (!evaluationId || productRisk === null || !navigator.onLine) {
       setMessage('El cálculo definitivo requiere conexión con el backend.')
       await alerts.error(
         new Error('Conéctese a internet y cargue una evaluación antes de calcular.'),
@@ -275,19 +288,32 @@ export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvalua
           <label className="text-sm font-bold">
             Riesgo del producto
             <select
-              value={productRisk}
-              onChange={(event) => setProductRisk(Number(event.target.value))}
+              value={productRisk ?? ''}
+              onChange={(event) =>
+                setProductRisk(event.target.value ? Number(event.target.value) : null)
+              }
               className="ml-2 min-h-11 rounded-lg bg-white px-3 text-ink-strong"
             >
-              <option value={1}>1 · Bajo</option>
-              <option value={2}>2 · Medio</option>
-              <option value={3}>3 · Alto</option>
+              <option value="">Seleccione</option>
+              {productRiskOptions.options
+                .filter((option) => option.numericData !== null)
+                .map((option) => (
+                  <option key={option.parametersId} value={option.numericData ?? ''}>
+                    {option.numericData} · {formatStatusLabel(option.stringData ?? '')}
+                  </option>
+                ))}
             </select>
           </label>
+          {!productRiskOptions.loading && productRiskOptions.options.length === 0 && (
+            <span className="text-xs text-amber-200">
+              El catálogo NIVEL_RIESGO_ALIMENTO no tiene valores activos.
+            </span>
+          )}
           <button
             type="button"
             onClick={() => void calculate()}
-            className="min-h-11 rounded-xl bg-brand-500 px-4 font-bold"
+            disabled={productRisk === null}
+            className="min-h-11 rounded-xl bg-brand-500 px-4 font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             Sincronizar y calcular
           </button>

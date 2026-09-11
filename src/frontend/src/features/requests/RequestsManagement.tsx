@@ -367,14 +367,14 @@ function RequestForm({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4"
+      className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
       role="presentation"
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="request-form-title"
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+        className="sigersa-modal-panel w-full max-w-2xl p-6"
       >
         <div className="flex items-start justify-between gap-4">
           <div>

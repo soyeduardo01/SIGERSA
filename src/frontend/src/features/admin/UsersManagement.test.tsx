@@ -8,6 +8,17 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('../../lib/api', () => ({
+  getParameters: vi.fn(async (keyWord: string) =>
+    keyWord === 'TIPO_IDENTIFICACION'
+      ? [
+          { parametersId: 1, stringData: 'CEDULA', numericData: 1 },
+          { parametersId: 2, stringData: 'PASAPORTE', numericData: 2 },
+        ]
+      : [
+          { parametersId: 3, stringData: 'ACTIVO', numericData: 1 },
+          { parametersId: 4, stringData: 'SUSPENDIDO', numericData: 2 },
+        ],
+  ),
   getUserManagementOptions: vi.fn(async () => ({
     canManage: mocks.canManage,
     roles: [{ code: 'ADMINISTRADOR', name: 'Administrador' }],

@@ -4,6 +4,10 @@ namespace SIGERSA.Domain.Repositories;
 
 public interface IParametersControlRepository
 {
+    Task<IReadOnlyList<ParameterControl>> GetAllActiveAsync(
+        string? search,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<ParameterControl>> GetActiveAsync(
         string keyWord,
         int? companyCode,

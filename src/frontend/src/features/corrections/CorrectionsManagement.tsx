@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
 import { useAuth } from '../../contexts/useAuth'
+import { useParameterOptions } from '../../hooks/useParameterOptions'
 import {
   createCorrection,
   getCorrectionOptions,
@@ -18,6 +19,7 @@ import { queueCorrection } from '../../offline/syncQueue'
 const emptyPage: CorrectionsPage = { items: [], page: 1, pageSize: 50, total: 0 }
 
 export function CorrectionsManagement() {
+  const correctionStates = useParameterOptions('ESTADO_CORRECCION')
   const { roles } = useAuth()
   const reviewer = roles.some((role) => role === 'ADMINISTRADOR' || role === 'COORDINADOR')
   const canSubmit = roles.some((role) =>
@@ -121,14 +123,17 @@ export function CorrectionsManagement() {
             className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
           >
             <option value="">Todos</option>
-            {['PENDIENTE', 'EN_PROCESO', 'ENVIADA', 'ACEPTADA', 'RECHAZADA', 'VENCIDA'].map(
-              (value) => (
-                <option key={value} value={value}>
-                  {formatStatusLabel(value)}
-                </option>
-              ),
-            )}
+            {correctionStates.options.map((value) => (
+              <option key={value.parametersId} value={value.stringData ?? ''}>
+                {formatStatusLabel(value.stringData ?? '')}
+              </option>
+            ))}
           </select>
+          {!correctionStates.loading && correctionStates.options.length === 0 && (
+            <span className="mt-1 block text-xs font-normal text-amber-700">
+              El catálogo ESTADO_CORRECCION no tiene valores activos.
+            </span>
+          )}
         </label>
         {error && (
           <div
@@ -229,8 +234,9 @@ function CorrectionForm({
   onClose: () => void
   onSave: (draft: CorrectionDraft) => Promise<void>
 }) {
+  const responsibleTypes = useParameterOptions('TIPO_RESPONSABLE_CORRECCION')
   const [evaluationId, setEvaluationId] = useState('')
-  const [responsibleType, setResponsibleType] = useState<'TECNICO' | 'EMPRESA'>('EMPRESA')
+  const [responsibleType, setResponsibleType] = useState<'' | 'TECNICO' | 'EMPRESA'>('')
   const [assignedToId, setAssignedToId] = useState('')
   const [observation, setObservation] = useState('')
   const [dueAt, setDueAt] = useState('')
@@ -241,7 +247,7 @@ function CorrectionForm({
     try {
       await onSave({
         evaluationId,
-        responsibleType,
+        responsibleType: responsibleType as 'TECNICO' | 'EMPRESA',
         assignedToId: responsibleType === 'TECNICO' ? assignedToId : null,
         coordinatorObservation: observation,
         dueAt: new Date(dueAt).toISOString(),
@@ -254,14 +260,14 @@ function CorrectionForm({
   const field = 'mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal'
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4"
+      className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
       role="presentation"
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="correction-form-title"
-        className="w-full max-w-xl rounded-2xl bg-white p-6"
+        className="sigersa-modal-panel w-full max-w-xl p-6"
       >
         <div className="flex justify-between">
           <h2 id="correction-form-title" className="text-xl font-extrabold">
@@ -298,9 +304,18 @@ function CorrectionForm({
               }}
               className={field}
             >
-              <option value="EMPRESA">Empresa evaluada</option>
-              <option value="TECNICO">Técnico asignado</option>
+              <option value="">Seleccione</option>
+              {responsibleTypes.options.map((value) => (
+                <option key={value.parametersId} value={value.stringData ?? ''}>
+                  {formatStatusLabel(value.stringData ?? '')}
+                </option>
+              ))}
             </select>
+            {!responsibleTypes.loading && responsibleTypes.options.length === 0 && (
+              <span className="mt-1 block text-xs font-normal text-amber-700">
+                El catálogo TIPO_RESPONSABLE_CORRECCION no tiene valores activos.
+              </span>
+            )}
           </label>
           {responsibleType === 'TECNICO' && (
             <label className="text-sm font-bold">

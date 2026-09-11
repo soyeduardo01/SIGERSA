@@ -12,6 +12,7 @@ export type AppModule =
   | 'resumen'
   | 'empresas'
   | 'evaluaciones'
+  | 'inspecciones'
   | 'programacion'
   | 'establecimientos'
   | 'parametros'
@@ -47,12 +48,8 @@ export const moduleRoles: Record<AppModule, readonly CanonicalRole[]> = {
   casos: ['COORDINADOR'],
   programacion: ['COORDINADOR'],
   evaluaciones: ['COORDINADOR', 'TECNICO_EVALUADOR'],
-  establecimientos: [
-    'ADMINISTRADOR_EMPRESA',
-    'USUARIO_DELEGADO',
-    'COORDINADOR',
-    'TECNICO_EVALUADOR',
-  ],
+  inspecciones: ['COORDINADOR', 'TECNICO_EVALUADOR'],
+  establecimientos: ['ADMINISTRADOR'],
   hallazgos: ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO', 'COORDINADOR', 'TECNICO_EVALUADOR'],
   evidencias: ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO', 'COORDINADOR', 'TECNICO_EVALUADOR'],
   correcciones: ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO', 'COORDINADOR', 'TECNICO_EVALUADOR'],

@@ -14,10 +14,12 @@ import {
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
 import { queueCase } from '../../offline/syncQueue'
+import { useParameterOptions } from '../../hooks/useParameterOptions'
 
 const emptyPage: CasesPage = { items: [], page: 1, pageSize: 10, total: 0 }
 
 export function CasesManagement() {
+  const caseStates = useParameterOptions('ESTADO_CASO')
   const [result, setResult] = useState(emptyPage)
   const [options, setOptions] = useState<CaseOptions | null>(null)
   const [searchInput, setSearchInput] = useState('')
@@ -164,9 +166,11 @@ export function CasesManagement() {
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
             >
               <option value="">Todos</option>
-              <option value="ABIERTO">Abierto</option>
-              <option value="ANALIZADO">Analizado</option>
-              <option value="CERRADO">Cerrado</option>
+              {caseStates.options.map((item) => (
+                <option key={item.parametersId} value={item.stringData ?? ''}>
+                  {formatStatusLabel(item.stringData ?? '')}
+                </option>
+              ))}
             </select>
           </label>
           <button className="text-brand-800 mt-auto min-h-11 rounded-xl border border-brand-700 px-5 font-bold">
@@ -264,6 +268,7 @@ function CaseForm({
   onClose: () => void
   onSave: (draft: CaseDraft) => Promise<void>
 }) {
+  const decisions = useParameterOptions('DECISION_ANALISIS')
   const [requestId, setRequestId] = useState(item?.requestId ?? '')
   const [priority, setPriority] = useState(item?.priority ?? 3)
   const [responsibleId, setResponsibleId] = useState(item?.responsibleId ?? '')
@@ -289,14 +294,14 @@ function CaseForm({
   }
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4"
+      className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
       role="presentation"
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="case-form-title"
-        className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl"
+        className="sigersa-modal-panel w-full max-w-2xl p-6"
       >
         <div className="flex justify-between">
           <div>
@@ -365,9 +370,11 @@ function CaseForm({
               className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
             >
               <option value="">Pendiente</option>
-              <option value="PROCEDE">Procede</option>
-              <option value="NO_PROCEDE">No procede</option>
-              <option value="REQUIERE_INFORMACION">Requiere información</option>
+              {decisions.options.map((option) => (
+                <option key={option.parametersId} value={option.stringData ?? ''}>
+                  {formatStatusLabel(option.stringData ?? '')}
+                </option>
+              ))}
             </select>
           </label>
           <label className="text-sm font-bold">

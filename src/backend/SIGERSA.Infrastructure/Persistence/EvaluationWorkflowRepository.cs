@@ -221,12 +221,51 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 VALUES (@Id, 'EBR_BPM_FASE1', @Version, 'Regla EBR/BPM Fase 1', 'BORRADOR',
                         'riesgo_producto * riesgo_establecimiento', @Definition::jsonb,
                         1, @Hash, @ActorId);
-                """), new { Id = riskRuleId, Version = version, Definition = "{\"establecimiento\":\"1+(1-cumplimiento)*2\"}", Hash = snapshotHash, ActorId = actorId }, transaction, cancellationToken: cancellationToken));
-            var factorId = Guid.NewGuid();
+                """), new { Id = riskRuleId, Version = version, Definition = "{\"establecimiento\":\"SUM(puntaje_factor*peso)\",\"total\":\"riesgo_producto*riesgo_establecimiento\"}", Hash = snapshotHash, ActorId = actorId }, transaction, cancellationToken: cancellationToken));
             await connection.ExecuteAsync(new CommandDefinition(Sql("""
                 INSERT INTO "SIGERSA"."FACTOR_RIESGO"
                     (id, regla_riesgo_version_id, codigo, nombre, peso, tipo_fuente, orden, creado_por)
-                VALUES (@FactorId, @RuleId, 'BPM', 'Cumplimiento BPM', 1, 'CALCULO_BPM', 0, @ActorId);
+                VALUES
+                    (gen_random_uuid(), @RuleId, 'VOLUMEN_PRODUCCION', 'Volumen de producción', 0.16, 'ESTABLECIMIENTO', 1, @ActorId),
+                    (gen_random_uuid(), @RuleId, 'HACCP', 'Implementación sistema HACCP', 0.09, 'ESTABLECIMIENTO', 2, @ActorId),
+                    (gen_random_uuid(), @RuleId, 'BPM', 'Cumplimiento con las BPM', 0.56, 'CALCULO_BPM', 3, @ActorId),
+                    (gen_random_uuid(), @RuleId, 'INABIE', 'Proveedor INABIE y alcance de distribución', 0.05, 'ESTABLECIMIENTO', 4, @ActorId),
+                    (gen_random_uuid(), @RuleId, 'RECHAZOS', 'Rechazos microbiológicos en registros sanitarios', 0.06, 'ESTABLECIMIENTO', 5, @ActorId),
+                    (gen_random_uuid(), @RuleId, 'MUESTREO', 'Plan de muestreo microbiológico y análisis de laboratorio', 0.08, 'ESTABLECIMIENTO', 6, @ActorId);
+
+                INSERT INTO "SIGERSA"."FACTOR_RIESGO_OPCION"
+                    (id, factor_riesgo_id, codigo, nombre, puntaje, orden, creado_por)
+                SELECT gen_random_uuid(), factor.id, option.codigo, option.nombre, option.puntaje, option.orden, @ActorId
+                FROM "SIGERSA"."FACTOR_RIESGO" factor
+                JOIN (VALUES
+                    ('VOLUMEN_PRODUCCION', 'MICRO', 'Micro (<200.000 por mes)', 1.00, 1),
+                    ('VOLUMEN_PRODUCCION', 'PEQUENO', 'Pequeño (200.000 - 800.000 por mes)', 1.67, 2),
+                    ('VOLUMEN_PRODUCCION', 'MEDIANO', 'Mediano (800.000 - 2.000.000 por mes)', 2.33, 3),
+                    ('VOLUMEN_PRODUCCION', 'GRANDE', 'Grande (>2.000.000 por mes)', 3.00, 4),
+                    ('HACCP', 'TODAS_LINEAS', 'HACCP en todas las líneas de producción', 1.00, 1),
+                    ('HACCP', 'SETENTA_Y_CINCO', 'HACCP en el 75% de las líneas de producción', 1.67, 2),
+                    ('HACCP', 'VEINTICINCO', 'HACCP en el 25% de las líneas de producción', 2.33, 3),
+                    ('HACCP', 'NO_IMPLEMENTADO', 'No tiene implementado el sistema HACCP', 3.00, 4),
+                    ('BPM', 'MAYOR_95', 'Cumplimiento BPM mayor de 95%', 1.00, 1),
+                    ('BPM', 'ENTRE_90_95', 'Cumplimiento BPM entre 90% y 95%', 1.67, 2),
+                    ('BPM', 'ENTRE_82_89', 'Cumplimiento BPM entre 82% y 89%', 2.33, 3),
+                    ('BPM', 'HASTA_81', 'Cumplimiento BPM menor o igual a 81%', 3.00, 4),
+                    ('INABIE', 'NO_SUPLIDOR', 'No es suplidor del INABIE', 1.00, 1),
+                    ('INABIE', 'LOCAL', 'Distribución local', 1.67, 2),
+                    ('INABIE', 'REGIONAL', 'Distribución regional', 2.33, 3),
+                    ('INABIE', 'NACIONAL', 'Distribución nacional', 3.00, 4),
+                    ('RECHAZOS', 'NINGUNO', 'Ningún rechazo en los últimos 5 años', 1.00, 1),
+                    ('RECHAZOS', 'UNO', 'Un rechazo en los últimos 5 años', 1.67, 2),
+                    ('RECHAZOS', 'DOS', 'Dos rechazos en los últimos 5 años', 2.33, 3),
+                    ('RECHAZOS', 'MAS_DE_DOS', 'Más de dos rechazos en los últimos 5 años', 3.00, 4),
+                    ('MUESTREO', 'COMPLETO', 'Materias primas, áreas de proceso y productos terminados', 1.00, 1),
+                    ('MUESTREO', 'PROCESO_TERMINADOS', 'Áreas de proceso y productos terminados', 1.67, 2),
+                    ('MUESTREO', 'MATERIAS_PRIMAS', 'Solo materias primas', 2.33, 3),
+                    ('MUESTREO', 'SIN_PLAN', 'No cuenta con plan de muestreo microbiológico', 3.00, 4)
+                ) AS option(factor_codigo, codigo, nombre, puntaje, orden)
+                  ON option.factor_codigo = factor.codigo
+                WHERE factor.regla_riesgo_version_id = @RuleId;
+
                 INSERT INTO "SIGERSA"."RANGO_RIESGO"
                     (id, regla_riesgo_version_id, codigo, nivel_riesgo, limite_inferior,
                      incluye_inferior, limite_superior, incluye_superior, frecuencia,
@@ -235,7 +274,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                     (gen_random_uuid(), @RuleId, 'BAJO', 'BAJO', 1, true, 3.6, true, 'ANUAL', 12, 1, @ActorId),
                     (gen_random_uuid(), @RuleId, 'MEDIO', 'MEDIO', 3.6, false, 6.3, true, 'SEMESTRAL', 6, 2, @ActorId),
                     (gen_random_uuid(), @RuleId, 'ALTO', 'ALTO', 6.3, false, NULL, false, 'TRIMESTRAL', 3, 3, @ActorId);
-                """), new { FactorId = factorId, RuleId = riskRuleId, ActorId = actorId }, transaction, cancellationToken: cancellationToken));
+                """), new { RuleId = riskRuleId, ActorId = actorId }, transaction, cancellationToken: cancellationToken));
 
             var templateId = Guid.NewGuid();
             var rootId = previous?.RootId ?? templateId;
@@ -444,12 +483,24 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         await using (connection)
         {
             var evaluationSql = $"""
-                SELECT evaluation.version_fila
+                SELECT evaluation.version_fila AS RowVersion,
+                       COALESCE((SELECT SUM(product.volumen_mensual)
+                                 FROM "SIGERSA"."ESTABLECIMIENTO_PRODUCTO" product
+                                 WHERE product.establecimiento_id = establishment.id AND product.activo = true),
+                                establishment.produccion_anual / 12) AS MonthlyProduction,
+                       establishment.haccp_implementado AS HaccpImplemented,
+                       establishment.nivel_haccp_porcentaje AS HaccpPercentage,
+                       establishment.es_suplidor_inabie AS IsInabieSupplier,
+                       establishment.distribucion_inabie_codigo AS InabieDistributionCode,
+                       establishment.rechazos_microbiologicos_ultimos_5_anios AS MicrobiologicalRejectionsLastFiveYears,
+                       establishment.plan_muestreo_microbiologico AS MicrobiologicalSamplingPlan,
+                       establishment.aplicacion_muestreo_codigo AS SamplingApplicationCode
                 FROM "SIGERSA"."EVALUACION" evaluation
+                JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
                 WHERE evaluation.id = @EvaluationId AND {AccessPredicate};
                 """;
-            var rowVersion = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(Sql(evaluationSql), new { EvaluationId = evaluationId, ActorId = actorId }, cancellationToken: cancellationToken));
-            if (rowVersion is null) throw new KeyNotFoundException("La evaluación no existe o no está disponible para el usuario.");
+            var header = await connection.QuerySingleOrDefaultAsync<CalculationHeaderRow>(new CommandDefinition(Sql(evaluationSql), new { EvaluationId = evaluationId, ActorId = actorId }, cancellationToken: cancellationToken));
+            if (header is null) throw new KeyNotFoundException("La evaluación no existe o no está disponible para el usuario.");
             var items = await GetFormAsync(evaluationId, actorId, cancellationToken);
             var answers = (await connection.QueryAsync<AnswerInputRow>(new CommandDefinition(Sql("""
                 SELECT response.id AS Id, response.evaluacion_id AS EvaluationId,
@@ -459,7 +510,11 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
                 WHERE response.evaluacion_id = @EvaluationId;
                 """), new { EvaluationId = evaluationId }, cancellationToken: cancellationToken))).Select(row => row.ToDomain()).ToArray();
-            return new EvaluationCalculationInput(evaluationId, rowVersion.Value, items, answers);
+            return new EvaluationCalculationInput(evaluationId, header.RowVersion, items, answers,
+                header.MonthlyProduction, header.HaccpImplemented, header.HaccpPercentage,
+                header.IsInabieSupplier, header.InabieDistributionCode,
+                header.MicrobiologicalRejectionsLastFiveYears,
+                header.MicrobiologicalSamplingPlan, header.SamplingApplicationCode);
         }
     }
 
@@ -515,6 +570,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
     private sealed class AnswerRow { public Guid Id { get; init; } public long RowVersion { get; init; } }
     private sealed class AnswerInputRow { public Guid Id { get; init; } public Guid EvaluationId { get; init; } public int SourceItem { get; init; } public string Rating { get; init; } = string.Empty; public decimal? Score { get; init; } public long RowVersion { get; init; } public EvaluationAnswer ToDomain() => new(Id, EvaluationId, SourceItem, Rating, Score, RowVersion); }
     private sealed class AnswerDetailRow { public Guid Id { get; init; } public Guid EvaluationId { get; init; } public int SourceItem { get; init; } public string Rating { get; init; } = string.Empty; public decimal? Score { get; init; } public long RowVersion { get; init; } public EvaluationAnswer ToDomain() => new(Id, EvaluationId, SourceItem, Rating, Score, RowVersion); }
+    private sealed class CalculationHeaderRow { public long RowVersion { get; init; } public decimal? MonthlyProduction { get; init; } public bool? HaccpImplemented { get; init; } public decimal? HaccpPercentage { get; init; } public bool? IsInabieSupplier { get; init; } public string? InabieDistributionCode { get; init; } public int MicrobiologicalRejectionsLastFiveYears { get; init; } public bool? MicrobiologicalSamplingPlan { get; init; } public string? SamplingApplicationCode { get; init; } }
     private sealed class EvaluationSummaryRow
     {
         public Guid Id { get; init; } public string Number { get; init; } = string.Empty;

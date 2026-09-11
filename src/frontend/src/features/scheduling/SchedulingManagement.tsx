@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
+import { useParameterOptions } from '../../hooks/useParameterOptions'
 import {
   cancelSchedule,
   createSchedule,
@@ -18,6 +19,7 @@ import { queueSchedule } from '../../offline/syncQueue'
 const emptyPage: SchedulesPage = { items: [], page: 1, pageSize: 50, total: 0 }
 
 export function SchedulingManagement() {
+  const scheduleStates = useParameterOptions('ESTADO_PROGRAMACION')
   const [result, setResult] = useState(emptyPage)
   const [options, setOptions] = useState<ScheduleOptions | null>(null)
   const [status, setStatus] = useState('')
@@ -131,11 +133,17 @@ export function SchedulingManagement() {
             className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
           >
             <option value="">Todos</option>
-            <option value="PROGRAMADA">Programada</option>
-            <option value="REPROGRAMADA">Reprogramada</option>
-            <option value="CANCELADA">Cancelada</option>
-            <option value="COMPLETADA">Completada</option>
+            {scheduleStates.options.map((value) => (
+              <option key={value.parametersId} value={value.stringData ?? ''}>
+                {formatStatusLabel(value.stringData ?? '')}
+              </option>
+            ))}
           </select>
+          {!scheduleStates.loading && scheduleStates.options.length === 0 && (
+            <span className="mt-1 block text-xs font-normal text-amber-700">
+              El catálogo ESTADO_PROGRAMACION no tiene valores activos.
+            </span>
+          )}
         </label>
         {error && (
           <div
@@ -266,14 +274,14 @@ function ScheduleForm({
   }
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4"
+      className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
       role="presentation"
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="schedule-form-title"
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6"
+        className="sigersa-modal-panel w-full max-w-2xl p-6"
       >
         <div className="flex justify-between">
           <h2 id="schedule-form-title" className="text-xl font-extrabold">

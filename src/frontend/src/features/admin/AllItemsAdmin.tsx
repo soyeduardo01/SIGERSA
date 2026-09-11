@@ -10,17 +10,18 @@ import {
   type AllItemDraft,
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
+import { useParameterOptions } from '../../hooks/useParameterOptions'
 
-const emptyDraft: AllItemDraft = { itemsId: '', description: '', sectionType: 'I', parents: null }
-const sectionTypeLabels: Record<string, string> = {
-  C: 'Capítulo',
-  S: 'Sección',
-  SS: 'Subsección',
-  A: 'Agrupación',
-  I: 'Pregunta',
-}
+const emptyDraft: AllItemDraft = { itemsId: '', description: '', sectionType: '', parents: null }
 
 export function AllItemsAdmin({ readOnly = false }: { readOnly?: boolean }) {
+  const sectionTypes = useParameterOptions('TIPO_SECCION_ALLITEMS')
+  const sectionTypeLabels = Object.fromEntries(
+    sectionTypes.options.map((option) => [
+      option.cCode ?? '',
+      option.stringData ?? option.cCode ?? '',
+    ]),
+  )
   const [items, setItems] = useState<AllItem[]>([])
   const [draft, setDraft] = useState<AllItemDraft>(emptyDraft)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -182,10 +183,8 @@ export function AllItemsAdmin({ readOnly = false }: { readOnly?: boolean }) {
         </div>
         {proposalOpen && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="proposal-title"
+            className="sigersa-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
+            role="presentation"
           >
             <form
               onSubmit={(event) => {
@@ -197,7 +196,10 @@ export function AllItemsAdmin({ readOnly = false }: { readOnly?: boolean }) {
                   'El ajuste quedó preparado para la revisión administrativa.',
                 )
               }}
-              className="w-full max-w-xl rounded-card bg-white p-6 shadow-2xl"
+              className="sigersa-modal-panel w-full max-w-xl p-6"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="proposal-title"
             >
               <h2 id="proposal-title" className="text-xl font-extrabold text-ink-strong">
                 Proponer ajuste de ficha
@@ -264,18 +266,18 @@ export function AllItemsAdmin({ readOnly = false }: { readOnly?: boolean }) {
         </div>
       </div>
       <div className="mt-5 flex flex-wrap gap-2" aria-label="Accesos rápidos para agregar ítems">
-        {Object.entries(sectionTypeLabels).map(([code, label]) => (
+        {sectionTypes.options.map((option) => (
           <button
-            key={code}
+            key={option.parametersId}
             type="button"
             onClick={() => {
               setEditingId(null)
-              setDraft({ ...emptyDraft, sectionType: code })
+              setDraft({ ...emptyDraft, sectionType: option.cCode ?? '' })
               window.scrollTo({ top: 260, behavior: 'smooth' })
             }}
             className="border-brand-300 text-brand-800 min-h-10 rounded-xl border bg-white px-4 text-sm font-bold"
           >
-            + Agregar {label.toLowerCase()}
+            + Agregar {(option.stringData ?? option.cCode ?? '').toLowerCase()}
           </button>
         ))}
       </div>
@@ -303,15 +305,17 @@ export function AllItemsAdmin({ readOnly = false }: { readOnly?: boolean }) {
         <label className="text-sm font-bold text-ink-body">
           Tipo de sección
           <select
+            required
             value={draft.sectionType}
             onChange={(event) => setDraft({ ...draft, sectionType: event.target.value })}
             className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
           >
-            <option value="C">Capítulo</option>
-            <option value="S">Sección</option>
-            <option value="SS">Subsección</option>
-            <option value="A">Agrupación</option>
-            <option value="I">Pregunta</option>
+            <option value="">Seleccione</option>
+            {sectionTypes.options.map((option) => (
+              <option key={option.parametersId} value={option.cCode ?? ''}>
+                {option.stringData ?? option.cCode}
+              </option>
+            ))}
           </select>
         </label>
         <label className="text-sm font-bold text-ink-body lg:col-span-2">
@@ -383,66 +387,68 @@ export function AllItemsAdmin({ readOnly = false }: { readOnly?: boolean }) {
         </p>
       )}
       {deleteTarget && (
-        <section
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="delete-node-title"
-          className="mt-4 rounded-card border border-amber-300 bg-amber-50 p-5"
-        >
-          <h2 id="delete-node-title" className="font-extrabold text-ink-strong">
-            El nodo tiene hijos
-          </h2>
-          <p className="mt-2 text-sm text-ink-body">
-            Elija si desea eliminar todo el subárbol de «{deleteTarget.description}» o conservar sus
-            hijos asignándolos a otro padre.
-          </p>
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <button
-              type="button"
-              onClick={() => void executeRemove(deleteTarget, 'SUBTREE')}
-              className="min-h-11 rounded-xl bg-red-700 px-4 font-bold text-white"
-            >
-              Eliminar subárbol
-            </button>
-            <label className="text-sm font-bold text-ink-body">
-              Nuevo padre de los hijos
-              <select
-                value={reparentToItems}
-                onChange={(event) => setReparentToItems(event.target.value)}
-                className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal"
+        <div className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-node-title"
+            className="sigersa-modal-panel w-full max-w-xl p-6"
+          >
+            <h2 id="delete-node-title" className="font-extrabold text-ink-strong">
+              El nodo tiene hijos
+            </h2>
+            <p className="mt-2 text-sm text-ink-body">
+              Elija si desea eliminar todo el subárbol de «{deleteTarget.description}» o conservar
+              sus hijos asignándolos a otro padre.
+            </p>
+            <div className="mt-5 flex flex-wrap items-end gap-3">
+              <button
+                type="button"
+                onClick={() => void executeRemove(deleteTarget, 'SUBTREE')}
+                className="min-h-11 rounded-xl bg-red-700 px-4 font-bold text-white"
               >
-                <option value="">Padre actual del nodo</option>
-                {items
-                  .filter((item) => item.items !== deleteTarget.items)
-                  .map((item) => (
-                    <option key={item.items} value={item.items}>
-                      {item.items}. {item.itemsId} — {item.description}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              onClick={() =>
-                void executeRemove(
-                  deleteTarget,
-                  'REPARENT',
-                  reparentToItems ? Number(reparentToItems) : undefined,
-                )
-              }
-              className="min-h-11 rounded-xl bg-brand-700 px-4 font-bold text-white"
-            >
-              Reubicar hijos y remover
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeleteTarget(null)}
-              className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 font-bold"
-            >
-              Cancelar
-            </button>
-          </div>
-        </section>
+                Eliminar subárbol
+              </button>
+              <label className="text-sm font-bold text-ink-body">
+                Nuevo padre de los hijos
+                <select
+                  value={reparentToItems}
+                  onChange={(event) => setReparentToItems(event.target.value)}
+                  className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal"
+                >
+                  <option value="">Padre actual del nodo</option>
+                  {items
+                    .filter((item) => item.items !== deleteTarget.items)
+                    .map((item) => (
+                      <option key={item.items} value={item.items}>
+                        {item.items}. {item.itemsId} — {item.description}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() =>
+                  void executeRemove(
+                    deleteTarget,
+                    'REPARENT',
+                    reparentToItems ? Number(reparentToItems) : undefined,
+                  )
+                }
+                className="min-h-11 rounded-xl bg-brand-700 px-4 font-bold text-white"
+              >
+                Reubicar hijos y remover
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 font-bold"
+              >
+                Cancelar
+              </button>
+            </div>
+          </section>
+        </div>
       )}
       <div className="mt-6 overflow-x-auto rounded-card bg-white shadow-card">
         <table className="min-w-full text-left text-sm">

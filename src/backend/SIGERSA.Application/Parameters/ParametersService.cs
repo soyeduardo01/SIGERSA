@@ -5,6 +5,11 @@ namespace SIGERSA.Application.Parameters;
 
 public sealed class ParametersService(IParametersControlRepository repository)
 {
+    public Task<IReadOnlyList<ParameterControl>> GetAllActiveAsync(
+        string? search,
+        CancellationToken cancellationToken) =>
+        repository.GetAllActiveAsync(string.IsNullOrWhiteSpace(search) ? null : search.Trim(), cancellationToken);
+
     public Task<IReadOnlyList<ParameterControl>> GetActiveAsync(
         string keyWord,
         int? companyCode,

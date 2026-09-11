@@ -11,11 +11,16 @@ import {
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
+import { useParameterOptions } from '../../hooks/useParameterOptions'
 import { DynamicInspectionForm } from '../inspection/DynamicInspectionForm'
 
 const emptyPage: EvaluationsPage = { items: [], page: 1, pageSize: 20, total: 0 }
 
-export function EvaluationsManagement() {
+export function EvaluationsManagement({
+  mode = 'management',
+}: {
+  mode?: 'management' | 'inspection'
+}) {
   const [result, setResult] = useState(emptyPage)
   const [options, setOptions] = useState<EvaluationCreateOptions | null>(null)
   const [status, setStatus] = useState('')
@@ -23,6 +28,8 @@ export function EvaluationsManagement() {
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [selected, setSelected] = useState<EvaluationSummary | null>(null)
+  const evaluationStates = useParameterOptions('ESTADO_EVALUACION')
+  const inspectionMode = mode === 'inspection'
 
   async function load() {
     setLoading(true)
@@ -74,16 +81,18 @@ export function EvaluationsManagement() {
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <p className="text-xs font-bold tracking-[0.14em] text-brand-700 uppercase">
-            Inspección BPM
+            {inspectionMode ? 'Ejecución de campo' : 'Inspección BPM'}
           </p>
           <h1 id="evaluations-title" className="mt-2 text-2xl font-extrabold">
-            Evaluaciones
+            {inspectionMode ? 'Inspecciones' : 'Evaluaciones'}
           </h1>
           <p className="mt-2 text-sm text-ink-muted">
-            Consulte sus asignaciones y abra la ficha inmutable autorizada.
+            {inspectionMode
+              ? 'Seleccione una evaluación asignada y comience la inspección del establecimiento.'
+              : 'Consulte sus asignaciones y abra la ficha inmutable autorizada.'}
           </p>
         </div>
-        {options?.canCreate && (
+        {!inspectionMode && options?.canCreate && (
           <button
             type="button"
             onClick={() => setCreating(true)}
@@ -103,20 +112,17 @@ export function EvaluationsManagement() {
             className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
           >
             <option value="">Todos</option>
-            {[
-              'ASIGNADA',
-              'EN_EJECUCION',
-              'PAUSADA',
-              'EN_REVISION',
-              'EN_CORRECCION',
-              'APROBADA',
-              'CERRADA',
-            ].map((value) => (
-              <option key={value} value={value}>
-                {formatStatusLabel(value)}
+            {evaluationStates.options.map((option) => (
+              <option key={option.parametersId} value={option.stringData ?? ''}>
+                {formatStatusLabel(option.stringData ?? '')}
               </option>
             ))}
           </select>
+          {!evaluationStates.loading && evaluationStates.options.length === 0 && (
+            <span className="mt-1 block text-xs font-normal text-amber-700">
+              El catálogo ESTADO_EVALUACION no tiene valores activos.
+            </span>
+          )}
         </label>
         {error && (
           <div
@@ -161,7 +167,7 @@ export function EvaluationsManagement() {
                       onClick={() => setSelected(item)}
                       className="rounded-lg border px-3 py-2 font-bold"
                     >
-                      Abrir ficha
+                      {inspectionMode ? 'Iniciar inspección' : 'Abrir ficha'}
                     </button>
                   </td>
                 </tr>
@@ -233,14 +239,14 @@ function EvaluationForm({
   const selectClass = 'mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal'
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4"
+      className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
       role="presentation"
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="evaluation-form-title"
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6"
+        className="sigersa-modal-panel w-full max-w-2xl p-6"
       >
         <div className="flex justify-between">
           <h2 id="evaluation-form-title" className="text-xl font-extrabold">

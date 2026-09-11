@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
 import { useAuth } from '../../contexts/useAuth'
+import { useParameterOptions } from '../../hooks/useParameterOptions'
 import {
   downloadEvidence,
   getEvidences,
@@ -184,8 +185,9 @@ function EvidenceForm({
   onClose: () => void
   onSave: (evaluationId: string, evidenceType: string, file: File) => Promise<void>
 }) {
+  const evidenceTypes = useParameterOptions('TIPO_EVIDENCIA')
   const [evaluationId, setEvaluationId] = useState('')
-  const [evidenceType, setEvidenceType] = useState('FOTOGRAFIA')
+  const [evidenceType, setEvidenceType] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   async function submit(event: FormEvent) {
@@ -200,14 +202,14 @@ function EvidenceForm({
   }
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 p-4"
+      className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
       role="presentation"
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="evidence-form-title"
-        className="w-full max-w-xl rounded-2xl bg-white p-6"
+        className="sigersa-modal-panel w-full max-w-xl p-6"
       >
         <div className="flex justify-between">
           <h2 id="evidence-form-title" className="text-xl font-extrabold">
@@ -237,14 +239,23 @@ function EvidenceForm({
           <label className="text-sm font-bold">
             Tipo
             <select
+              required
               value={evidenceType}
               onChange={(e) => setEvidenceType(e.target.value)}
               className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
             >
-              <option value="FOTOGRAFIA">Fotografía</option>
-              <option value="DOCUMENTO">Documento</option>
-              <option value="VIDEO">Video</option>
+              <option value="">Seleccione</option>
+              {evidenceTypes.options.map((value) => (
+                <option key={value.parametersId} value={value.stringData ?? ''}>
+                  {formatStatusLabel(value.stringData ?? '')}
+                </option>
+              ))}
             </select>
+            {!evidenceTypes.loading && evidenceTypes.options.length === 0 && (
+              <span className="mt-1 block text-xs font-normal text-amber-700">
+                El catálogo TIPO_EVIDENCIA no tiene valores activos.
+              </span>
+            )}
           </label>
           <label className="text-sm font-bold">
             Archivo

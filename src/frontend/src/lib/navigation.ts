@@ -17,6 +17,7 @@ export function isAppModule(value: string): value is AppModule {
     'resumen',
     'empresas',
     'evaluaciones',
+    'inspecciones',
     'programacion',
     'establecimientos',
     'parametros',

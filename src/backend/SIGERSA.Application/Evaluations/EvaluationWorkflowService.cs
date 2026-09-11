@@ -87,7 +87,20 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             new AllItemRating(answer.SourceItem, ParseRating(answer.Rating))).ToArray();
         var nodeScores = InspectionTreeRiskCalculator.Calculate(nodes, nodeRatings);
         var compliance = bpm.Score * 100m;
-        decimal? establishmentRisk = bpm.Score is null ? null : 1m + ((1m - bpm.Score.Value) * 2m);
+        var productionScore = ScoreProduction(input.MonthlyProduction);
+        var haccpScore = ScoreHaccp(input.HaccpImplemented, input.HaccpPercentage);
+        var bpmScore = ScoreBpm(compliance);
+        var inabieScore = ScoreInabie(input.IsInabieSupplier, input.InabieDistributionCode);
+        var rejectionScore = ScoreRejections(input.MicrobiologicalRejectionsLastFiveYears);
+        var samplingScore = ScoreSampling(input.MicrobiologicalSamplingPlan, input.SamplingApplicationCode);
+        var establishmentRisk = RiskEngine.CalculateEstablishmentRisk([
+            new RiskFactor(0.16m, productionScore),
+            new RiskFactor(0.09m, haccpScore),
+            new RiskFactor(0.56m, bpmScore),
+            new RiskFactor(0.05m, inabieScore),
+            new RiskFactor(0.06m, rejectionScore),
+            new RiskFactor(0.08m, samplingScore)
+        ]);
         var total = RiskEngine.CalculateTotalRisk(productRisk, establishmentRisk);
         var level = total.Level switch
         {
@@ -121,6 +134,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             calculation.TotalRisk,
             calculation.RiskLevel,
             calculation.Frequency,
+            factors = new { productionScore, haccpScore, bpmScore, inabieScore, rejectionScore, samplingScore },
             nodes = nodeScores
         });
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot))).ToLowerInvariant();
@@ -144,6 +158,61 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         "IT" or "NO_CUMPLE" or "INCUMPLIMIENTO" => BpmRating.NonCompliant,
         "NA" or "N/A" or "NO_APLICA" => BpmRating.NotApplicable,
         _ => throw new ArgumentException($"La calificación '{value}' no está soportada.", nameof(value))
+    };
+
+    private static decimal? ScoreProduction(decimal? monthlyProduction) => monthlyProduction switch
+    {
+        null => null,
+        > 2_000_000m => 3m,
+        >= 800_000m => 2.33m,
+        >= 200_000m => 1.67m,
+        _ => 1m
+    };
+
+    private static decimal? ScoreHaccp(bool? implemented, decimal? percentage) => implemented switch
+    {
+        null => null,
+        false => 3m,
+        true when percentage <= 25m => 2.33m,
+        true when percentage <= 75m => 1.67m,
+        true => 1m
+    };
+
+    private static decimal? ScoreBpm(decimal? compliance) => compliance switch
+    {
+        null => null,
+        <= 81m => 3m,
+        <= 89m => 2.33m,
+        <= 95m => 1.67m,
+        _ => 1m
+    };
+
+    private static decimal? ScoreInabie(bool? supplier, string? distribution) => supplier switch
+    {
+        null => null,
+        false => 1m,
+        true when distribution == "NACIONAL" => 3m,
+        true when distribution == "REGIONAL" => 2.33m,
+        true when distribution == "LOCAL" => 1.67m,
+        _ => null
+    };
+
+    private static decimal ScoreRejections(int count) => count switch
+    {
+        > 2 => 3m,
+        2 => 2.33m,
+        1 => 1.67m,
+        _ => 1m
+    };
+
+    private static decimal? ScoreSampling(bool? hasPlan, string? application) => hasPlan switch
+    {
+        null => null,
+        false => 3m,
+        true when application == "MATERIAS_PRIMAS" => 2.33m,
+        true when application == "AREAS_PROCESO_PRODUCTOS_TERMINADOS" => 1.67m,
+        true when application == "MATERIAS_PRIMAS_AREAS_PROCESO_PRODUCTOS_TERMINADOS" => 1m,
+        _ => null
     };
 
     private static Guid Required(Guid value, string name)

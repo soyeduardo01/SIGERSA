@@ -31,6 +31,10 @@ describe('Sidebar', () => {
       'href',
       '/modulo.html?module=evaluaciones',
     )
+    expect(screen.getByRole('link', { name: 'Inspecciones' })).toHaveAttribute(
+      'href',
+      '/modulo.html?module=inspecciones',
+    )
   })
 
   it('muestra gestión de usuarios a administradores globales y de empresa', () => {
