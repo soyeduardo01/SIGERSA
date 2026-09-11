@@ -14,7 +14,7 @@ interface UserFormModalProps {
   user: ManagedUser | null
   options: UserManagementOptions
   onClose: () => void
-  onSave: (draft: ManagedUserDraft) => Promise<void>
+  onSave: (draft: ManagedUserDraft, authorizationLetter: File | null) => Promise<void>
 }
 
 function initialDraft(user: ManagedUser | null): ManagedUserDraft {
@@ -29,7 +29,7 @@ function initialDraft(user: ManagedUser | null): ManagedUserDraft {
     telefono: formatPhone(user?.telefono ?? ''),
     empresaId: user?.empresaId ?? null,
     rol: user?.roles[0] ?? '',
-    estado: user?.estado ?? '',
+    estado: user?.estado ?? 'PENDIENTE_VALIDACION',
     temporaryPassword: '',
     versionFila: user?.versionFila ?? null,
   }
@@ -38,6 +38,7 @@ function initialDraft(user: ManagedUser | null): ManagedUserDraft {
 export function UserFormModal({ user, options, onClose, onSave }: UserFormModalProps) {
   const [draft, setDraft] = useState(() => initialDraft(user))
   const [saving, setSaving] = useState(false)
+  const [authorizationLetter, setAuthorizationLetter] = useState<File | null>(null)
   const identificationTypes = useParameterOptions('TIPO_IDENTIFICACION')
   const userStates = useParameterOptions('ESTADO_USUARIO_GESTION')
 
@@ -45,13 +46,14 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
     event.preventDefault()
     setSaving(true)
     try {
-      await onSave(draft)
+      await onSave(draft, authorizationLetter)
     } finally {
       setSaving(false)
     }
   }
 
   const enterpriseRole = ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO'].includes(draft.rol)
+  const companyRequired = enterpriseRole && draft.estado === 'ACTIVO'
   const passwordReady = user
     ? !draft.temporaryPassword || isPasswordValid(draft.temporaryPassword)
     : isPasswordValid(draft.temporaryPassword)
@@ -182,12 +184,12 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
           <label className="text-sm font-bold text-ink-body">
             Empresa o ámbito
             <select
-              required={enterpriseRole}
+              required={companyRequired}
               value={draft.empresaId ?? ''}
               onChange={(event) => setDraft({ ...draft, empresaId: event.target.value || null })}
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
             >
-              <option value="">Ámbito institucional</option>
+              <option value="">Pendiente de asignar empresa</option>
               {options.companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
@@ -206,9 +208,17 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
             >
               <option value="">Seleccione</option>
-              {userStates.options.map((option) => (
+              {userStates.options
+                .filter((option) => ['PENDIENTE_VALIDACION', 'ACTIVO', 'RECHAZADO'].includes(option.stringData ?? ''))
+                .map((option) => (
                 <option key={option.parametersId} value={option.stringData ?? ''}>
-                  {formatStatusLabel(option.stringData ?? '')}
+                  {option.stringData === 'ACTIVO'
+                    ? 'Aprobado'
+                    : option.stringData === 'PENDIENTE_VALIDACION'
+                      ? 'Pendiente Validación'
+                      : option.stringData === 'RECHAZADO'
+                        ? 'Rechazado'
+                        : formatStatusLabel(option.stringData ?? '')}
                 </option>
               ))}
             </select>
@@ -233,6 +243,21 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
               </p>
             )}
           </div>
+          {enterpriseRole && (
+            <label className="text-sm font-bold text-ink-body md:col-span-2">
+              Carta de autorización {user ? '(opcional para reemplazar)' : ''}
+              <input
+                required={!user}
+                type="file"
+                accept="application/pdf,image/jpeg,image/png"
+                onChange={(event) => setAuthorizationLetter(event.target.files?.[0] ?? null)}
+                className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white p-2 font-normal"
+              />
+              <span className="mt-1 block text-xs font-normal text-ink-muted">
+                PDF, JPG o PNG; máximo 10 MB.
+              </span>
+            </label>
+          )}
           <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 md:col-span-2">
             <button
               type="button"
@@ -242,7 +267,7 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
               Cancelar
             </button>
             <button
-              disabled={saving || !passwordReady}
+              disabled={saving || !passwordReady || (enterpriseRole && !user && !authorizationLetter)}
               className="min-h-11 rounded-xl bg-brand-700 px-5 font-bold text-white disabled:opacity-60"
             >
               {saving ? 'Guardando…' : user ? 'Guardar cambios' : 'Crear usuario'}

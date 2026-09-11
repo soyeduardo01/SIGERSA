@@ -45,8 +45,9 @@ public sealed class UserManagementRequestValidator : AbstractValidator<UserManag
         RuleFor(request => request.Telefono).MaximumLength(40);
         RuleFor(request => request.Rol).Must(role => AllowedRoles.Contains(role, StringComparer.OrdinalIgnoreCase))
             .WithMessage("El rol indicado no es válido.");
-        RuleFor(request => request.Estado).Must(status => status is "ACTIVO" or "SUSPENDIDO")
-            .WithMessage("El estado debe ser ACTIVO o SUSPENDIDO.");
+        RuleFor(request => request.Estado).Must(status => status is
+                "PENDIENTE_VALIDACION" or "ACTIVO" or "RECHAZADO" or "SUSPENDIDO")
+            .WithMessage("El estado de validación del usuario no es válido.");
         RuleFor(request => request.TemporaryPassword)
             .MinimumLength(8)
             .MaximumLength(128)

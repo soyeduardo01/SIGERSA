@@ -57,6 +57,7 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
             sourceItem,
             request.Value,
             request.Observation,
+            request.Comment,
             idempotencyKey,
             request.DeviceId ?? idempotencyKey,
             request.ClientSequence ?? 0,
@@ -71,6 +72,56 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
         CalculateEvaluationRequest request,
         CancellationToken cancellationToken) =>
         service.CalculateAsync(evaluationId, request.ProductRisk, Actor(), cancellationToken);
+
+    [HttpPost("evaluations/{evaluationId:guid}/start")]
+    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    public Task<long> Start(
+        Guid evaluationId, StartEvaluationRequest request, CancellationToken cancellationToken) =>
+        service.StartAsync(evaluationId,
+            new EvaluationTransitionDraft("START", request.RowVersion, request.Latitude, request.Longitude, request.AccuracyMeters),
+            ActorContext(), cancellationToken);
+
+    [HttpPost("evaluations/{evaluationId:guid}/finalize")]
+    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    public Task<EvaluationCalculation> Finalize(
+        Guid evaluationId, FinalizeEvaluationRequest request, CancellationToken cancellationToken) =>
+        service.FinalizeAsync(evaluationId, request.ProductRisk, ActorContext(), cancellationToken);
+
+    [HttpPost("evaluations/{evaluationId:guid}/submit")]
+    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    public Task<long> Submit(
+        Guid evaluationId, EvaluationTransitionRequest request,
+        CancellationToken cancellationToken) =>
+        service.TransitionAsync(evaluationId,
+            new EvaluationTransitionDraft("SUBMIT", request.RowVersion),
+            ActorContext(), cancellationToken);
+
+    [HttpPost("evaluations/{evaluationId:guid}/review")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    public Task<long> Review(
+        Guid evaluationId, EvaluationTransitionRequest request,
+        CancellationToken cancellationToken) =>
+        service.TransitionAsync(evaluationId,
+            new EvaluationTransitionDraft("REVIEW", request.RowVersion),
+            ActorContext(), cancellationToken);
+
+    [HttpPost("evaluations/{evaluationId:guid}/approve")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    public Task<long> Approve(
+        Guid evaluationId, EvaluationTransitionRequest request,
+        CancellationToken cancellationToken) =>
+        service.TransitionAsync(evaluationId,
+            new EvaluationTransitionDraft("APPROVE", request.RowVersion),
+            ActorContext(), cancellationToken);
+
+    [HttpPost("evaluations/{evaluationId:guid}/close")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    public Task<long> Close(
+        Guid evaluationId, EvaluationTransitionRequest request,
+        CancellationToken cancellationToken) =>
+        service.TransitionAsync(evaluationId,
+            new EvaluationTransitionDraft("CLOSE", request.RowVersion),
+            ActorContext(), cancellationToken);
 
     private Guid Actor()
     {
@@ -105,6 +156,7 @@ public sealed record SaveAnswerRequest(
     string ItemId,
     string Value,
     string? Observation,
+    string? Comment,
     Guid? IdempotencyKey,
     Guid? DeviceId,
     long? ClientSequence,
@@ -112,3 +164,6 @@ public sealed record SaveAnswerRequest(
     long? BaseVersion);
 
 public sealed record CalculateEvaluationRequest(decimal ProductRisk = 1m);
+public sealed record StartEvaluationRequest(long RowVersion, decimal? Latitude, decimal? Longitude, decimal? AccuracyMeters);
+public sealed record FinalizeEvaluationRequest(decimal ProductRisk);
+public sealed record EvaluationTransitionRequest(long RowVersion);

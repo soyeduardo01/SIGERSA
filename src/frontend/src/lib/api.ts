@@ -13,6 +13,23 @@ export interface AuthSession {
   email?: string
 }
 
+export interface TwoFactorChallenge {
+  requiresTwoFactor: true
+  expiresAt: string
+}
+
+export interface PublicRegistrationDraft {
+  nombreCompleto: string
+  tipoIdentificacion: 'CEDULA' | 'PASAPORTE'
+  identificacion: string
+  correo: string
+  telefono: string
+  rol: 'ADMINISTRADOR_EMPRESA' | 'USUARIO_DELEGADO'
+  password: string
+  termsAccepted: boolean
+  authorizationLetter: File
+}
+
 export interface SessionIdentity {
   name: string
   email: string
@@ -51,6 +68,52 @@ export interface UserProfile {
   email: string
   phone: string | null
   rowVersion: number
+}
+
+export interface CompanySummary {
+  id: string
+  legalName: string
+  taxId: string
+  tradeName: string | null
+  economicActivity: string | null
+  phone: string | null
+  email: string | null
+  address: string | null
+  municipalityId: string | null
+  municipalityName: string | null
+  provinceName: string | null
+  contacts: CompanyContactDraft[]
+  status: string
+  rowVersion: number
+}
+
+export interface CompaniesPage {
+  items: CompanySummary[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface CompanyDraft {
+  legalName: string
+  taxId: string
+  tradeName: string | null
+  economicActivity: string | null
+  phone: string | null
+  email: string | null
+  address: string | null
+  municipalityId: string | null
+  contacts: CompanyContactDraft[]
+  status: string
+  rowVersion: number | null
+}
+
+export interface CompanyContactDraft {
+  type: 'LEGAL' | 'CALIDAD' | 'PRINCIPAL'
+  fullName: string
+  identification: string | null
+  phone: string | null
+  email: string | null
 }
 
 export interface EstablishmentSummary {
@@ -156,6 +219,176 @@ export interface EstablishmentDetails {
   data: EstablishmentDraft
   companyName: string
   provinceId: string | null
+}
+
+export interface DashboardSnapshot {
+  activeCases: number
+  pendingEvaluations: number
+  criticalAlerts: number
+  averageCompliance: number | null
+  myRequests: number
+  unreadNotifications: number
+  scheduledEvaluations: number
+  openComplaints: number
+  pendingAssignments: number
+  pendingReports: number
+  recentEvaluations: Array<{
+    id: string
+    number: string
+    establishmentName: string
+    status: string
+    compliancePercentage: number | null
+    riskLevel: string | null
+    updatedAt: string
+  }>
+  riskDistribution: Array<{ level: string; total: number }>
+  upcomingSchedules: Array<{
+    id: string
+    caseNumber: string
+    establishmentName: string
+    startsAt: string
+    status: string
+  }>
+}
+
+export interface SurveillanceRecord {
+  id: string
+  kind: 'ALERTA_LAPCH' | 'DENUNCIA'
+  number: string
+  occurredAt: string
+  companyId: string | null
+  companyName: string | null
+  establishmentId: string | null
+  establishmentName: string | null
+  subject: string
+  description: string
+  priority: number
+  channel: string | null
+  isAnonymous: boolean
+  isConfidential: boolean
+  result: string | null
+  hasCase: boolean
+  rowVersion: number
+}
+
+export interface SurveillancePage {
+  items: SurveillanceRecord[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface SurveillanceOptions {
+  companies: Array<{ id: string; name: string; companyId: string | null }>
+  establishments: Array<{ id: string; name: string; companyId: string | null }>
+  canManage: boolean
+}
+
+export interface SurveillanceDraft {
+  kind: 'ALERTA_LAPCH' | 'DENUNCIA'
+  occurredAt: string
+  companyId: string | null
+  establishmentId: string | null
+  subject: string
+  description: string
+  priority: number
+  channel: string | null
+  isAnonymous: boolean
+  isConfidential: boolean
+  result: string | null
+  rowVersion: number | null
+}
+
+export interface FindingRecord {
+  id: string
+  evaluationId: string
+  evaluationNumber: string
+  establishmentName: string
+  sourceItem: number
+  itemTitle: string
+  criticality: string
+  code: string
+  description: string
+  status: string
+  detectedAt: string
+  closedAt: string | null
+  rowVersion: number
+}
+
+export interface FindingsPage {
+  items: FindingRecord[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface FindingOptions {
+  evaluations: Array<{ id: string; name: string; companyId: string | null }>
+  criticalities: Array<{ id: string; name: string; companyId: string | null }>
+  canCreate: boolean
+}
+
+export interface HistoricalEvaluation {
+  id: string
+  number: string
+  caseNumber: string
+  companyName: string
+  establishmentName: string
+  evaluatorName: string
+  status: string
+  compliancePercentage: number | null
+  totalRisk: number | null
+  riskLevel: string | null
+  frequency: string | null
+  createdAt: string
+  closedAt: string | null
+  reportId: string | null
+  reportNumber: string | null
+  reportStatus: string | null
+  hasOfficialReport: boolean
+}
+
+export interface HistoricalEvaluationsPage {
+  items: HistoricalEvaluation[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface TimelineEvent {
+  occurredAt: string
+  eventType: string
+  title: string
+  detail: string | null
+  actorName: string | null
+}
+
+export interface AuditEventRecord {
+  id: string
+  occurredAt: string
+  action: string
+  resourceType: string
+  resourceId: string | null
+  result: string
+  actorName: string | null
+  reason: string | null
+  correlationId: string | null
+}
+
+export interface AuditEventsPage {
+  items: AuditEventRecord[]
+  page: number
+  pageSize: number
+  total: number
+}
+
+export interface ReportFileReference {
+  reportId: string
+  reportNumber: string
+  version: number
+  mimeType: string
+  fileName: string
+  isOfficial: boolean
 }
 
 export class ApiError extends Error {
@@ -341,7 +574,8 @@ export interface InspectionRequest {
   reasonDetail: string | null
   establishmentType: string | null
   observations: string | null
-  status: 'BORRADOR' | 'ENVIADA' | 'CANCELADA' | 'RECHAZADA'
+  documentCount: number
+  status: 'BORRADOR' | 'PENDIENTE_ASIGNACION' | 'CANCELADA' | 'RECHAZADA'
   createdAt: string
   submittedAt: string | null
   cancelledAt: string | null
@@ -377,6 +611,8 @@ export interface InspectionCase {
   id: string
   number: string
   requestId: string | null
+  alertId: string | null
+  complaintId: string | null
   companyId: string
   companyName: string
   establishmentId: string
@@ -401,13 +637,20 @@ export interface CasesPage {
 }
 
 export interface CaseOptions {
-  requests: Array<{ id: string; name: string; companyId: string | null }>
+  sources: Array<{
+    id: string
+    kind: 'SOLICITUD_EMPRESA' | 'PROGRAMACION' | 'ALERTA_LAPCH' | 'DENUNCIA'
+    name: string
+    companyId: string
+    establishmentId: string
+  }>
   responsibleUsers: Array<{ id: string; name: string; companyId: string | null }>
   canManage: boolean
 }
 
 export interface CaseDraft {
-  requestId: string
+  origin: 'SOLICITUD_EMPRESA' | 'PROGRAMACION' | 'ALERTA_LAPCH' | 'DENUNCIA'
+  sourceId: string
   priority: number
   responsibleId: string | null
   analysisDecision: string | null
@@ -422,6 +665,9 @@ export interface Schedule {
   caseNumber: string
   companyName: string
   establishmentName: string
+  caseOrigin: string
+  requestNumber: string | null
+  location: string | null
   startsAt: string
   endsAt: string
   priority: number
@@ -470,6 +716,7 @@ export interface Correction {
   requestedAt: string
   submittedAt: string | null
   resolvedAt: string | null
+  fields: Array<{ sourceItem: number; itemTitle: string; reason: string; status: string }>
   rowVersion: number
 }
 export interface CorrectionsPage {
@@ -490,6 +737,7 @@ export interface CorrectionDraft {
   coordinatorObservation: string
   dueAt: string
   idempotencyKey: string
+  fields: Array<{ sourceItem: number; reason: string }>
 }
 
 export function getSession(): AuthSession | null {
@@ -578,6 +826,25 @@ export async function login(email: string, password: string, rememberSession = f
       response.status,
     )
 
+  if (response.status === 202) return (await response.json()) as TwoFactorChallenge
+
+  const session = (await response.json()) as AuthSession
+  saveSession(session, rememberSession)
+  return session
+}
+
+export async function verifyTwoFactor(
+  email: string,
+  otp: string,
+  rememberSession = false,
+) {
+  const response = await publicFetch('/api/v1/auth/login/verify-2fa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp }),
+  })
+  if (response.status === 401) throw new ApiError('El código no es válido.', response.status)
+  if (!response.ok) throw await apiError(response)
   const session = (await response.json()) as AuthSession
   saveSession(session, rememberSession)
   return session
@@ -612,6 +879,22 @@ export async function resetPassword(resetToken: string, newPassword: string) {
     body: JSON.stringify({ newPassword }),
   })
   if (!response.ok) throw await apiError(response)
+}
+
+export async function registerPublicUser(draft: PublicRegistrationDraft) {
+  const form = new FormData()
+  form.append('nombreCompleto', draft.nombreCompleto)
+  form.append('tipoIdentificacion', draft.tipoIdentificacion)
+  form.append('identificacion', draft.identificacion)
+  form.append('correo', draft.correo)
+  form.append('telefono', draft.telefono)
+  form.append('rol', draft.rol)
+  form.append('password', draft.password)
+  form.append('termsAccepted', String(draft.termsAccepted))
+  form.append('authorizationLetter', draft.authorizationLetter)
+  const response = await publicFetch('/api/v1/registrations', { method: 'POST', body: form })
+  if (!response.ok) throw await apiError(response)
+  return (await response.json()) as { id: string; status: 'PENDIENTE_VALIDACION' }
 }
 
 export async function apiFetch(path: string, init: RequestInit = {}, retry = true) {
@@ -678,6 +961,28 @@ export async function getEstablishments(filters: {
   query.set('page', String(filters.page ?? 1))
   query.set('pageSize', String(filters.pageSize ?? 10))
   return getJson<EstablishmentsPage>(`/api/v1/establishments?${query}`)
+}
+
+export async function getCompanies(filters: {
+  search?: string
+  status?: string
+  page?: number
+  pageSize?: number
+}) {
+  const query = new URLSearchParams()
+  if (filters.search) query.set('search', filters.search)
+  if (filters.status) query.set('status', filters.status)
+  query.set('page', String(filters.page ?? 1))
+  query.set('pageSize', String(filters.pageSize ?? 10))
+  return getJson<CompaniesPage>(`/api/v1/companies?${query}`)
+}
+
+export async function createCompany(draft: CompanyDraft) {
+  return sendJson<{ id: string }>('/api/v1/companies', 'POST', draft)
+}
+
+export async function updateCompany(id: string, draft: CompanyDraft) {
+  return sendJson<void>(`/api/v1/companies/${id}`, 'PUT', draft)
 }
 
 export async function getEstablishment(id: string) {
@@ -785,6 +1090,33 @@ export async function calculateEvaluation(evaluationId: string, productRisk: num
   })
 }
 
+export async function startEvaluation(
+  evaluationId: string,
+  rowVersion: number,
+  location?: { latitude: number; longitude: number; accuracyMeters: number },
+) {
+  return sendJson<number>(`/api/v1/evaluations/${evaluationId}/start`, 'POST', {
+    rowVersion,
+    latitude: location?.latitude ?? null,
+    longitude: location?.longitude ?? null,
+    accuracyMeters: location?.accuracyMeters ?? null,
+  })
+}
+
+export async function finalizeEvaluation(evaluationId: string, productRisk: number) {
+  return sendJson<EvaluationCalculation>(`/api/v1/evaluations/${evaluationId}/finalize`, 'POST', {
+    productRisk,
+  })
+}
+
+export async function transitionEvaluation(
+  evaluationId: string,
+  action: 'submit' | 'review' | 'approve' | 'close',
+  rowVersion: number,
+) {
+  return sendJson<number>(`/api/v1/evaluations/${evaluationId}/${action}`, 'POST', { rowVersion })
+}
+
 export async function requestEvidenceUploadAuthorization(input: {
   evaluationId: string
   idempotencyKey: string
@@ -808,6 +1140,10 @@ export async function confirmEvidenceUpload(input: {
   evidenceType: string
   fileSize: number
   sha256Hash: string
+  sourceItem?: number
+  latitude?: number
+  longitude?: number
+  accuracyMeters?: number
 }) {
   return sendJson<{ id: string }>('/api/v1/evidences/confirm', 'POST', input)
 }
@@ -860,6 +1196,23 @@ export async function updateManagedUser(id: string, draft: ManagedUserDraft) {
   return sendJson<void>(`/api/v1/users/${id}`, 'PUT', draft)
 }
 
+export async function uploadUserAuthorizationLetter(id: string, file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const response = await apiFetch(`/api/v1/users/${id}/authorization-letter`, {
+    method: 'POST',
+    body: form,
+  })
+  if (!response.ok) throw await apiError(response)
+  return (await response.json()) as { id: string }
+}
+
+export async function downloadUserAuthorizationLetter(id: string) {
+  const response = await apiFetch(`/api/v1/users/${id}/authorization-letter/content`)
+  if (!response.ok) throw await apiError(response)
+  return response.blob()
+}
+
 export async function setManagedUserSuspension(
   id: string,
   suspended: boolean,
@@ -904,6 +1257,23 @@ export async function createInspectionRequest(draft: InspectionRequestDraft) {
 
 export async function updateInspectionRequest(id: string, draft: InspectionRequestDraft) {
   return sendJson<void>(`/api/v1/requests/${id}`, 'PUT', draft)
+}
+
+export async function uploadInspectionRequestDocument(
+  id: string,
+  file: File,
+  documentType = 'SOPORTE_BPM',
+) {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('documentType', documentType)
+  form.append('required', 'true')
+  const response = await apiFetch(`/api/v1/requests/${id}/documents`, {
+    method: 'POST',
+    body: form,
+  })
+  if (!response.ok) throw await apiError(response)
+  return (await response.json()) as { id: string }
 }
 
 export async function transitionInspectionRequest(
@@ -1011,6 +1381,115 @@ export async function transitionCorrection(
   return sendJson<void>(`/api/v1/corrections/${id}/${action}`, 'POST', { rowVersion })
 }
 
+export async function getDashboard() {
+  return getJson<DashboardSnapshot>('/api/v1/dashboard')
+}
+
+export async function getSurveillance(filters: {
+  search?: string
+  kind?: string
+  result?: string
+  pageSize?: number
+}) {
+  const query = new URLSearchParams()
+  if (filters.search) query.set('search', filters.search)
+  if (filters.kind) query.set('kind', filters.kind)
+  if (filters.result) query.set('result', filters.result)
+  query.set('pageSize', String(filters.pageSize ?? 50))
+  return getJson<SurveillancePage>(`/api/v1/surveillance?${query}`)
+}
+
+export async function getSurveillanceOptions() {
+  return getJson<SurveillanceOptions>('/api/v1/surveillance/options')
+}
+
+export async function createSurveillance(draft: SurveillanceDraft) {
+  return sendJson<{ id: string }>('/api/v1/surveillance', 'POST', draft)
+}
+
+export async function updateSurveillance(id: string, draft: SurveillanceDraft) {
+  return sendJson<void>(`/api/v1/surveillance/${id}`, 'PUT', draft)
+}
+
+export async function getFindings(filters: {
+  search?: string
+  status?: string
+  pageSize?: number
+}) {
+  const query = new URLSearchParams()
+  if (filters.search) query.set('search', filters.search)
+  if (filters.status) query.set('status', filters.status)
+  query.set('pageSize', String(filters.pageSize ?? 50))
+  return getJson<FindingsPage>(`/api/v1/findings?${query}`)
+}
+
+export async function getFindingOptions() {
+  return getJson<FindingOptions>('/api/v1/findings/options')
+}
+
+export async function createFinding(input: {
+  evaluationId: string
+  sourceItem: number
+  criticalityId: string
+  description: string
+}) {
+  return sendJson<{ id: string }>('/api/v1/findings', 'POST', input)
+}
+
+export async function closeFinding(id: string, rowVersion: number, reason: string) {
+  return sendJson<void>(`/api/v1/findings/${id}/close`, 'POST', { rowVersion, reason })
+}
+
+export async function getEvaluationHistory(filters: {
+  search?: string
+  status?: string
+  from?: string
+  to?: string
+  pageSize?: number
+}) {
+  const query = new URLSearchParams()
+  if (filters.search) query.set('search', filters.search)
+  if (filters.status) query.set('status', filters.status)
+  if (filters.from) query.set('from', filters.from)
+  if (filters.to) query.set('to', filters.to)
+  query.set('pageSize', String(filters.pageSize ?? 50))
+  return getJson<HistoricalEvaluationsPage>(`/api/v1/history/evaluations?${query}`)
+}
+
+export async function getEvaluationTimeline(evaluationId: string) {
+  return getJson<TimelineEvent[]>(`/api/v1/history/evaluations/${evaluationId}/timeline`)
+}
+
+export async function getAuditEvents(filters: {
+  search?: string
+  result?: string
+  from?: string
+  to?: string
+  pageSize?: number
+}) {
+  const query = new URLSearchParams()
+  if (filters.search) query.set('search', filters.search)
+  if (filters.result) query.set('result', filters.result)
+  if (filters.from) query.set('from', filters.from)
+  if (filters.to) query.set('to', filters.to)
+  query.set('pageSize', String(filters.pageSize ?? 50))
+  return getJson<AuditEventsPage>(`/api/v1/audit-events?${query}`)
+}
+
+export async function generateEvaluationReport(evaluationId: string, official: boolean) {
+  return sendJson<ReportFileReference>(
+    `/api/v1/reports/evaluations/${evaluationId}/generate`,
+    'POST',
+    { official },
+  )
+}
+
+export async function downloadEvaluationReport(reportId: string) {
+  const response = await apiFetch(`/api/v1/reports/${reportId}/content`)
+  if (!response.ok) throw await apiError(response)
+  return response.blob()
+}
+
 async function getJson<T>(path: string) {
   const response = await apiFetch(path)
   if (!response.ok) throw await apiError(response)
@@ -1053,17 +1532,18 @@ function refreshSessionOnce(refreshToken: string) {
 }
 
 async function apiError(response: Response) {
+  const fallback =
+    response.status === 429
+      ? 'Se alcanzó el límite temporal de intentos. Espere unos minutos antes de continuar.'
+      : response.status === 503
+        ? 'El servicio de correo no está disponible. Inténtelo nuevamente más tarde.'
+        : `La API respondió ${response.status}.`
+
   try {
     const problem = (await response.json()) as { detail?: string; title?: string }
-    const fallback =
-      response.status === 429
-        ? 'Se alcanzó el límite de intentos. Espere unos minutos antes de continuar.'
-        : response.status === 503
-          ? 'El servicio de correo no está disponible. Inténtelo nuevamente más tarde.'
-          : `La API respondió ${response.status}.`
     return new ApiError(problem.detail || problem.title || fallback, response.status)
   } catch {
-    return new ApiError(`La API respondió ${response.status}.`, response.status)
+    return new ApiError(fallback, response.status)
   }
 }
 

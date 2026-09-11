@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { alerts } from '../../lib/alerts'
-import { login, type AuthSession } from '../../lib/api'
+import { login, verifyTwoFactor, type AuthSession } from '../../lib/api'
 import { LoginPage } from './LoginPage'
 
-vi.mock('../../lib/api', () => ({ login: vi.fn() }))
+vi.mock('../../lib/api', () => ({ login: vi.fn(), verifyTwoFactor: vi.fn() }))
 vi.mock('../../lib/alerts', () => ({
   alerts: { error: vi.fn().mockResolvedValue(undefined) },
 }))
@@ -21,6 +21,7 @@ describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(login).mockResolvedValue(session)
+    vi.mocked(verifyTwoFactor).mockResolvedValue(session)
   })
 
   it('enlaza la Dirección con el sitio oficial de DIGEMAPS', () => {
@@ -31,6 +32,14 @@ describe('LoginPage', () => {
         name: 'Dirección General de Medicamentos, Alimentos y Productos Sanitarios',
       }),
     ).toHaveAttribute('href', 'https://digemaps.gob.do/')
+  })
+
+  it('permite abrir el registro público desde el login', () => {
+    const onRegister = vi.fn()
+    render(<LoginPage onAuthenticated={vi.fn()} onRecover={vi.fn()} onRegister={onRegister} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear una cuenta' }))
+    expect(onRegister).toHaveBeenCalledOnce()
   })
 
   it('permite mostrar y volver a ocultar la contraseña', () => {
@@ -82,5 +91,31 @@ describe('LoginPage', () => {
         showUnauthorized: true,
       }),
     )
+  })
+
+  it('solicita y verifica el código cuando el segundo factor está habilitado', async () => {
+    const onAuthenticated = vi.fn()
+    vi.mocked(login).mockResolvedValueOnce({
+      requiresTwoFactor: true,
+      expiresAt: '2026-09-12T18:00:00Z',
+    })
+    render(<LoginPage onAuthenticated={onAuthenticated} onRecover={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText('Correo institucional'), {
+      target: { value: 'admin@sigersa.local' },
+    })
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
+      target: { value: 'AdminTest-2026!' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Entrar/ }))
+
+    const otp = await screen.findByLabelText('Código de verificación')
+    fireEvent.change(otp, { target: { value: '123456' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Verificar código' }))
+
+    await waitFor(() =>
+      expect(verifyTwoFactor).toHaveBeenCalledWith('admin@sigersa.local', '123456', false),
+    )
+    expect(onAuthenticated).toHaveBeenCalledWith(session)
   })
 })

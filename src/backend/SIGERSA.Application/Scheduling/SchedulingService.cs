@@ -10,15 +10,19 @@ public sealed class SchedulingService(ISchedulingRepository repository, IValidat
     public Task<SchedulesPage> SearchAsync(string? search, string? status, int page, int pageSize,
         SchedulingActor actor, CancellationToken cancellationToken)
     {
-        EnsureAccess(actor);
+        EnsureReadAccess(actor);
+        var assignedOnly = actor.Roles.Contains("TECNICO_EVALUADOR", StringComparer.Ordinal)
+            && !actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR");
         return repository.SearchAsync(new ScheduleSearch(Normalize(search)?.ToLowerInvariant(),
-            Normalize(status)?.ToUpperInvariant(), Math.Max(page, 1), Math.Clamp(pageSize, 5, 100)), cancellationToken);
+            Normalize(status)?.ToUpperInvariant(), Math.Max(page, 1), Math.Clamp(pageSize, 5, 100),
+            actor.UserId, assignedOnly), cancellationToken);
     }
 
     public Task<ScheduleOptions> GetOptionsAsync(SchedulingActor actor, CancellationToken cancellationToken)
     {
-        EnsureAccess(actor);
-        return repository.GetOptionsAsync(true, cancellationToken);
+        EnsureReadAccess(actor);
+        return repository.GetOptionsAsync(
+            actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR"), cancellationToken);
     }
 
     public async Task<Guid> CreateAsync(ScheduleInput input, SchedulingActor actor, CancellationToken cancellationToken)
@@ -55,6 +59,11 @@ public sealed class SchedulingService(ISchedulingRepository repository, IValidat
     {
         if (!actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR"))
             throw new ForbiddenException("Solo un coordinador autorizado puede administrar la programación.");
+    }
+    private static void EnsureReadAccess(SchedulingActor actor)
+    {
+        if (!actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR" or "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("No tiene acceso a la programación de evaluaciones.");
     }
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

@@ -16,7 +16,8 @@ import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
 import { queueSchedule } from '../../offline/syncQueue'
 
-const emptyPage: SchedulesPage = { items: [], page: 1, pageSize: 50, total: 0 }
+const emptyPage: SchedulesPage = { items: [], page: 1, pageSize: 100, total: 0 }
+type CalendarView = 'day' | 'week' | 'month'
 
 export function SchedulingManagement() {
   const scheduleStates = useParameterOptions('ESTADO_PROGRAMACION')
@@ -27,11 +28,13 @@ export function SchedulingManagement() {
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<Schedule | null>(null)
   const [open, setOpen] = useState(false)
+  const [calendarView, setCalendarView] = useState<CalendarView>('month')
+  const [anchorDate, setAnchorDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   async function load() {
     setLoading(true)
     try {
-      setResult(await getSchedules({ status }))
+      setResult(await getSchedules({ status, pageSize: 100 }))
       setError('')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'No se pudo cargar la programación.')
@@ -42,7 +45,7 @@ export function SchedulingManagement() {
 
   useEffect(() => {
     let active = true
-    void Promise.all([getSchedules({ status }), getScheduleOptions()])
+    void Promise.all([getSchedules({ status, pageSize: 100 }), getScheduleOptions()])
       .then(([page, choices]) => {
         if (active) {
           setResult(page)
@@ -97,6 +100,12 @@ export function SchedulingManagement() {
     }
   }
 
+  const bounds = calendarBounds(anchorDate, calendarView)
+  const visibleItems = result.items.filter((item) => {
+    const startsAt = new Date(item.startsAt)
+    return startsAt >= bounds.start && startsAt < bounds.end
+  })
+
   return (
     <section aria-labelledby="scheduling-title">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -125,26 +134,49 @@ export function SchedulingManagement() {
         )}
       </div>
       <div className="mt-6 rounded-card bg-white p-5 shadow-card">
-        <label className="block max-w-xs text-sm font-bold">
-          Estado
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
-          >
-            <option value="">Todos</option>
-            {scheduleStates.options.map((value) => (
-              <option key={value.parametersId} value={value.stringData ?? ''}>
-                {formatStatusLabel(value.stringData ?? '')}
-              </option>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <label className="block min-w-56 text-sm font-bold">
+            Estado
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
+            >
+              <option value="">Todos</option>
+              {scheduleStates.options.map((value) => (
+                <option key={value.parametersId} value={value.stringData ?? ''}>
+                  {formatStatusLabel(value.stringData ?? '')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block text-sm font-bold">
+            Fecha de referencia
+            <input
+              type="date"
+              value={anchorDate}
+              onChange={(event) => setAnchorDate(event.target.value)}
+              className="mt-1.5 min-h-11 rounded-xl border px-3 font-normal"
+            />
+          </label>
+          <div className="flex rounded-xl border border-slate-300 p-1" aria-label="Vista del calendario">
+            {(['day', 'week', 'month'] as const).map((view) => (
+              <button
+                key={view}
+                type="button"
+                onClick={() => setCalendarView(view)}
+                className={`min-h-9 rounded-lg px-3 text-sm font-bold ${calendarView === view ? 'bg-brand-700 text-white' : 'text-ink-body'}`}
+              >
+                {view === 'day' ? 'Día' : view === 'week' ? 'Semana' : 'Mes'}
+              </button>
             ))}
-          </select>
-          {!scheduleStates.loading && scheduleStates.options.length === 0 && (
-            <span className="mt-1 block text-xs font-normal text-amber-700">
-              El catálogo ESTADO_PROGRAMACION no tiene valores activos.
-            </span>
-          )}
-        </label>
+          </div>
+        </div>
+        {!scheduleStates.loading && scheduleStates.options.length === 0 && (
+          <span className="mt-2 block text-xs font-normal text-amber-700">
+            El catálogo ESTADO_PROGRAMACION no tiene valores activos.
+          </span>
+        )}
         {error && (
           <div
             role="alert"
@@ -166,13 +198,22 @@ export function SchedulingManagement() {
               </tr>
             </thead>
             <tbody>
-              {result.items.map((item) => (
+              {visibleItems.map((item) => (
                 <tr key={item.id} className="border-b border-slate-100">
                   <td className="px-3 py-4 font-bold">
                     {item.caseNumber}
                     <span className="block text-xs font-normal text-ink-muted">
-                      {item.establishmentName}
+                      {item.companyName} · {item.establishmentName}
                     </span>
+                    <span className="mt-1 block text-xs font-normal text-ink-muted">
+                      {formatStatusLabel(item.caseOrigin)}
+                      {item.requestNumber ? ` · Solicitud ${item.requestNumber}` : ''}
+                    </span>
+                    {item.location && (
+                      <span className="mt-1 block text-xs font-normal text-ink-muted">
+                        {item.location}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-4">
                     {new Date(item.startsAt).toLocaleString()}
@@ -184,7 +225,7 @@ export function SchedulingManagement() {
                   <td className="px-3 py-4">{item.priority}</td>
                   <td className="px-3 py-4">{formatStatusLabel(item.status)}</td>
                   <td className="px-3 py-4 text-right">
-                    {!['CANCELADA', 'COMPLETADA'].includes(item.status) && (
+                    {options?.canManage && !['CANCELADA', 'COMPLETADA'].includes(item.status) && (
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
@@ -211,8 +252,10 @@ export function SchedulingManagement() {
             </tbody>
           </table>
           {loading && <TableSkeleton rows={5} columns={6} />}
-          {!loading && !error && result.items.length === 0 && (
-            <p className="p-10 text-center text-sm text-ink-muted">No hay visitas programadas.</p>
+          {!loading && !error && visibleItems.length === 0 && (
+            <p className="p-10 text-center text-sm text-ink-muted">
+              No hay visitas programadas para esta vista del calendario.
+            </p>
           )}
         </div>
       </div>
@@ -226,6 +269,21 @@ export function SchedulingManagement() {
       )}
     </section>
   )
+}
+
+function calendarBounds(anchor: string, view: CalendarView) {
+  const start = new Date(`${anchor}T00:00:00`)
+  if (view === 'week') {
+    const mondayOffset = (start.getDay() + 6) % 7
+    start.setDate(start.getDate() - mondayOffset)
+  } else if (view === 'month') {
+    start.setDate(1)
+  }
+  const end = new Date(start)
+  if (view === 'day') end.setDate(end.getDate() + 1)
+  else if (view === 'week') end.setDate(end.getDate() + 7)
+  else end.setMonth(end.getMonth() + 1)
+  return { start, end }
 }
 
 function localDateTime(value: string) {

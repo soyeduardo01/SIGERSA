@@ -7,6 +7,7 @@ import { useAuth } from './contexts/useAuth'
 import { UsersManagement } from './features/admin/UsersManagement'
 import { LoginPage } from './features/auth/LoginPage'
 import { PasswordRecoveryPage } from './features/auth/PasswordRecoveryPage'
+import { RegistrationPage } from './features/auth/RegistrationPage'
 import {
   AlertsPage,
   AuditPage,
@@ -27,7 +28,13 @@ import {
   RequestsPage,
   SchedulingPage,
 } from './features/operations/ModuleViews'
-import { loginHref, moduleHref, readModuleFromLocation, recoveryHref } from './lib/navigation'
+import {
+  loginHref,
+  moduleHref,
+  readModuleFromLocation,
+  recoveryHref,
+  registrationHref,
+} from './lib/navigation'
 import { moduleRoles, type AppModule } from './lib/rbac'
 
 const modules: Record<AppModule, ReactNode> = {
@@ -71,6 +78,7 @@ function LoginEntry() {
         window.location.assign(moduleHref('resumen'))
       }}
       onRecover={() => window.location.assign(recoveryHref)}
+      onRegister={() => window.location.assign(registrationHref)}
     />
   )
 }
@@ -81,6 +89,15 @@ function RecoveryEntry() {
     <Redirect href={moduleHref('resumen')} />
   ) : (
     <PasswordRecoveryPage onBack={() => window.location.assign(loginHref)} />
+  )
+}
+
+function RegistrationEntry() {
+  const { session } = useAuth()
+  return session ? (
+    <Redirect href={moduleHref('resumen')} />
+  ) : (
+    <RegistrationPage onBack={() => window.location.assign(loginHref)} />
   )
 }
 
@@ -106,6 +123,8 @@ function App() {
     <AuthProvider>
       {entry === 'module' ? (
         <ModuleEntry />
+      ) : entry === 'registration' ? (
+        <RegistrationEntry />
       ) : entry === 'recovery' ? (
         <RecoveryEntry />
       ) : (

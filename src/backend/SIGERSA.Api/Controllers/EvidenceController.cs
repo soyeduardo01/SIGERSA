@@ -59,6 +59,10 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
             request.EvidenceType,
             request.FileSize,
             request.Sha256Hash,
+            request.SourceItem,
+            request.Latitude,
+            request.Longitude,
+            request.AccuracyMeters,
             cancellationToken);
         return Created($"/api/v1/evidences/{result.Id}", result);
     }
@@ -79,6 +83,10 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
             request.File.FileName,
             request.File.ContentType,
             request.EvidenceType,
+            request.SourceItem,
+            request.Latitude,
+            request.Longitude,
+            request.AccuracyMeters,
             content,
             cancellationToken);
         return Created($"/api/v1/evidences/{result.Id}", result);
@@ -121,11 +129,19 @@ public sealed record ConfirmEvidenceUploadRequest(
     string MimeType,
     string EvidenceType,
     long FileSize,
-    string Sha256Hash);
+    string Sha256Hash,
+    int? SourceItem,
+    double? Latitude,
+    double? Longitude,
+    double? AccuracyMeters);
 
 public sealed class EvidenceUploadRequest
 {
     public Guid EvaluationId { get; init; }
     public string EvidenceType { get; init; } = "FOTOGRAFIA";
+    public int? SourceItem { get; init; }
+    public double? Latitude { get; init; }
+    public double? Longitude { get; init; }
+    public double? AccuracyMeters { get; init; }
     public required IFormFile File { get; init; }
 }

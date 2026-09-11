@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { apiFetch, clearSession, getSession, login, type AuthSession } from './api'
+import {
+  apiFetch,
+  clearSession,
+  getSession,
+  login,
+  requestPasswordRecovery,
+  type AuthSession,
+} from './api'
 
 const session: AuthSession = {
   accessToken: 'expired-access-token',
@@ -139,5 +146,14 @@ describe('apiFetch', () => {
 
     expect(localStorage.getItem('sigersa.auth.session')).not.toBeNull()
     expect(sessionStorage.getItem('sigersa.auth.session')).toBeNull()
+  })
+
+  it('explica el límite temporal aunque la respuesta 429 no incluya contenido', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 429 })))
+
+    await expect(requestPasswordRecovery('usuario@example.com')).rejects.toMatchObject({
+      message: 'Se alcanzó el límite temporal de intentos. Espere unos minutos antes de continuar.',
+      status: 429,
+    })
   })
 })

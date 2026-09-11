@@ -15,8 +15,22 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     [HttpPost("login")]
     [AllowAnonymous]
     [EnableRateLimiting("auth")]
-    public Task<AuthTokensResponse> Login(LoginRequest request, CancellationToken cancellationToken) =>
-        authService.LoginAsync(new LoginCommand(request.Email, request.Password, Device(), IpHash()), cancellationToken);
+    public async Task<ActionResult<object>> Login(LoginRequest request, CancellationToken cancellationToken)
+    {
+        var result = await authService.LoginAsync(
+            new LoginCommand(request.Email, request.Password, Device(), IpHash()), cancellationToken);
+        return result.RequiresTwoFactor
+            ? Accepted(new { requiresTwoFactor = true, expiresAt = result.ExpiresAt })
+            : Ok(result.Session);
+    }
+
+    [HttpPost("login/verify-2fa")]
+    [AllowAnonymous]
+    [EnableRateLimiting("otp-verify")]
+    public Task<AuthTokensResponse> VerifyTwoFactor(
+        TwoFactorVerification request, CancellationToken cancellationToken) =>
+        authService.VerifyTwoFactorAsync(
+            new VerifyTwoFactorCommand(request.Email, request.Otp, Device(), IpHash()), cancellationToken);
 
     [HttpPost("refresh")]
     [AllowAnonymous]
@@ -34,7 +48,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
 
     [HttpPost("password-recovery/request")]
     [AllowAnonymous]
-    [EnableRateLimiting("otp")]
+    [EnableRateLimiting("otp-send")]
     public async Task<IActionResult> RequestRecovery(PasswordRecoveryRequest request, CancellationToken cancellationToken)
     {
         await authService.RequestPasswordRecoveryAsync(
@@ -45,13 +59,13 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
 
     [HttpPost("password-recovery/verify")]
     [AllowAnonymous]
-    [EnableRateLimiting("otp")]
+    [EnableRateLimiting("otp-verify")]
     public Task<PasswordRecoveryTokenResponse> VerifyRecovery(PasswordRecoveryVerification request, CancellationToken cancellationToken) =>
         authService.VerifyPasswordRecoveryAsync(new VerifyPasswordRecoveryCommand(request.Email, request.Otp), cancellationToken);
 
     [HttpPost("password-recovery/reset")]
     [Authorize(Policy = "PasswordReset")]
-    [EnableRateLimiting("otp")]
+    [EnableRateLimiting("otp-verify")]
     public async Task<IActionResult> ResetPassword(ResetPasswordRequest request, CancellationToken cancellationToken)
     {
         if (!TryGetGuidClaim(JwtRegisteredClaimNames.Sub, out var userId)
@@ -75,6 +89,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
 }
 
 public sealed record LoginRequest(string Email, string Password);
+public sealed record TwoFactorVerification(string Email, string Otp);
 public sealed record RefreshRequest(string RefreshToken);
 public sealed record LogoutRequest(string RefreshToken);
 public sealed record PasswordRecoveryRequest(string Email);

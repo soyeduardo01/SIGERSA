@@ -76,7 +76,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
                        WHERE r.codigo IS NOT NULL AND ur.activo = true
                          AND ur.vigente_desde <= CURRENT_TIMESTAMP
                          AND (ur.vigente_hasta IS NULL OR ur.vigente_hasta > CURRENT_TIMESTAMP)
-                   ), ARRAY[]::varchar[]) AS Roles,
+                   ), array_remove(ARRAY[u.rol_solicitado]::varchar[], NULL)) AS Roles,
                    u.empresa_id AS EmpresaId, e.razon_social AS EmpresaNombre,
                    u.estado AS Estado, u.activo AS Activo, u.version_fila AS VersionFila
             FROM "SIGERSA"."USUARIO" AS u
@@ -87,7 +87,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
               AND (@Search IS NULL OR lower(u.nombre_completo) LIKE '%' || @Search || '%'
                    OR lower(u.correo) LIKE '%' || @Search || '%'
                    OR lower(u.identificacion_normalizada) LIKE '%' || @Search || '%')
-              AND (@Role IS NULL OR EXISTS (
+              AND (@Role IS NULL OR u.rol_solicitado = @Role OR EXISTS (
                     SELECT 1 FROM "SIGERSA"."USUARIO_ROL" AS filter_ur
                     JOIN "SIGERSA"."ROL" AS filter_r ON filter_r.id = filter_ur.rol_id
                     WHERE filter_ur.usuario_id = u.id AND filter_ur.activo = true
@@ -103,7 +103,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
               AND (@Search IS NULL OR lower(u.nombre_completo) LIKE '%' || @Search || '%'
                    OR lower(u.correo) LIKE '%' || @Search || '%'
                    OR lower(u.identificacion_normalizada) LIKE '%' || @Search || '%')
-              AND (@Role IS NULL OR EXISTS (
+              AND (@Role IS NULL OR u.rol_solicitado = @Role OR EXISTS (
                     SELECT 1 FROM "SIGERSA"."USUARIO_ROL" AS filter_ur
                     JOIN "SIGERSA"."ROL" AS filter_r ON filter_r.id = filter_ur.rol_id
                     WHERE filter_ur.usuario_id = u.id AND filter_ur.activo = true
@@ -166,6 +166,96 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
         }
     }
 
+    public async Task<bool> CanActivateAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1 FROM "SIGERSA"."USUARIO" user_account
+                 WHERE user_account.id = @Id AND user_account.activo = true
+                   AND (
+                       (user_account.rol_solicitado IS NULL AND NOT EXISTS (
+                           SELECT 1 FROM "SIGERSA"."USUARIO_ROL" user_role
+                           JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                           WHERE user_role.usuario_id = user_account.id
+                             AND user_role.activo = true
+                             AND role.codigo IN ('ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO')))
+                       OR EXISTS (
+                           SELECT 1 FROM "SIGERSA"."USUARIO_DOCUMENTO_AUTORIZACION" document
+                           WHERE document.usuario_id = user_account.id AND document.vigente = true)
+                   ));
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+            return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                Sql(sql), new { Id = id }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<bool> PublicRegistrationExistsAsync(
+        string normalizedEmail,
+        string normalizedIdentification,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1 FROM "SIGERSA"."USUARIO"
+                 WHERE correo_normalizado = @NormalizedEmail
+                    OR identificacion_normalizada = @NormalizedIdentification);
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+            return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                Sql(sql), new { NormalizedEmail = normalizedEmail, NormalizedIdentification = normalizedIdentification },
+                cancellationToken: cancellationToken));
+    }
+
+    public async Task<Guid> CreatePublicRegistrationAsync(
+        PublicUserRegistrationDraft draft,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
+        {
+            await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                INSERT INTO "SIGERSA"."USUARIO"
+                    (id, nombre_completo, tipo_identificacion, identificacion_normalizada,
+                     correo, correo_normalizado, telefono, password_hash, estado, activo,
+                     rol_solicitado, terminos_aceptados_en)
+                VALUES
+                    (@Id, @NombreCompleto, @TipoIdentificacion, @IdentificacionNormalizada,
+                     @Correo, @Correo, @Telefono, @PasswordHash, 'PENDIENTE_VALIDACION', true,
+                     @RequestedRole, @TermsAcceptedAt);
+
+                INSERT INTO "SIGERSA"."USUARIO_DOCUMENTO_AUTORIZACION"
+                    (id, usuario_id, bucket_name, supabase_path, nombre_original,
+                     file_size, mime_type, hash, vigente)
+                VALUES
+                    (@DocumentId, @Id, @BucketName, @SupabasePath, @OriginalName,
+                     @FileSize, @MimeType, @Sha256Hash, true);
+                """), new
+            {
+                draft.Id,
+                draft.NombreCompleto,
+                draft.TipoIdentificacion,
+                draft.IdentificacionNormalizada,
+                draft.Correo,
+                draft.Telefono,
+                draft.PasswordHash,
+                draft.RequestedRole,
+                draft.TermsAcceptedAt,
+                DocumentId = draft.AuthorizationLetter.Id,
+                draft.AuthorizationLetter.BucketName,
+                draft.AuthorizationLetter.SupabasePath,
+                draft.AuthorizationLetter.OriginalName,
+                draft.AuthorizationLetter.FileSize,
+                draft.AuthorizationLetter.MimeType,
+                draft.AuthorizationLetter.Sha256Hash
+            }, transaction, cancellationToken: cancellationToken));
+            await transaction.CommitAsync(cancellationToken);
+            return draft.Id;
+        }
+    }
+
     public async Task<Guid> CreateManagedAsync(
         ManagedUserDraft draft,
         Guid actorId,
@@ -224,6 +314,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
                        identificacion_normalizada = @IdentificacionNormalizada,
                        correo = @Correo, correo_normalizado = @Correo, telefono = @Telefono,
                        password_hash = COALESCE(@PasswordHash, password_hash),
+                       rol_solicitado = @RequestedRole,
                        estado = @Estado, modificado_en = CURRENT_TIMESTAMP,
                        modificado_por = @ActorId, version_fila = version_fila + 1
                  WHERE id = @Id AND version_fila = @VersionFila
@@ -241,7 +332,9 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
                 draft.Estado,
                 draft.VersionFila,
                 ActorId = actorId,
-                CompanyScope = companyScope
+                CompanyScope = companyScope,
+                RequestedRole = draft.Rol is "ADMINISTRADOR_EMPRESA" or "USUARIO_DELEGADO"
+                    && draft.EmpresaId is null ? draft.Rol : null
             }, transaction, cancellationToken: cancellationToken));
             if (affected != 1)
             {
@@ -255,7 +348,8 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
                        modificado_por = @ActorId, version_fila = version_fila + 1
                  WHERE usuario_id = @Id AND activo = true;
                 """), new { Id = id, ActorId = actorId }, transaction, cancellationToken: cancellationToken));
-            await UpsertRoleAsync(connection, transaction, id, roleId, draft, actorId, cancellationToken);
+            if (draft.Rol is not ("ADMINISTRADOR_EMPRESA" or "USUARIO_DELEGADO") || draft.EmpresaId is not null)
+                await UpsertRoleAsync(connection, transaction, id, roleId, draft, actorId, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return true;
         }

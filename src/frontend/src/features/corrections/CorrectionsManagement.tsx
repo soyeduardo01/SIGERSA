@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/useAuth'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 import {
   createCorrection,
+  getEvaluationForm,
   getCorrectionOptions,
   getCorrections,
   transitionCorrection,
@@ -11,6 +12,7 @@ import {
   type CorrectionDraft,
   type CorrectionOptions,
   type CorrectionsPage,
+  type EvaluationFormItem,
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
@@ -172,7 +174,19 @@ export function CorrectionsManagement() {
                       {item.assignedToName ?? 'Empresa evaluada'}
                     </span>
                   </td>
-                  <td className="max-w-xs px-3 py-4">{item.coordinatorObservation}</td>
+                  <td className="max-w-xs px-3 py-4">
+                    {item.coordinatorObservation}
+                    {item.fields.length > 0 && (
+                      <ul className="mt-2 space-y-1 text-xs text-ink-muted">
+                        {item.fields.map((field) => (
+                          <li key={field.sourceItem}>
+                            <strong>{field.itemTitle}:</strong> {field.reason} ·{' '}
+                            {formatStatusLabel(field.status)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
                   <td className="px-3 py-4">{new Date(item.dueAt).toLocaleDateString()}</td>
                   <td className="px-3 py-4">{formatStatusLabel(item.status)}</td>
                   <td className="px-3 py-4 text-right">
@@ -241,6 +255,15 @@ function CorrectionForm({
   const [observation, setObservation] = useState('')
   const [dueAt, setDueAt] = useState('')
   const [saving, setSaving] = useState(false)
+  const [evaluationItems, setEvaluationItems] = useState<EvaluationFormItem[]>([])
+  const [fieldReasons, setFieldReasons] = useState<Record<number, string>>({})
+
+  useEffect(() => {
+    if (!evaluationId) return
+    void getEvaluationForm(evaluationId)
+      .then((items) => setEvaluationItems(items.filter((item) => item.isEvaluable)))
+      .catch((caught) => void alerts.error(caught, 'No se pudieron cargar los criterios'))
+  }, [evaluationId])
   async function submit(event: FormEvent) {
     event.preventDefault()
     setSaving(true)
@@ -252,6 +275,9 @@ function CorrectionForm({
         coordinatorObservation: observation,
         dueAt: new Date(dueAt).toISOString(),
         idempotencyKey: crypto.randomUUID(),
+        fields: Object.entries(fieldReasons)
+          .filter(([, reason]) => reason.trim())
+          .map(([sourceItem, reason]) => ({ sourceItem: Number(sourceItem), reason: reason.trim() })),
       })
     } finally {
       setSaving(false)
@@ -267,7 +293,7 @@ function CorrectionForm({
         role="dialog"
         aria-modal="true"
         aria-labelledby="correction-form-title"
-        className="sigersa-modal-panel w-full max-w-xl p-6"
+        className="sigersa-modal-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto p-6"
       >
         <div className="flex justify-between">
           <h2 id="correction-form-title" className="text-xl font-extrabold">
@@ -283,7 +309,11 @@ function CorrectionForm({
             <select
               required
               value={evaluationId}
-              onChange={(e) => setEvaluationId(e.target.value)}
+              onChange={(e) => {
+                setEvaluationId(e.target.value)
+                setEvaluationItems([])
+                setFieldReasons({})
+              }}
               className={field}
             >
               <option value="">Seleccione</option>
@@ -355,6 +385,55 @@ function CorrectionForm({
               className={`${field} py-3`}
             />
           </label>
+          {evaluationItems.length > 0 && (
+            <fieldset className="rounded-xl border border-slate-200 p-4">
+              <legend className="px-2 text-sm font-extrabold">Criterios observados</legend>
+              <p className="mb-3 text-xs text-ink-muted">
+                Marque los campos que el responsable debe corregir y especifique el motivo.
+              </p>
+              <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                {evaluationItems.map((item) => {
+                  const selected = Object.hasOwn(fieldReasons, item.sourceItem)
+                  return (
+                    <div key={item.id} className="rounded-lg border border-slate-200 p-3">
+                      <label className="flex items-start gap-2 text-sm font-bold">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={selected}
+                          onChange={(event) =>
+                            setFieldReasons((current) => {
+                              if (event.target.checked)
+                                return { ...current, [item.sourceItem]: observation }
+                              const next = { ...current }
+                              delete next[item.sourceItem]
+                              return next
+                            })
+                          }
+                        />
+                        {item.title}
+                      </label>
+                      {selected && (
+                        <textarea
+                          required
+                          rows={2}
+                          value={fieldReasons[item.sourceItem] ?? ''}
+                          onChange={(event) =>
+                            setFieldReasons((current) => ({
+                              ...current,
+                              [item.sourceItem]: event.target.value,
+                            }))
+                          }
+                          className={`${field} mt-2 py-2 text-sm`}
+                          placeholder="Motivo específico de la corrección"
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </fieldset>
+          )}
           <div className="flex justify-end gap-3 border-t pt-5">
             <button
               type="button"

@@ -45,6 +45,8 @@ public static class DependencyInjection
             .Validate(options => !options.Enabled || !string.IsNullOrWhiteSpace(options.Host), "Se requiere Smtp:Host.")
             .Validate(options => !options.Enabled || options.Port > 0, "Smtp:Port debe ser positivo.")
             .Validate(options => !options.Enabled || MailAddress.TryCreate(options.FromAddress, out _), "Smtp:FromAddress debe ser válido.")
+            .Validate(options => Uri.TryCreate(options.ApplicationUrl, UriKind.Absolute, out _), "Smtp:ApplicationUrl debe ser una URL absoluta.")
+            .Validate(options => Uri.TryCreate(options.PasswordRecoveryUrl, UriKind.Absolute, out _), "Smtp:PasswordRecoveryUrl debe ser una URL absoluta.")
             .Validate(options => !options.Enabled || string.IsNullOrWhiteSpace(options.Username) == string.IsNullOrWhiteSpace(options.Password), "Smtp:Username y Smtp:Password deben configurarse juntos.")
             .ValidateOnStart();
 
@@ -79,6 +81,7 @@ public static class DependencyInjection
 
         services.AddScoped<IUsuarioRepository, UsuarioRepository>();
         services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+        services.AddScoped<ICompanyRepository, CompanyRepository>();
         services.AddScoped<IParametersControlRepository, ParametersControlRepository>();
         services.AddScoped<IAllItemsRepository, AllItemsRepository>();
         services.AddScoped<IAuthenticationRepository, AuthenticationRepository>();
@@ -89,8 +92,10 @@ public static class DependencyInjection
         services.AddScoped<ICaseRepository, CaseRepository>();
         services.AddScoped<ISchedulingRepository, SchedulingRepository>();
         services.AddScoped<ICorrectionRepository, CorrectionRepository>();
+        services.AddScoped<IOperationalRepository, OperationalRepository>();
+        services.AddScoped<ISupportingDocumentRepository, SupportingDocumentRepository>();
         services.AddScoped<IFileStorage, SupabaseStorageAdapter>();
-        services.AddSingleton<IPasswordService, Pbkdf2PasswordService>();
+        services.AddSingleton<IPasswordService, BcryptPasswordService>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
 

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Mail;
+using System.Net.Mime;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -22,22 +23,64 @@ public sealed partial class SmtpEmailSender(
         DateTimeOffset expiresAt,
         CancellationToken cancellationToken = default)
     {
+        await SendOtpAsync(
+            recipient, recipientName, otp, expiresAt,
+            "Código de recuperación de SIGERSA",
+            "Código de recuperación",
+            "Hemos recibido una solicitud para restablecer tu contraseña.",
+            "Restablecer contraseña", _options.PasswordRecoveryUrl, cancellationToken);
+    }
+
+    public async Task SendTwoFactorOtpAsync(
+        string recipient,
+        string recipientName,
+        string otp,
+        DateTimeOffset expiresAt,
+        CancellationToken cancellationToken = default)
+    {
+        await SendOtpAsync(
+            recipient, recipientName, otp, expiresAt,
+            "Código de acceso de SIGERSA",
+            "Código de verificación",
+            "Usa este código para completar el inicio de sesión.",
+            "Volver a SIGERSA", _options.ApplicationUrl, cancellationToken);
+    }
+
+    private async Task SendOtpAsync(
+        string recipient,
+        string recipientName,
+        string otp,
+        DateTimeOffset expiresAt,
+        string subject,
+        string heading,
+        string introduction,
+        string buttonText,
+        string applicationUrl,
+        CancellationToken cancellationToken)
+    {
         if (!_options.Enabled)
         {
             LogSmtpDisabled(logger);
             throw new EmailDeliveryException(
                 "El correo de recuperación no está configurado. Contacte al administrador del sistema.");
         }
+        var plainTextBody = OtpEmailTemplate.BuildPlainText(
+            recipientName, otp, expiresAt, introduction);
+        var htmlBody = OtpEmailTemplate.BuildHtml(
+            recipientName, otp, expiresAt, heading, introduction, buttonText,
+            applicationUrl);
+
         using var message = new MailMessage
         {
             From = new MailAddress(_options.FromAddress, _options.FromName, Encoding.UTF8),
-            Subject = "Código de recuperación de SIGERSA",
+            Subject = subject,
             SubjectEncoding = Encoding.UTF8,
             BodyEncoding = Encoding.UTF8,
             IsBodyHtml = false,
-            Body = $"Hola {recipientName},\n\nTu código de recuperación es: {otp}\n" +
-                   $"Expira a las {expiresAt:O}. Si no solicitaste este cambio, ignora este mensaje."
+            Body = plainTextBody
         };
+        message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(
+            htmlBody, Encoding.UTF8, MediaTypeNames.Text.Html));
         message.To.Add(new MailAddress(recipient));
         using var client = new SmtpClient(_options.Host, _options.Port)
         {
@@ -56,7 +99,7 @@ public sealed partial class SmtpEmailSender(
         {
             LogSmtpFailure(logger, exception, exception.StatusCode);
             throw new EmailDeliveryException(
-                "No fue posible enviar el código de recuperación. Inténtelo nuevamente más tarde.",
+                "No fue posible enviar el código. Inténtelo nuevamente más tarde.",
                 exception);
         }
         catch (InvalidOperationException exception)

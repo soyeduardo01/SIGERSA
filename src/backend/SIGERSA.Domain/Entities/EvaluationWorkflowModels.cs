@@ -95,8 +95,16 @@ public sealed record SaveEvaluationAnswerDraft(
     int SourceItem,
     string Rating,
     string? Observation,
+    string? Comment,
     Guid IdempotencyKey,
     Guid DeviceId,
     long ClientSequence,
     DateTimeOffset ClientDate,
     long? BaseVersion);
+
+public sealed record EvaluationTransitionDraft(
+    string Action,
+    long RowVersion,
+    decimal? Latitude = null,
+    decimal? Longitude = null,
+    decimal? AccuracyMeters = null);

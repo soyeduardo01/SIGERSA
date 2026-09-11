@@ -3,6 +3,7 @@ import { FormSkeleton } from '../../components/feedback/Skeletons'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 import {
   calculateEvaluation,
+  finalizeEvaluation,
   getEvaluationForm,
   type EvaluationCalculation,
   type EvaluationFormItem,
@@ -10,18 +11,25 @@ import {
 import { offlineDb } from '../../offline/database'
 import { flushSyncQueue, queueAnswer, queueEvidence } from '../../offline/syncQueue'
 import { alerts } from '../../lib/alerts'
+import { getOptionalLocation } from '../../lib/geolocation'
 import { formatStatusLabel } from '../../lib/formatters'
 
 const ratingOptions = [
   { code: 'CUMPLE', short: 'C', label: 'Cumple' },
-  { code: 'CUMPLE_PARCIAL', short: 'CP', label: 'Cumple parcial' },
-  { code: 'NO_CUMPLE', short: 'IT', label: 'Incumplimiento' },
+  { code: 'CUMPLE_PARCIAL', short: 'CP', label: 'Cumple parcialmente' },
+  { code: 'NO_CUMPLE', short: 'NC', label: 'No cumple' },
   { code: 'NO_APLICA', short: 'N/A', label: 'No aplica' },
 ]
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvaluationId?: string }) {
+export function DynamicInspectionForm({
+  selectedEvaluationId,
+  onFinalized,
+}: {
+  selectedEvaluationId?: string
+  onFinalized?: () => void
+}) {
   const [evaluationInput, setEvaluationInput] = useState(
     () => localStorage.getItem('sigersa.active-evaluation') ?? '',
   )
@@ -31,6 +39,8 @@ export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvalua
   })
   const [items, setItems] = useState<EvaluationFormItem[]>([])
   const [ratings, setRatings] = useState<Record<number, string>>({})
+  const [observations, setObservations] = useState<Record<number, string>>({})
+  const [comments, setComments] = useState<Record<number, string>>({})
   const [calculation, setCalculation] = useState<EvaluationCalculation | null>(null)
   const [productRisk, setProductRisk] = useState<number | null>(null)
   const productRiskOptions = useParameterOptions('NIVEL_RIESGO_ALIMENTO')
@@ -129,12 +139,31 @@ export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvalua
   async function selectRating(item: EvaluationFormItem, rating: string) {
     if (!evaluationId) return
     setRatings((current) => ({ ...current, [item.sourceItem]: rating }))
-    await queueAnswer({ evaluationId, itemId: String(item.sourceItem), value: rating })
+    await queueAnswer({
+      evaluationId,
+      itemId: String(item.sourceItem),
+      value: rating,
+      observation: observations[item.sourceItem]?.trim() || undefined,
+      comment: comments[item.sourceItem]?.trim() || undefined,
+    })
     setMessage(
       navigator.onLine
         ? 'Respuesta guardada en la cola de sincronización.'
         : 'Respuesta guardada localmente; se sincronizará al recuperar conexión.',
     )
+  }
+
+  async function saveAnswerDetails(item: EvaluationFormItem) {
+    const rating = ratings[item.sourceItem]
+    if (!evaluationId || !rating) return
+    await queueAnswer({
+      evaluationId,
+      itemId: String(item.sourceItem),
+      value: rating,
+      observation: observations[item.sourceItem]?.trim() || undefined,
+      comment: comments[item.sourceItem]?.trim() || undefined,
+    })
+    setMessage('Detalle de la respuesta guardado para sincronización.')
   }
 
   async function calculate() {
@@ -161,15 +190,45 @@ export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvalua
     }
   }
 
-  async function addEvidence(file: File | undefined) {
+  async function finalize() {
+    if (!evaluationId || productRisk === null || !navigator.onLine) {
+      await alerts.error(
+        new Error('Conéctese y seleccione el riesgo del producto.'),
+        'No es posible finalizar',
+      )
+      return
+    }
+    const confirmed = await alerts.confirm({
+      title: '¿Finalizar la evaluación?',
+      text: 'Se sincronizarán las respuestas, se calculará el riesgo y la ficha quedará lista para envío.',
+      confirmText: 'Finalizar',
+    })
+    if (!confirmed) return
+    try {
+      await flushSyncQueue()
+      const result = await finalizeEvaluation(evaluationId, productRisk)
+      setCalculation(result)
+      setMessage('Evaluación finalizada y cálculo de riesgo almacenado.')
+      await alerts.success('Evaluación finalizada')
+      onFinalized?.()
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'No fue posible finalizar la evaluación.')
+      await alerts.error(error, 'No se pudo finalizar la evaluación')
+    }
+  }
+
+  async function addEvidence(file: File | undefined, sourceItem?: number) {
     if (!file || !evaluationId) return
     try {
+      const location = await getOptionalLocation()
       await queueEvidence({
         evaluationId,
+        sourceItem,
         mimeType: file.type,
         fileName: file.name,
         evidenceType: 'FOTOGRAFIA',
         file,
+        ...location,
       })
       setMessage('Evidencia validada y guardada en la cola segura del dispositivo.')
       await alerts.success(
@@ -275,6 +334,51 @@ export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvalua
                     </label>
                   ))}
                 </div>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <label className="text-xs font-bold text-ink-muted">
+                    Observación
+                    <textarea
+                      rows={2}
+                      value={observations[item.sourceItem] ?? ''}
+                      onChange={(event) =>
+                        setObservations((current) => ({
+                          ...current,
+                          [item.sourceItem]: event.target.value,
+                        }))
+                      }
+                      onBlur={() => void saveAnswerDetails(item)}
+                      className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm font-normal text-ink-body"
+                      placeholder="Detalle verificable observado durante la inspección"
+                    />
+                  </label>
+                  <label className="text-xs font-bold text-ink-muted">
+                    Comentario técnico
+                    <textarea
+                      rows={2}
+                      value={comments[item.sourceItem] ?? ''}
+                      onChange={(event) =>
+                        setComments((current) => ({
+                          ...current,
+                          [item.sourceItem]: event.target.value,
+                        }))
+                      }
+                      onBlur={() => void saveAnswerDetails(item)}
+                      className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm font-normal text-ink-body"
+                      placeholder="Comentario complementario o recomendación"
+                    />
+                  </label>
+                </div>
+                <label className="mt-3 inline-flex min-h-10 cursor-pointer items-center rounded-lg border border-brand-200 px-3 text-sm font-bold text-brand-800 hover:bg-brand-50">
+                  Adjuntar evidencia a este criterio
+                  <input
+                    type="file"
+                    className="sr-only"
+                    accept="image/jpeg,image/png,application/pdf,video/mp4"
+                    onChange={(event) =>
+                      void addEvidence(event.target.files?.[0], item.sourceItem)
+                    }
+                  />
+                </label>
               </fieldset>
             ) : (
               <h2 className="font-bold text-ink-strong">{item.title}</h2>
@@ -316,6 +420,14 @@ export function DynamicInspectionForm({ selectedEvaluationId }: { selectedEvalua
             className="min-h-11 rounded-xl bg-brand-500 px-4 font-bold disabled:cursor-not-allowed disabled:opacity-50"
           >
             Sincronizar y calcular
+          </button>
+          <button
+            type="button"
+            onClick={() => void finalize()}
+            disabled={productRisk === null}
+            className="min-h-11 rounded-xl bg-white px-4 font-bold text-brand-900 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Finalizar evaluación
           </button>
           <label className="inline-flex min-h-11 cursor-pointer items-center rounded-xl border border-white/30 px-4 font-bold">
             Adjuntar evidencia

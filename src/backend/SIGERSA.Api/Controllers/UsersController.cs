@@ -1,15 +1,21 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using SIGERSA.Application.Documents;
 using SIGERSA.Application.Users;
 using SIGERSA.Domain.Security;
+using SIGERSA.Infrastructure.Configuration;
 
 namespace SIGERSA.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/users")]
 [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,COORDINADOR")]
-public sealed class UsersController(UserManagementService service) : ControllerBase
+public sealed class UsersController(
+    UserManagementService service,
+    SupportingDocumentService documents,
+    IOptions<SupabaseOptions> storageOptions) : ControllerBase
 {
     [HttpGet]
     public Task<ManagedUsersPage> Search(
@@ -62,6 +68,29 @@ public sealed class UsersController(UserManagementService service) : ControllerB
         return NoContent();
     }
 
+    [HttpPost("{id:guid}/authorization-letter")]
+    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(10_485_760)]
+    public async Task<ActionResult<object>> UploadAuthorizationLetter(
+        Guid id, IFormFile file, CancellationToken cancellationToken)
+    {
+        await using var content = file.OpenReadStream();
+        var documentId = await documents.UploadUserAuthorizationAsync(
+            id, storageOptions.Value.DefaultBucketName, file.FileName, file.ContentType,
+            file.Length, content, DocumentActor(), cancellationToken);
+        return Created($"/api/v1/users/{id}/authorization-letter/{documentId}", new { id = documentId });
+    }
+
+    [HttpGet("{id:guid}/authorization-letter/content")]
+    public async Task<IActionResult> DownloadAuthorizationLetter(
+        Guid id, CancellationToken cancellationToken)
+    {
+        var download = await documents.DownloadUserAuthorizationAsync(
+            id, DocumentActor(), cancellationToken);
+        return File(download.Content, download.MimeType, download.FileName, enableRangeProcessing: true);
+    }
+
     private UserManagementActor Actor()
     {
         if (!Guid.TryParse(User.FindFirstValue("sub"), out var userId))
@@ -74,6 +103,12 @@ public sealed class UsersController(UserManagementService service) : ControllerB
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         return new UserManagementActor(userId, roles, companyId);
+    }
+
+    private DocumentActor DocumentActor()
+    {
+        var actor = Actor();
+        return new DocumentActor(actor.UserId, actor.Roles, actor.CompanyId);
     }
 }
 

@@ -12,14 +12,18 @@ public static partial class SigersaSqlGuard
     public static string EnsureQualified(string sql)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
+        var commonTableExpressions = CteRegex().Matches(sql)
+            .Select(match => match.Groups[1].Value.Trim('"'))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (Match match in DataObjectRegex().Matches(sql))
         {
             var objectName = match.Groups[1].Value;
-            if (!objectName.StartsWith($"{Schema}.\"", StringComparison.Ordinal))
+            if (!objectName.StartsWith($"{Schema}.\"", StringComparison.Ordinal)
+                && !commonTableExpressions.Contains(objectName.Trim('"')))
             {
                 throw new InvalidOperationException(
-                    $"Toda sentencia Dapper debe calificar sus objetos con el esquema {Schema}.");
+                    $"Toda sentencia Dapper debe calificar el objeto '{objectName}' con el esquema {Schema}.");
             }
         }
 
@@ -49,7 +53,12 @@ public static partial class SigersaSqlGuard
     }
 
     [GeneratedRegex(
-        @"\b(?:FROM|JOIN|(?<!DO\s)UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+([^\s;(]+)",
+        @"(?<!@)\b(?:FROM|JOIN|(?<!DO\s)UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+([^\s;(]+)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DataObjectRegex();
+
+    [GeneratedRegex(
+        @"(?:\bWITH|,)\s*""?([A-Za-z_][A-Za-z0-9_]*)""?\s+AS\s*\(",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex CteRegex();
 }

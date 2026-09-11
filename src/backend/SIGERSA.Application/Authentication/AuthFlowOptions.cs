@@ -13,4 +13,6 @@ public sealed class AuthFlowOptions
     public int MaximumOtpAttempts { get; init; } = 5;
 
     public int RefreshTokenDays { get; init; } = 14;
+
+    public bool TwoFactorEnabled { get; init; }
 }

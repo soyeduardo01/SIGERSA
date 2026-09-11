@@ -15,19 +15,20 @@ vi.mock('../../lib/api', () => ({
           { parametersId: 2, stringData: 'PASAPORTE', numericData: 2 },
         ]
       : [
+          { parametersId: 5, stringData: 'PENDIENTE_VALIDACION', numericData: 0 },
           { parametersId: 3, stringData: 'ACTIVO', numericData: 1 },
-          { parametersId: 4, stringData: 'SUSPENDIDO', numericData: 2 },
+          { parametersId: 4, stringData: 'RECHAZADO', numericData: 2 },
         ],
   ),
   getUserManagementOptions: vi.fn(async () => ({
     canManage: mocks.canManage,
     roles: [{ code: 'ADMINISTRADOR', name: 'Administrador' }],
-    companies: [],
+    companies: [{ id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', name: 'Empresa registrada' }],
   })),
   getManagedUsers: vi.fn(async () => ({
     page: 1,
     pageSize: 10,
-    total: 1,
+    total: 2,
     items: [
       {
         id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -43,11 +44,26 @@ vi.mock('../../lib/api', () => ({
         activo: true,
         versionFila: 1,
       },
+      {
+        id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+        nombreCompleto: 'María Solicitante',
+        correo: 'maria@example.com',
+        tipoIdentificacion: 'CEDULA',
+        identificacion: '00100000002',
+        telefono: '8095551212',
+        roles: ['USUARIO_DELEGADO'],
+        empresaId: null,
+        empresaNombre: null,
+        estado: 'PENDIENTE_VALIDACION',
+        activo: true,
+        versionFila: 1,
+      },
     ],
   })),
   createManagedUser: mocks.create,
   updateManagedUser: vi.fn(),
   setManagedUserSuspension: vi.fn(),
+  downloadUserAuthorizationLetter: vi.fn(),
 }))
 
 vi.mock('../../lib/alerts', () => ({
@@ -69,10 +85,15 @@ describe('UsersManagement', () => {
 
     expect(await screen.findByText('Ana Pérez')).toBeVisible()
     expect(screen.getByText('ana@example.com')).toBeVisible()
+    expect(screen.getAllByText('Pendiente Validación').some((item) => item.tagName === 'SPAN')).toBe(true)
+    expect(screen.getByText('Pendiente de asignación')).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Ver carta' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Revisar' })).toBeVisible()
     fireEvent.click(await screen.findByRole('button', { name: '+ Nuevo usuario' }))
     const dialog = screen.getByRole('dialog', { name: 'Nuevo usuario' })
     expect(dialog).toBeVisible()
     expect(within(dialog).getByLabelText('Rol')).toBeVisible()
+    expect(within(dialog).getByRole('option', { name: 'Empresa registrada' })).toBeInTheDocument()
     const save = within(dialog).getByRole('button', { name: 'Crear usuario' })
     expect(save).toBeDisabled()
     fireEvent.change(within(dialog).getByLabelText('Contraseña temporal'), {
@@ -87,6 +108,6 @@ describe('UsersManagement', () => {
 
     await waitFor(() => expect(screen.getByText('Ana Pérez')).toBeVisible())
     expect(screen.queryByRole('button', { name: '+ Nuevo usuario' })).not.toBeInTheDocument()
-    expect(screen.getByText('Solo lectura')).toBeVisible()
+    expect(screen.getAllByText('Solo lectura')).toHaveLength(2)
   })
 })

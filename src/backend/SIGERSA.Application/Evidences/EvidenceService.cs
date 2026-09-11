@@ -70,11 +70,16 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
         string evidenceType,
         long declaredFileSize,
         string declaredSha256Hash,
+        int? sourceItem,
+        double? latitude,
+        double? longitude,
+        double? accuracyMeters,
         CancellationToken cancellationToken)
     {
         ValidateIdentifiers(evaluationId, uploadedBy, idempotencyKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(originalName);
         ArgumentException.ThrowIfNullOrWhiteSpace(evidenceType);
+        ValidateLocation(latitude, longitude, accuracyMeters);
         if (!await repository.CanUploadAsync(uploadedBy, evaluationId, cancellationToken))
         {
             throw new UnauthorizedAccessException("El usuario no está asignado a esta evaluación.");
@@ -102,7 +107,8 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
         var evidence = new EvidenceRecord(
             Guid.NewGuid(), evaluationId, uploadedBy, stored.BucketName, stored.SupabasePath,
             safeOriginalName, Path.GetFileName(stored.SupabasePath), stored.FileSize,
-            stored.MimeType, stored.Sha256Hash, evidenceType, idempotencyKey);
+            stored.MimeType, stored.Sha256Hash, evidenceType, sourceItem, idempotencyKey,
+            latitude, longitude, accuracyMeters);
         await repository.CreateAsync(evidence, cancellationToken);
         return evidence;
     }
@@ -114,11 +120,16 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
         string originalName,
         string mimeType,
         string evidenceType,
+        int? sourceItem,
+        double? latitude,
+        double? longitude,
+        double? accuracyMeters,
         Stream content,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(originalName);
         ArgumentException.ThrowIfNullOrWhiteSpace(evidenceType);
+        ValidateLocation(latitude, longitude, accuracyMeters);
         if (!await repository.CanUploadAsync(uploadedBy, evaluationId, cancellationToken))
         {
             throw new UnauthorizedAccessException("El usuario no está asignado a esta evaluación.");
@@ -141,7 +152,12 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
             stored.FileSize,
             stored.MimeType,
             stored.Sha256Hash,
-            evidenceType);
+            evidenceType,
+            sourceItem,
+            null,
+            latitude,
+            longitude,
+            accuracyMeters);
         await repository.CreateAsync(evidence, cancellationToken);
         return evidence;
     }
@@ -165,6 +181,18 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
         {
             throw new ArgumentException("Los identificadores de evidencia son obligatorios.");
         }
+    }
+
+    private static void ValidateLocation(double? latitude, double? longitude, double? accuracyMeters)
+    {
+        if (latitude.HasValue != longitude.HasValue)
+            throw new ArgumentException("La latitud y longitud deben enviarse juntas.");
+        if (latitude is < -90 or > 90)
+            throw new ArgumentOutOfRangeException(nameof(latitude), "La latitud no es válida.");
+        if (longitude is < -180 or > 180)
+            throw new ArgumentOutOfRangeException(nameof(longitude), "La longitud no es válida.");
+        if (accuracyMeters is < 0)
+            throw new ArgumentOutOfRangeException(nameof(accuracyMeters), "La precisión no es válida.");
     }
 
     private static void EnsureReader(EvidenceActor actor)

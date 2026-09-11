@@ -348,16 +348,7 @@ function FormSections(props: FormSectionsProps) {
             ))}
           </select>
         </Field>
-        <Field label="Código" required className="lg:col-span-3">
-          <input
-            required
-            maxLength={50}
-            value={draft.code}
-            onChange={(event) => update('code', event.target.value)}
-            className={inputClass}
-          />
-        </Field>
-        <Field label="Nombre o razón social" required className="lg:col-span-6">
+        <Field label="Nombre o razón social" required className="lg:col-span-3">
           <input
             required
             maxLength={250}
@@ -511,31 +502,20 @@ function FormSections(props: FormSectionsProps) {
             ))}
           </select>
         </Field>
-        <fieldset className="lg:col-span-3">
-          <legend className="text-xs font-bold text-ink-strong">Mercado objetivo</legend>
-          <div className="mt-2 grid gap-2 rounded-xl border border-slate-200 p-3">
+        <Field label="Mercado objetivo" className="lg:col-span-3">
+          <select
+            value={draft.marketIds[0] ?? ''}
+            onChange={(event) => update('marketIds', event.target.value ? [event.target.value] : [])}
+            className={inputClass}
+          >
+            <option value="">Seleccione</option>
             {options.markets.map((value) => (
-              <label key={value.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={draft.marketIds.includes(value.id)}
-                  onChange={(event) =>
-                    update(
-                      'marketIds',
-                      event.target.checked
-                        ? [...draft.marketIds, value.id]
-                        : draft.marketIds.filter((id) => id !== value.id),
-                    )
-                  }
-                />
+              <option key={value.id} value={value.id}>
                 {value.name}
-              </label>
+              </option>
             ))}
-            {options.markets.length === 0 && (
-              <span className="text-xs text-amber-700">Catálogo sin datos.</span>
-            )}
-          </div>
-        </fieldset>
+          </select>
+        </Field>
         <Field label="Categoría de alimento" className="lg:col-span-3">
           <select
             value={props.categoryId}
@@ -618,8 +598,8 @@ function FormSections(props: FormSectionsProps) {
           >
             <option value="">Nivel de implementación</option>
             {options.haccpLevels.map((value) => (
-              <option key={value.parametersId} value={haccpPercent(value.stringData)}>
-                {formatStatusLabel(value.stringData ?? '')}
+              <option key={value.parametersId} value={value.numericData ?? ''}>
+                {value.stringData}
               </option>
             ))}
           </select>
@@ -640,8 +620,8 @@ function FormSections(props: FormSectionsProps) {
           >
             <option value="">¿Dónde lo aplican?</option>
             {options.samplingApplications.map((value) => (
-              <option key={value.parametersId} value={value.stringData ?? ''}>
-                {formatStatusLabel(value.stringData ?? '')}
+              <option key={value.parametersId} value={value.cCode ?? ''}>
+                {value.stringData}
               </option>
             ))}
           </select>
@@ -662,8 +642,8 @@ function FormSections(props: FormSectionsProps) {
           >
             <option value="">¿Cómo lo distribuyen?</option>
             {options.inabieDistributions.map((value) => (
-              <option key={value.parametersId} value={value.stringData ?? ''}>
-                {formatStatusLabel(value.stringData ?? '')}
+              <option key={value.parametersId} value={value.cCode ?? ''}>
+                {value.stringData}
               </option>
             ))}
           </select>
@@ -855,11 +835,4 @@ function numberValue(value: string) {
 
 function dateValue(value: string | null) {
   return value ? value.slice(0, 10) : ''
-}
-
-function haccpPercent(value: string | null) {
-  if (value === '25_POR_CIENTO') return 25
-  if (value === '75_POR_CIENTO') return 75
-  if (value === 'TODAS_LAS_LINEAS') return 100
-  return ''
 }

@@ -2,9 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
 import {
   createManagedUser,
+  downloadUserAuthorizationLetter,
   getManagedUsers,
   getUserManagementOptions,
   setManagedUserSuspension,
+  uploadUserAuthorizationLetter,
   updateManagedUser,
   type ManagedUser,
   type ManagedUserDraft,
@@ -85,10 +87,13 @@ export function UsersManagement() {
     setSearch(searchInput.trim())
   }
 
-  async function save(draft: ManagedUserDraft) {
+  async function save(draft: ManagedUserDraft, authorizationLetter: File | null) {
     try {
+      let userId = editing?.id
       if (editing) await updateManagedUser(editing.id, draft)
-      else await createManagedUser(draft)
+      else userId = (await createManagedUser(draft)).id
+      if (authorizationLetter && userId)
+        await uploadUserAuthorizationLetter(userId, authorizationLetter)
       setModalOpen(false)
       await reload()
       await alerts.success(
@@ -118,6 +123,32 @@ export function UsersManagement() {
     } catch (caught) {
       await alerts.error(caught, 'No se pudo cambiar el estado')
     }
+  }
+
+  async function viewAuthorizationLetter(user: ManagedUser) {
+    const preview = window.open('', '_blank', 'noopener,noreferrer')
+    try {
+      const blob = await downloadUserAuthorizationLetter(user.id)
+      const url = URL.createObjectURL(blob)
+      if (preview) preview.location.href = url
+      else {
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `carta-autorizacion-${user.nombreCompleto}.pdf`
+        link.click()
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (caught) {
+      preview?.close()
+      await alerts.error(caught, 'No se pudo abrir la carta de autorización')
+    }
+  }
+
+  const approvalLabel = (value: string) => {
+    if (value === 'ACTIVO') return 'Aprobado'
+    if (value === 'PENDIENTE_VALIDACION') return 'Pendiente Validación'
+    if (value === 'RECHAZADO') return 'Rechazado'
+    return formatStatusLabel(value)
   }
 
   const pages = Math.max(1, Math.ceil(result.total / result.pageSize))
@@ -197,7 +228,7 @@ export function UsersManagement() {
               <option value="">Todos</option>
               {userStates.options.map((item) => (
                 <option key={item.parametersId} value={item.stringData ?? ''}>
-                  {formatStatusLabel(item.stringData ?? '')}
+                  {approvalLabel(item.stringData ?? '')}
                 </option>
               ))}
             </select>
@@ -248,18 +279,32 @@ export function UsersManagement() {
                   </td>
                   <td className="px-3 py-4 text-ink-body">{user.roles.join(', ') || 'Sin rol'}</td>
                   <td className="px-3 py-4 text-ink-body">
-                    {user.empresaNombre ?? 'Institucional'}
+                    {user.empresaNombre ??
+                      (user.roles.some((item) =>
+                        ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO'].includes(item),
+                      )
+                        ? 'Pendiente de asignación'
+                        : 'Institucional')}
                   </td>
                   <td className="px-3 py-4">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${user.estado === 'ACTIVO' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${user.estado === 'ACTIVO' ? 'bg-emerald-100 text-emerald-800' : user.estado === 'RECHAZADO' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-900'}`}
                     >
-                      {formatStatusLabel(user.estado)}
+                      {approvalLabel(user.estado)}
                     </span>
                   </td>
                   <td className="px-3 py-4 text-right">
                     {options?.canManage ? (
                       <div className="flex justify-end gap-2">
+                        {user.roles.some((item) => ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO'].includes(item)) && (
+                          <button
+                            type="button"
+                            onClick={() => void viewAuthorizationLetter(user)}
+                            className="rounded-lg border border-emerald-300 px-3 py-2 font-bold text-brand-800"
+                          >
+                            Ver carta
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => {
@@ -268,7 +313,7 @@ export function UsersManagement() {
                           }}
                           className="rounded-lg border border-slate-300 px-3 py-2 font-bold text-ink-body"
                         >
-                          Editar
+                          {user.estado === 'PENDIENTE_VALIDACION' ? 'Revisar' : 'Editar'}
                         </button>
                         <button
                           type="button"

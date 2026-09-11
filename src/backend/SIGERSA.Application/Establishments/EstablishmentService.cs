@@ -40,7 +40,7 @@ public sealed class EstablishmentService(
 
     private static EstablishmentDraft ToDraft(EstablishmentRequest request) => new(
         request.CompanyId, request.MunicipalityId, request.DpsDasId, request.CommercializationId,
-        request.Code.Trim().ToUpperInvariant(), request.Name.Trim(), NormalizeOptional(request.Street),
+        string.Empty, request.Name.Trim(), NormalizeOptional(request.Street),
         NormalizeOptional(request.AddressNumber), NormalizeOptional(request.Phone),
         NormalizeOptional(request.Email)?.ToLowerInvariant(), request.OperationsStartDate,
         NormalizeOptional(request.SanitaryPermitNumber), request.SanitaryPermitExpiresAt,

@@ -21,7 +21,14 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
                    correction.observacion_coordinador AS CoordinatorObservation,
                    correction.estado AS Status, correction.fecha_limite AS DueAt,
                    correction.solicitada_en AS RequestedAt, correction.enviada_en AS SubmittedAt,
-                   correction.resuelta_en AS ResolvedAt, correction.version_fila AS RowVersion
+                   correction.resuelta_en AS ResolvedAt,
+                   COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                       'SourceItem', item.source_allitems_item, 'ItemTitle', item.titulo,
+                       'Reason', field.motivo, 'Status', field.estado) ORDER BY item.orden)::text
+                     FROM "SIGERSA"."CORRECCION_CAMPO" field
+                     JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = field.item_ficha_id
+                    WHERE field.correccion_id = correction.id), '[]') AS FieldsJson,
+                   correction.version_fila AS RowVersion
               FROM "SIGERSA"."CORRECCION" correction
               JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = correction.evaluacion_id
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
@@ -168,6 +175,29 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
                        version_fila = version_fila + 1
                  WHERE idempotency_key = @Key;
                 """), new { Id = id, draft.EvaluationId, Revision = revision, draft.ResponsibleType, draft.AssignedToId, draft.CoordinatorObservation, draft.DueAt, ActorId = actorId, Key = draft.IdempotencyKey }, transaction, cancellationToken: cancellationToken));
+            foreach (var field in draft.Fields)
+            {
+                var insertedField = await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                    INSERT INTO "SIGERSA"."CORRECCION_CAMPO"
+                        (id, correccion_id, item_ficha_id, respuesta_usuario_id, motivo,
+                         valor_anterior_snapshot, estado, creado_por)
+                    SELECT gen_random_uuid(), @CorrectionId, item.id, response.id, @Reason,
+                           jsonb_build_object('rating', response.valor_texto,
+                                              'observation', response.observacion,
+                                              'comment', response.comentario),
+                           'PENDIENTE', @ActorId
+                      FROM "SIGERSA"."EVALUACION" evaluation
+                      JOIN "SIGERSA"."ITEM_FICHA" item
+                        ON item.ficha_inspeccion_id = evaluation.ficha_inspeccion_id
+                      LEFT JOIN "SIGERSA"."RESPUESTA_USUARIO" response
+                        ON response.evaluacion_id = evaluation.id AND response.item_ficha_id = item.id
+                     WHERE evaluation.id = @EvaluationId
+                       AND item.source_allitems_item = @SourceItem AND item.es_evaluable = true;
+                    """), new { CorrectionId = id, draft.EvaluationId, field.SourceItem, field.Reason,
+                        ActorId = actorId }, transaction, cancellationToken: cancellationToken));
+                if (insertedField != 1)
+                    throw new ArgumentException($"El criterio observado {field.SourceItem} no pertenece a la evaluación.");
+            }
             await transaction.CommitAsync(cancellationToken);
             return id;
         }
@@ -176,42 +206,78 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
     public async Task<bool> SubmitAsync(Guid id, long rowVersion, Guid actorId, Guid? companyScope, bool globalScope, bool assignedOnly, CancellationToken cancellationToken = default)
     {
         const string sql = """
-            UPDATE "SIGERSA"."CORRECCION" correction
-               SET estado = 'ENVIADA', enviada_en = CURRENT_TIMESTAMP,
-                   modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
-                   version_fila = correction.version_fila + 1
-              FROM "SIGERSA"."EVALUACION" evaluation,
-                   "SIGERSA"."ESTABLECIMIENTO" establishment
-             WHERE correction.id = @Id AND correction.version_fila = @RowVersion
-               AND correction.estado IN ('PENDIENTE', 'EN_PROCESO')
-               AND evaluation.id = correction.evaluacion_id
-               AND establishment.id = evaluation.establecimiento_id
-               AND (@GlobalScope = true
-                    OR (@CompanyScope IS NOT NULL AND correction.tipo_responsable = 'EMPRESA'
-                        AND establishment.empresa_id = @CompanyScope)
-                    OR (@AssignedOnly = true AND correction.tipo_responsable = 'TECNICO'
-                        AND (correction.asignada_a_id = @ActorId OR evaluation.evaluador_principal_id = @ActorId)));
+            WITH submitted AS (
+                UPDATE "SIGERSA"."CORRECCION" correction
+                   SET estado = 'ENVIADA', enviada_en = CURRENT_TIMESTAMP,
+                       modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
+                       version_fila = correction.version_fila + 1
+                  FROM "SIGERSA"."EVALUACION" evaluation,
+                       "SIGERSA"."ESTABLECIMIENTO" establishment
+                 WHERE correction.id = @Id AND correction.version_fila = @RowVersion
+                   AND correction.estado IN ('PENDIENTE', 'EN_PROCESO')
+                   AND evaluation.id = correction.evaluacion_id
+                   AND establishment.id = evaluation.establecimiento_id
+                   AND (@GlobalScope = true
+                        OR (@CompanyScope IS NOT NULL AND correction.tipo_responsable = 'EMPRESA'
+                            AND establishment.empresa_id = @CompanyScope)
+                        OR (@AssignedOnly = true AND correction.tipo_responsable = 'TECNICO'
+                            AND (correction.asignada_a_id = @ActorId OR evaluation.evaluador_principal_id = @ActorId)))
+                RETURNING correction.id, correction.evaluacion_id
+            ), updated_fields AS (
+                UPDATE "SIGERSA"."CORRECCION_CAMPO" field
+                   SET estado = 'CORREGIDO', valor_nuevo_snapshot = jsonb_build_object(
+                           'rating', response.valor_texto, 'observation', response.observacion,
+                           'comment', response.comentario),
+                       modificado_por = @ActorId
+                  FROM submitted, "SIGERSA"."RESPUESTA_USUARIO" response
+                 WHERE field.correccion_id = submitted.id
+                   AND response.evaluacion_id = submitted.evaluacion_id
+                   AND response.item_ficha_id = field.item_ficha_id
+                RETURNING field.id
+            ), updated_evaluation AS (
+                UPDATE "SIGERSA"."EVALUACION" evaluation
+                   SET estado = 'ENVIADA', modificado_por = @ActorId
+                 WHERE evaluation.id IN (SELECT evaluacion_id FROM submitted)
+                RETURNING evaluation.id
+            )
+            SELECT COUNT(*) FROM submitted;
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
         {
-            return await connection.ExecuteAsync(new CommandDefinition(Sql(sql), new { Id = id, RowVersion = rowVersion, ActorId = actorId, CompanyScope = companyScope, GlobalScope = globalScope, AssignedOnly = assignedOnly }, cancellationToken: cancellationToken)) == 1;
+            return await connection.ExecuteScalarAsync<int>(new CommandDefinition(Sql(sql), new { Id = id, RowVersion = rowVersion, ActorId = actorId, CompanyScope = companyScope, GlobalScope = globalScope, AssignedOnly = assignedOnly }, cancellationToken: cancellationToken)) == 1;
         }
     }
 
     public async Task<bool> ResolveAsync(Guid id, long rowVersion, string targetStatus, Guid actorId, CancellationToken cancellationToken = default)
     {
         const string sql = """
-            UPDATE "SIGERSA"."CORRECCION"
-               SET estado = @TargetStatus, resuelta_en = CURRENT_TIMESTAMP,
-                   modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
-                   version_fila = version_fila + 1
-             WHERE id = @Id AND version_fila = @RowVersion AND estado = 'ENVIADA';
+            WITH resolved AS (
+                UPDATE "SIGERSA"."CORRECCION"
+                   SET estado = @TargetStatus, resuelta_en = CURRENT_TIMESTAMP,
+                       modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
+                       version_fila = version_fila + 1
+                 WHERE id = @Id AND version_fila = @RowVersion AND estado = 'ENVIADA'
+                RETURNING id, evaluacion_id
+            ), updated_fields AS (
+                UPDATE "SIGERSA"."CORRECCION_CAMPO" field
+                   SET estado = CASE WHEN @TargetStatus = 'ACEPTADA' THEN 'ACEPTADO' ELSE 'RECHAZADO' END,
+                       modificado_por = @ActorId
+                 WHERE field.correccion_id IN (SELECT id FROM resolved)
+                RETURNING field.id
+            ), updated_evaluation AS (
+                UPDATE "SIGERSA"."EVALUACION" evaluation
+                   SET estado = CASE WHEN @TargetStatus = 'ACEPTADA' THEN 'EN_REVISION' ELSE 'EN_CORRECCION' END,
+                       modificado_por = @ActorId
+                 WHERE evaluation.id IN (SELECT evaluacion_id FROM resolved)
+                RETURNING evaluation.id
+            )
+            SELECT COUNT(*) FROM resolved;
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
         {
-            return await connection.ExecuteAsync(new CommandDefinition(Sql(sql), new { Id = id, RowVersion = rowVersion, TargetStatus = targetStatus, ActorId = actorId }, cancellationToken: cancellationToken)) == 1;
+            return await connection.ExecuteScalarAsync<int>(new CommandDefinition(Sql(sql), new { Id = id, RowVersion = rowVersion, TargetStatus = targetStatus, ActorId = actorId }, cancellationToken: cancellationToken)) == 1;
         }
     }
 
@@ -225,9 +291,11 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
         public string CoordinatorObservation { get; init; } = string.Empty; public string Status { get; init; } = string.Empty;
         public DateTime DueAt { get; init; } public DateTime RequestedAt { get; init; }
         public DateTime? SubmittedAt { get; init; } public DateTime? ResolvedAt { get; init; } public long RowVersion { get; init; }
+        public string FieldsJson { get; init; } = "[]";
         public CorrectionRecord ToDomain() => new(Id, EvaluationId, EvaluationNumber, EstablishmentName,
             RevisionNumber, ResponsibleType, AssignedToId, AssignedToName, CoordinatorObservation, Status,
-            Utc(DueAt), Utc(RequestedAt), Utc(SubmittedAt), Utc(ResolvedAt), RowVersion);
+            Utc(DueAt), Utc(RequestedAt), Utc(SubmittedAt), Utc(ResolvedAt),
+            JsonSerializer.Deserialize<CorrectionField[]>(FieldsJson) ?? [], RowVersion);
         private static DateTimeOffset Utc(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
         private static DateTimeOffset? Utc(DateTime? value) => value.HasValue ? Utc(value.Value) : null;
     }

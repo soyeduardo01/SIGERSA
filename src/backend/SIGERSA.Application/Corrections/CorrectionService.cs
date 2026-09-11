@@ -33,7 +33,9 @@ public sealed class CorrectionService(ICorrectionRepository repository, IValidat
         await validator.ValidateAndThrowAsync(input, cancellationToken);
         return await repository.CreateAsync(new CorrectionDraft(
             input.IdempotencyKey, input.EvaluationId, input.ResponsibleType,
-            input.AssignedToId, input.CoordinatorObservation.Trim(), input.DueAt), actor.UserId, cancellationToken);
+            input.AssignedToId, input.CoordinatorObservation.Trim(), input.DueAt,
+            input.Fields?.Select(field => new CorrectionFieldDraft(
+                field.SourceItem, field.Reason.Trim())).ToArray() ?? []), actor.UserId, cancellationToken);
     }
 
     public async Task SubmitAsync(Guid id, CorrectionTransitionInput input, CorrectionActor actor, CancellationToken cancellationToken)

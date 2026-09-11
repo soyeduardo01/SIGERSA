@@ -12,7 +12,11 @@ public sealed record EvidenceRecord(
     string MimeType,
     string Sha256Hash,
     string EvidenceType,
-    Guid? IdempotencyKey = null);
+    int? SourceItem = null,
+    Guid? IdempotencyKey = null,
+    double? Latitude = null,
+    double? Longitude = null,
+    double? AccuracyMeters = null);
 
 public sealed record EvidenceSummary(
     Guid Id,

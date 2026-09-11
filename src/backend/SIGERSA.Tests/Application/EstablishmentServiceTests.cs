@@ -19,13 +19,13 @@ public sealed class EstablishmentServiceTests
 
         await service.CreateAsync(ValidRequest() with
         {
-            Code = "  est-001 ",
+            Code = "CODIGO-IGNORADO",
             Name = "  Planta Norte  ",
             Email = " CONTACTO@EXAMPLE.COM "
         }, ActorId, CancellationToken.None);
 
         Assert.NotNull(repository.LastDraft);
-        Assert.Equal("EST-001", repository.LastDraft.Code);
+        Assert.Empty(repository.LastDraft.Code);
         Assert.Equal("Planta Norte", repository.LastDraft.Name);
         Assert.Equal("contacto@example.com", repository.LastDraft.Email);
     }

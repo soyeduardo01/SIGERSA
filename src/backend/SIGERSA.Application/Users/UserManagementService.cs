@@ -67,6 +67,8 @@ public sealed class UserManagementService(
         }
 
         var draft = BuildDraft(request, actor, passwordService.Hash(request.TemporaryPassword), null);
+        if (CompanyAssignableRoles.Contains(draft.Rol, StringComparer.Ordinal))
+            draft = draft with { Estado = "PENDIENTE_VALIDACION" };
         return await repository.CreateManagedAsync(draft, actor.UserId, cancellationToken);
     }
 
@@ -86,6 +88,9 @@ public sealed class UserManagementService(
             ? null
             : passwordService.Hash(request.TemporaryPassword);
         var draft = BuildDraft(request, actor, passwordHash, request.VersionFila);
+        if (draft.Estado == "ACTIVO" && CompanyAssignableRoles.Contains(draft.Rol, StringComparer.Ordinal)
+            && !await repository.CanActivateAsync(id, cancellationToken))
+            throw new InvalidOperationException("Debe registrar una carta de autorización antes de aprobar el usuario.");
         if (!await repository.UpdateManagedAsync(
                 id,
                 draft,
@@ -107,6 +112,8 @@ public sealed class UserManagementService(
         EnsureCanManage(actor);
         if (id == actor.UserId) throw new InvalidOperationException("No puede bloquear su propia cuenta.");
         if (versionFila <= 0) throw new ArgumentException("La versión del usuario no es válida.");
+        if (!suspended && !await repository.CanActivateAsync(id, cancellationToken))
+            throw new InvalidOperationException("Debe registrar una carta de autorización antes de activar el usuario.");
         if (!await repository.SetSuspendedAsync(
                 id,
                 suspended,
@@ -126,6 +133,7 @@ public sealed class UserManagementService(
         long? versionFila)
     {
         var role = request.Rol.Trim().ToUpperInvariant();
+        var status = request.Estado.Trim().ToUpperInvariant();
         var companyId = request.EmpresaId;
         if (!IsGlobalAdministrator(actor))
         {
@@ -133,8 +141,9 @@ public sealed class UserManagementService(
                 throw new ForbiddenException("No puede asignar roles internos o globales.");
             companyId = RequiredCompanyScope(actor);
         }
-        if (CompanyAssignableRoles.Contains(role, StringComparer.Ordinal) && companyId is null)
-            throw new ArgumentException("Los roles empresariales requieren una empresa.");
+        if (CompanyAssignableRoles.Contains(role, StringComparer.Ordinal) && companyId is null
+            && status is not ("PENDIENTE_VALIDACION" or "RECHAZADO"))
+            throw new ArgumentException("Debe asignar una empresa antes de aprobar un usuario empresarial.");
 
         return new ManagedUserDraft(
             request.NombreCompleto.Trim(),
@@ -144,7 +153,7 @@ public sealed class UserManagementService(
             NormalizeOptional(request.Telefono),
             companyId,
             role,
-            request.Estado.Trim().ToUpperInvariant(),
+            status,
             passwordHash,
             versionFila);
     }

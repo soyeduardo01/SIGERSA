@@ -4,7 +4,8 @@ namespace SIGERSA.Application.Cases;
 
 public sealed record CaseActor(Guid UserId, string[] Roles, Guid? CompanyId);
 public sealed record CaseInput(
-    Guid RequestId,
+    string Origin,
+    Guid SourceId,
     short Priority,
     Guid? ResponsibleId,
     string? AnalysisDecision,
@@ -17,7 +18,10 @@ public sealed class CaseInputValidator : AbstractValidator<CaseInput>
 {
     public CaseInputValidator()
     {
-        RuleFor(value => value.RequestId).NotEmpty();
+        RuleFor(value => value.Origin)
+            .Must(value => value is "SOLICITUD_EMPRESA" or "PROGRAMACION" or "ALERTA_LAPCH" or "DENUNCIA")
+            .WithMessage("El origen del caso no es válido.");
+        RuleFor(value => value.SourceId).NotEmpty();
         RuleFor(value => value.Priority).InclusiveBetween((short)1, (short)5);
         RuleFor(value => value.AnalysisDecision)
             .Must(value => value is null or "PROCEDE" or "NO_PROCEDE" or "REQUIERE_INFORMACION")

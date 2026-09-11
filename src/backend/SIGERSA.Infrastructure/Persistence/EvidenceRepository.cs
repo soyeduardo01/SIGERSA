@@ -144,11 +144,13 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
             INSERT INTO "SIGERSA"."EVIDENCIA"
                 (id, evaluacion_id, subida_por, bucket_name, supabase_path,
                  nombre_original, nombre_seguro, file_size, mime_type, hash,
-                 tipo_evidencia, estado_sincronizacion, idempotency_key, creado_por)
+                 tipo_evidencia, latitud, longitud, precision_m,
+                 estado_sincronizacion, idempotency_key, creado_por)
             VALUES
                 (@Id, @EvaluationId, @UploadedBy, @BucketName, @SupabasePath,
                  @OriginalName, @SafeName, @FileSize, @MimeType, @Sha256Hash,
-                 @EvidenceType, 'SINCRONIZADA', @IdempotencyKey, @UploadedBy)
+                 @EvidenceType, @Latitude, @Longitude, @AccuracyMeters,
+                 'SINCRONIZADA', @IdempotencyKey, @UploadedBy)
             ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO UPDATE
             SET id = "SIGERSA"."EVIDENCIA".id
             WHERE "SIGERSA"."EVIDENCIA".evaluacion_id = EXCLUDED.evaluacion_id
@@ -158,13 +160,37 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
               AND "SIGERSA"."EVIDENCIA".file_size = EXCLUDED.file_size
               AND "SIGERSA"."EVIDENCIA".mime_type = EXCLUDED.mime_type
               AND "SIGERSA"."EVIDENCIA".hash = EXCLUDED.hash
+              AND "SIGERSA"."EVIDENCIA".latitud IS NOT DISTINCT FROM EXCLUDED.latitud
+              AND "SIGERSA"."EVIDENCIA".longitud IS NOT DISTINCT FROM EXCLUDED.longitud
+              AND "SIGERSA"."EVIDENCIA".precision_m IS NOT DISTINCT FROM EXCLUDED.precision_m
             RETURNING id;
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
+        await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
-            var id = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(Sql(sql), evidence, cancellationToken: cancellationToken));
-            return id ?? throw new InvalidOperationException("La clave de idempotencia ya fue utilizada con otros metadatos.");
+            var id = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+                Sql(sql), evidence, transaction, cancellationToken: cancellationToken));
+            var persistedId = id ?? throw new InvalidOperationException(
+                "La clave de idempotencia ya fue utilizada con otros metadatos.");
+            if (evidence.SourceItem is not null)
+            {
+                var linked = await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                    INSERT INTO "SIGERSA"."EVIDENCIA_RESPUESTA"
+                        (evidencia_id, respuesta_usuario_id, creado_por)
+                    SELECT @EvidenceId, response.id, @UploadedBy
+                      FROM "SIGERSA"."RESPUESTA_USUARIO" response
+                      JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                     WHERE response.evaluacion_id = @EvaluationId
+                       AND item.source_allitems_item = @SourceItem
+                    ON CONFLICT (evidencia_id, respuesta_usuario_id) DO NOTHING;
+                    """), new { EvidenceId = persistedId, evidence.UploadedBy, evidence.EvaluationId, evidence.SourceItem },
+                    transaction, cancellationToken: cancellationToken));
+                if (linked == 0)
+                    throw new InvalidOperationException("Debe guardar la respuesta antes de asociarle una evidencia.");
+            }
+            await transaction.CommitAsync(cancellationToken);
+            return persistedId;
         }
     }
 

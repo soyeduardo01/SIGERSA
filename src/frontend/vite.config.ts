@@ -5,6 +5,16 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   envDir: '../../',
+  server: {
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
+  },
+  preview: {
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
+  },
   plugins: [
     react(),
     VitePWA({
@@ -43,7 +53,7 @@ export default defineConfig({
             urlPattern: /\.(?:js|css|woff2?|png|svg|webp|ico)$/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'sigersa-static-v2',
+              cacheName: 'sigersa-static-v3',
               expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
             },
@@ -80,6 +90,7 @@ export default defineConfig({
       input: {
         login: fileURLToPath(new URL('./index.html', import.meta.url)),
         recovery: fileURLToPath(new URL('./recuperar-clave.html', import.meta.url)),
+        registration: fileURLToPath(new URL('./registro.html', import.meta.url)),
         module: fileURLToPath(new URL('./modulo.html', import.meta.url)),
       },
     },

@@ -126,15 +126,31 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
     public async Task<EstablishmentOptions> GetOptionsAsync(CancellationToken cancellationToken = default)
     {
         const string sql = """
-            SELECT id AS Id, rnc AS Code, razon_social AS Name FROM "SIGERSA"."EMPRESA" WHERE activo = true ORDER BY razon_social;
+            SELECT id AS Id, rnc_normalizado AS Code, razon_social AS Name FROM "SIGERSA"."EMPRESA" WHERE activo = true ORDER BY razon_social;
             SELECT id AS Id, codigo AS Code, nombre AS Name FROM "SIGERSA"."PROVINCIA" WHERE activo = true ORDER BY nombre;
             SELECT id AS Id, provincia_id AS ProvinceId, codigo AS Code, nombre AS Name FROM "SIGERSA"."MUNICIPIO" WHERE activo = true ORDER BY nombre;
             SELECT id AS Id, codigo AS Code, nombre AS Name FROM "SIGERSA"."DPS_DAS" WHERE activo = true ORDER BY tipo, nombre;
-            SELECT id AS Id, codigo AS Code, nombre AS Name FROM "SIGERSA"."COMERCIALIZACION" WHERE activo = true ORDER BY orden, nombre;
-            SELECT id AS Id, codigo AS Code, nombre AS Name FROM "SIGERSA"."MERCADO_OBJETIVO" WHERE activo = true ORDER BY orden, nombre;
+            SELECT catalog.id AS Id, catalog.codigo AS Code, parameter."StringData" AS Name
+            FROM "SIGERSA"."FN_ParametersControl_GetActive"('COMERCIALIZACION_ESTABLECIMIENTO', NULL) AS parameter
+            JOIN "SIGERSA"."COMERCIALIZACION" AS catalog
+              ON catalog.activo = true
+             AND catalog.codigo = CASE parameter."CCode" WHEN 'INTERNAC' THEN 'INTERNACIONAL' ELSE parameter."CCode" END
+            ORDER BY parameter."NumericData", parameter."ParametersId";
+            SELECT catalog.id AS Id, catalog.codigo AS Code, parameter."StringData" AS Name
+            FROM "SIGERSA"."FN_ParametersControl_GetActive"('MERCADO_OBJETIVO', NULL) AS parameter
+            JOIN "SIGERSA"."MERCADO_OBJETIVO" AS catalog
+              ON catalog.activo = true
+             AND catalog.codigo = CASE parameter."CCode"
+                 WHEN 'NINOS' THEN 'NINOS_MENORES'
+                 WHEN 'EMBARAZ' THEN 'MUJERES_EMBARAZADAS'
+                 WHEN 'MAYORES' THEN 'ADULTOS_MAYORES'
+                 WHEN 'TODOS' THEN 'TODOS_SEGMENTOS'
+                 ELSE parameter."CCode"
+             END
+            ORDER BY parameter."NumericData", parameter."ParametersId";
             SELECT id AS Id, codigo AS Code, nombre AS Name FROM "SIGERSA"."CATEGORIA_ALIMENTO" WHERE activo = true ORDER BY orden, nombre;
             SELECT id AS Id, categoria_alimento_id AS CategoryId, codigo AS Code,
-                   nombre AS Name, nivel_riesgo AS RiskLevel
+                   nombre AS Name, nivel_riesgo::integer AS RiskLevel
             FROM "SIGERSA"."SUBCATEGORIA_ALIMENTO" WHERE activo = true ORDER BY orden, nombre;
             SELECT * FROM "SIGERSA"."FN_ParametersControl_GetActive"('ESTADO_ESTABLECIMIENTO', NULL);
             SELECT * FROM "SIGERSA"."FN_ParametersControl_GetActive"('NIVEL_IMPLEMENTACION_HACCP', NULL);
@@ -294,7 +310,6 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
         draft.MunicipalityId,
         draft.DpsDasId,
         draft.CommercializationId,
-        draft.Code,
         draft.Name,
         draft.Street,
         draft.AddressNumber,
@@ -321,7 +336,7 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
 
     private const string InsertSql = """
         INSERT INTO "SIGERSA"."ESTABLECIMIENTO"
-            (id, empresa_id, municipio_id, dps_das_id, comercializacion_id, codigo, nombre,
+            (id, empresa_id, municipio_id, dps_das_id, comercializacion_id, nombre,
              calle, numero_direccion, telefono, correo, fecha_inicio_operaciones,
              permiso_sanitario_numero, permiso_sanitario_vence_en, productos_descripcion,
              produccion_anual, empleados_mujeres, empleados_hombres,
@@ -329,7 +344,7 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
              nivel_haccp_porcentaje, plan_muestreo_microbiologico, aplicacion_muestreo_codigo,
              es_suplidor_inabie, distribucion_inabie_codigo, estado, activo, creado_por)
         VALUES
-            (@Id, @CompanyId, @MunicipalityId, @DpsDasId, @CommercializationId, @Code, @Name,
+            (@Id, @CompanyId, @MunicipalityId, @DpsDasId, @CommercializationId, @Name,
              @Street, @AddressNumber, @Phone, @Email, @OperationsStartDate,
              @SanitaryPermitNumber, @SanitaryPermitExpiresAt, @ProductsDescription,
              @AnnualProduction, @FemaleEmployees, @MaleEmployees,
@@ -341,7 +356,7 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
     private const string UpdateSql = """
         UPDATE "SIGERSA"."ESTABLECIMIENTO"
            SET municipio_id = @MunicipalityId, dps_das_id = @DpsDasId,
-               comercializacion_id = @CommercializationId, codigo = @Code, nombre = @Name,
+               comercializacion_id = @CommercializationId, nombre = @Name,
                calle = @Street, numero_direccion = @AddressNumber, telefono = @Phone, correo = @Email,
                fecha_inicio_operaciones = @OperationsStartDate,
                permiso_sanitario_numero = @SanitaryPermitNumber,

@@ -18,7 +18,8 @@ public sealed class EvidenceServiceTests
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.UploadAsync(
             Guid.NewGuid(), Guid.NewGuid(), "evidencias", "foto.png", "image/png",
-            "FOTOGRAFIA", new MemoryStream([137, 80, 78, 71]), CancellationToken.None));
+            "FOTOGRAFIA", null, null, null, null,
+            new MemoryStream([137, 80, 78, 71]), CancellationToken.None));
 
         Assert.False(storage.UploadCalled);
         Assert.Null(repository.Created);
@@ -35,12 +36,15 @@ public sealed class EvidenceServiceTests
 
         var evidence = await service.UploadAsync(
             evaluationId, userId, "evidencias", "inspeccion.png", "image/png",
-            "FOTOGRAFIA", new MemoryStream([137, 80, 78, 71]), CancellationToken.None);
+            "FOTOGRAFIA", null, 18.4861, -69.9312, 12.5,
+            new MemoryStream([137, 80, 78, 71]), CancellationToken.None);
 
         Assert.True(storage.UploadCalled);
         Assert.Same(evidence, repository.Created);
         Assert.Equal(evaluationId, evidence.EvaluationId);
         Assert.Equal(ValidHash, evidence.Sha256Hash);
+        Assert.Equal(18.4861, evidence.Latitude);
+        Assert.Equal(-69.9312, evidence.Longitude);
         Assert.StartsWith($"evaluaciones/{evaluationId:N}/", evidence.SupabasePath, StringComparison.Ordinal);
     }
 
@@ -59,7 +63,8 @@ public sealed class EvidenceServiceTests
             "image/png", 4, CancellationToken.None);
         var confirmed = await service.ConfirmUploadAsync(
             evaluationId, userId, idempotencyKey, "evidencias", authorization.SupabasePath,
-            "foto.png", "image/png", "FOTOGRAFIA", 4, ValidHash, CancellationToken.None);
+            "foto.png", "image/png", "FOTOGRAFIA", 4, ValidHash, null,
+            null, null, null, CancellationToken.None);
 
         Assert.Equal($"evaluaciones/{evaluationId:N}/{idempotencyKey:N}.png", authorization.SupabasePath);
         Assert.True(storage.VerificationCalled);
@@ -79,7 +84,8 @@ public sealed class EvidenceServiceTests
         await Assert.ThrowsAsync<InvalidDataException>(() => service.ConfirmUploadAsync(
             evaluationId, userId, idempotencyKey, "evidencias",
             $"evaluaciones/{evaluationId:N}/{idempotencyKey:N}.png", "foto.png",
-            "image/png", "FOTOGRAFIA", 5, ValidHash, CancellationToken.None));
+            "image/png", "FOTOGRAFIA", 5, ValidHash, null,
+            null, null, null, CancellationToken.None));
     }
 
     private sealed class FakeStorage : IFileStorage

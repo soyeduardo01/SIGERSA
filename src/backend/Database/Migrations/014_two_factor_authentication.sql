@@ -1,0 +1,24 @@
+BEGIN;
+
+ALTER TABLE "SIGERSA"."OTP_RECUPERACION"
+    ADD COLUMN IF NOT EXISTS proposito varchar(30) NOT NULL DEFAULT 'RECUPERACION';
+
+DO $migration$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+         WHERE conname = 'CK_OTP_PROPOSITO'
+           AND conrelid = '"SIGERSA"."OTP_RECUPERACION"'::regclass
+    ) THEN
+        ALTER TABLE "SIGERSA"."OTP_RECUPERACION"
+            ADD CONSTRAINT "CK_OTP_PROPOSITO"
+            CHECK (proposito IN ('RECUPERACION', 'DOS_FACTORES'));
+    END IF;
+END
+$migration$;
+
+CREATE INDEX IF NOT EXISTS "IX_OTP_USUARIO_PROPOSITO_ACTIVO"
+    ON "SIGERSA"."OTP_RECUPERACION" (usuario_id, proposito, creado_en DESC)
+    WHERE estado = 'ACTIVO';
+
+COMMIT;

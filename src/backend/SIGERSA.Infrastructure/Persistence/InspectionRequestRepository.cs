@@ -18,6 +18,8 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
                    u.nombre_completo AS ApplicantName, s.motivo_inspeccion_id AS InspectionReasonId,
                    m.nombre AS InspectionReasonName, s.motivo_detalle AS ReasonDetail,
                    s.tipo_establecimiento AS EstablishmentType, s.observaciones AS Observations,
+                   (SELECT COUNT(*) FROM "SIGERSA"."SOLICITUD_DOCUMENTO" document
+                     WHERE document.solicitud_id = s.id AND document.activo = true)::integer AS DocumentCount,
                    s.estado AS Status, s.creado_en AS CreatedAt, s.enviada_en AS SubmittedAt,
                    s.cancelada_en AS CancelledAt, s.version_fila AS RowVersion
               FROM "SIGERSA"."SOLICITUD" AS s
@@ -231,18 +233,22 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
         const string sql = """
             UPDATE "SIGERSA"."SOLICITUD"
                SET estado = @TargetStatus,
-                   numero = CASE WHEN @TargetStatus = 'ENVIADA' THEN COALESCE(
+                   numero = CASE WHEN @TargetStatus = 'PENDIENTE_ASIGNACION' THEN COALESCE(
                        numero,
                        'SOL-' || to_char(CURRENT_TIMESTAMP, 'YYYYMMDD') || '-' ||
                        upper(substr(replace(id::text, '-', ''), 1, 8))) ELSE numero END,
-                   enviada_en = CASE WHEN @TargetStatus = 'ENVIADA' THEN CURRENT_TIMESTAMP ELSE enviada_en END,
+                   enviada_en = CASE WHEN @TargetStatus = 'PENDIENTE_ASIGNACION' THEN CURRENT_TIMESTAMP ELSE enviada_en END,
                    cancelada_en = CASE WHEN @TargetStatus = 'CANCELADA' THEN CURRENT_TIMESTAMP ELSE cancelada_en END,
                    modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
                    version_fila = version_fila + 1
              WHERE id = @Id AND activo = true AND version_fila = @RowVersion
                AND (@CompanyScope IS NULL OR empresa_id = @CompanyScope)
-               AND ((@TargetStatus = 'ENVIADA' AND estado = 'BORRADOR')
-                    OR (@TargetStatus = 'CANCELADA' AND estado IN ('BORRADOR', 'ENVIADA')));
+               AND ((@TargetStatus = 'PENDIENTE_ASIGNACION' AND estado = 'BORRADOR')
+                    OR (@TargetStatus = 'CANCELADA' AND estado IN ('BORRADOR', 'PENDIENTE_ASIGNACION')))
+               AND (@TargetStatus <> 'PENDIENTE_ASIGNACION' OR EXISTS (
+                   SELECT 1 FROM "SIGERSA"."SOLICITUD_DOCUMENTO" document
+                    WHERE document.solicitud_id = id AND document.activo = true
+                      AND document.obligatorio = true));
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -260,6 +266,26 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
                 cancellationToken: cancellationToken));
             return affected == 1;
         }
+    }
+
+    public async Task<bool> HasRequiredDocumentAsync(
+        Guid id,
+        Guid? companyScope,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT EXISTS (
+                SELECT 1 FROM "SIGERSA"."SOLICITUD" request
+                 WHERE request.id = @Id AND request.activo = true AND request.estado = 'BORRADOR'
+                   AND (@CompanyScope IS NULL OR request.empresa_id = @CompanyScope)
+                   AND EXISTS (SELECT 1 FROM "SIGERSA"."SOLICITUD_DOCUMENTO" document
+                        WHERE document.solicitud_id = request.id AND document.activo = true
+                          AND document.obligatorio = true));
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+            return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(
+                Sql(sql), new { Id = id, CompanyScope = companyScope }, cancellationToken: cancellationToken));
     }
 
     private static async Task ValidateReferencesAsync(
@@ -312,6 +338,7 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
         public string? ReasonDetail { get; init; }
         public string? EstablishmentType { get; init; }
         public string? Observations { get; init; }
+        public int DocumentCount { get; init; }
         public string Status { get; init; } = string.Empty;
         public DateTime CreatedAt { get; init; }
         public DateTime? SubmittedAt { get; init; }
@@ -321,7 +348,7 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
         public InspectionRequestRecord ToDomain() => new(
             Id, Number, CompanyId, CompanyName, EstablishmentId, EstablishmentName,
             ApplicantId, ApplicantName, InspectionReasonId, InspectionReasonName,
-            ReasonDetail, EstablishmentType, Observations, Status, Utc(CreatedAt),
+            ReasonDetail, EstablishmentType, Observations, DocumentCount, Status, Utc(CreatedAt),
             SubmittedAt.HasValue ? Utc(SubmittedAt.Value) : null,
             CancelledAt.HasValue ? Utc(CancelledAt.Value) : null, RowVersion);
 

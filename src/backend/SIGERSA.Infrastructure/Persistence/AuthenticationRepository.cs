@@ -59,14 +59,14 @@ public sealed class AuthenticationRepository(IDbConnectionFactory connectionFact
             UPDATE "SIGERSA"."OTP_RECUPERACION"
                SET estado = 'INVALIDADO', invalidado_en = @Now, modificado_en = @Now,
                    modificado_por = @UserId, version_fila = version_fila + 1
-             WHERE usuario_id = @UserId AND estado = 'ACTIVO';
+             WHERE usuario_id = @UserId AND estado = 'ACTIVO' AND proposito = 'RECUPERACION';
             """, new { UserId = userId, Now = now }, cancellationToken);
 
     public Task CreateOtpAsync(Guid userId, string otpHash, DateTimeOffset expiresAt, string? ipHash, CancellationToken cancellationToken = default) =>
         ExecuteNoResultAsync("""
             INSERT INTO "SIGERSA"."OTP_RECUPERACION"
-                (id, usuario_id, otp_hash, expira_en, estado, ip_hash, creado_por)
-            VALUES (@Id, @UserId, @OtpHash, @ExpiresAt, 'ACTIVO', @IpHash, @UserId);
+                (id, usuario_id, otp_hash, expira_en, estado, ip_hash, proposito, creado_por)
+            VALUES (@Id, @UserId, @OtpHash, @ExpiresAt, 'ACTIVO', @IpHash, 'RECUPERACION', @UserId);
             """, new { Id = Guid.NewGuid(), UserId = userId, OtpHash = otpHash, ExpiresAt = expiresAt, IpHash = ipHash }, cancellationToken);
 
     public async Task<OtpChallenge?> GetLatestActiveOtpAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -75,8 +75,45 @@ public sealed class AuthenticationRepository(IDbConnectionFactory connectionFact
             SELECT id AS Id, usuario_id AS UsuarioId, otp_hash AS OtpHash,
                    expira_en AS ExpiraEn, intentos AS Intentos, estado AS Estado
             FROM "SIGERSA"."OTP_RECUPERACION"
-            WHERE usuario_id = @UserId AND estado = 'ACTIVO'
+            WHERE usuario_id = @UserId AND estado = 'ACTIVO' AND proposito = 'RECUPERACION'
             ORDER BY creado_en DESC LIMIT 1;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            var row = await connection.QuerySingleOrDefaultAsync<OtpChallengeRow>(
+                new CommandDefinition(Sql(sql), new { UserId = userId }, cancellationToken: cancellationToken));
+            return row?.ToDomain();
+        }
+    }
+
+    public Task InvalidateActiveTwoFactorOtpsAsync(
+        Guid userId, DateTimeOffset now, CancellationToken cancellationToken = default) =>
+        ExecuteNoResultAsync("""
+            UPDATE "SIGERSA"."OTP_RECUPERACION"
+               SET estado = 'INVALIDADO', invalidado_en = @Now, modificado_en = @Now,
+                   modificado_por = @UserId, version_fila = version_fila + 1
+             WHERE usuario_id = @UserId AND estado = 'ACTIVO' AND proposito = 'DOS_FACTORES';
+            """, new { UserId = userId, Now = now }, cancellationToken);
+
+    public Task CreateTwoFactorOtpAsync(
+        Guid userId, string otpHash, DateTimeOffset expiresAt, string? ipHash,
+        CancellationToken cancellationToken = default) =>
+        ExecuteNoResultAsync("""
+            INSERT INTO "SIGERSA"."OTP_RECUPERACION"
+                (id, usuario_id, otp_hash, expira_en, estado, ip_hash, proposito, creado_por)
+            VALUES (@Id, @UserId, @OtpHash, @ExpiresAt, 'ACTIVO', @IpHash, 'DOS_FACTORES', @UserId);
+            """, new { Id = Guid.NewGuid(), UserId = userId, OtpHash = otpHash, ExpiresAt = expiresAt, IpHash = ipHash }, cancellationToken);
+
+    public async Task<OtpChallenge?> GetLatestActiveTwoFactorOtpAsync(
+        Guid userId, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT id AS Id, usuario_id AS UsuarioId, otp_hash AS OtpHash,
+                   expira_en AS ExpiraEn, intentos AS Intentos, estado AS Estado
+              FROM "SIGERSA"."OTP_RECUPERACION"
+             WHERE usuario_id = @UserId AND estado = 'ACTIVO' AND proposito = 'DOS_FACTORES'
+             ORDER BY creado_en DESC LIMIT 1;
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)

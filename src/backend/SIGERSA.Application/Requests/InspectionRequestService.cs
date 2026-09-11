@@ -97,14 +97,18 @@ public sealed class InspectionRequestService(
     {
         EnsureManager(actor);
         if (input.RowVersion <= 0) throw new ArgumentException("La versión de la solicitud no es válida.");
-        if (targetStatus is not ("ENVIADA" or "CANCELADA"))
+        if (targetStatus is not ("PENDIENTE_ASIGNACION" or "CANCELADA"))
             throw new ArgumentException("La transición solicitada no es válida.");
+        var companyScope = CompanyWriteScope(actor);
+        if (targetStatus == "PENDIENTE_ASIGNACION" &&
+            !await repository.HasRequiredDocumentAsync(id, companyScope, cancellationToken))
+            throw new InvalidOperationException("Debe adjuntar la documentación obligatoria antes de enviar la solicitud.");
         if (!await repository.TransitionAsync(
                 id,
                 input.RowVersion,
                 targetStatus,
                 actor.UserId,
-                CompanyWriteScope(actor),
+                companyScope,
                 cancellationToken))
         {
             throw new OptimisticConcurrencyException(id);

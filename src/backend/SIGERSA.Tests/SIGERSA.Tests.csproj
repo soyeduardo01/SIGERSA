@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\SIGERSA.Api\SIGERSA.Api.csproj" />
     <ProjectReference Include="..\SIGERSA.Domain\SIGERSA.Domain.csproj" />
     <ProjectReference Include="..\SIGERSA.Application\SIGERSA.Application.csproj" />
     <ProjectReference Include="..\SIGERSA.Infrastructure\SIGERSA.Infrastructure.csproj" />

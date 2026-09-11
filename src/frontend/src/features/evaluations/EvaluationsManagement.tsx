@@ -4,6 +4,8 @@ import {
   createEvaluation,
   getEvaluationOptions,
   getEvaluations,
+  startEvaluation,
+  transitionEvaluation,
   type EvaluationCreateOptions,
   type EvaluationDraft,
   type EvaluationSummary,
@@ -13,6 +15,7 @@ import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 import { DynamicInspectionForm } from '../inspection/DynamicInspectionForm'
+import { useAuth } from '../../contexts/useAuth'
 
 const emptyPage: EvaluationsPage = { items: [], page: 1, pageSize: 20, total: 0 }
 
@@ -30,6 +33,9 @@ export function EvaluationsManagement({
   const [selected, setSelected] = useState<EvaluationSummary | null>(null)
   const evaluationStates = useParameterOptions('ESTADO_EVALUACION')
   const inspectionMode = mode === 'inspection'
+  const { roles } = useAuth()
+  const canExecute = roles.some((role) => role === 'ADMINISTRADOR' || role === 'TECNICO_EVALUADOR')
+  const canReview = roles.some((role) => role === 'ADMINISTRADOR' || role === 'COORDINADOR')
 
   async function load() {
     setLoading(true)
@@ -73,6 +79,36 @@ export function EvaluationsManagement({
     } catch (caught) {
       await alerts.error(caught, 'No se pudo crear la evaluación')
       throw caught
+    }
+  }
+
+  async function runTransition(
+    item: EvaluationSummary,
+    action: 'start' | 'submit' | 'review' | 'approve' | 'close',
+  ) {
+    const labels = {
+      start: 'Iniciar evaluación',
+      submit: 'Enviar a revisión',
+      review: 'Comenzar revisión',
+      approve: 'Aprobar evaluación',
+      close: 'Cerrar expediente',
+    }
+    const confirmed = await alerts.confirm({
+      title: labels[action],
+      text:
+        action === 'close'
+          ? 'El cierre requiere que exista un informe oficial emitido.'
+          : 'El cambio quedará registrado en la trazabilidad.',
+      confirmText: labels[action],
+    })
+    if (!confirmed) return
+    try {
+      if (action === 'start') await startEvaluation(item.id, item.rowVersion)
+      else await transitionEvaluation(item.id, action, item.rowVersion)
+      await load()
+      await alerts.success(labels[action])
+    } catch (caught) {
+      await alerts.error(caught, `No se pudo ${labels[action].toLowerCase()}`)
     }
   }
 
@@ -162,13 +198,60 @@ export function EvaluationsManagement({
                       : `${item.compliancePercentage.toFixed(1)}% · ${formatStatusLabel(item.riskLevel ?? '')}`}
                   </td>
                   <td className="px-3 py-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setSelected(item)}
-                      className="rounded-lg border px-3 py-2 font-bold"
-                    >
-                      {inspectionMode ? 'Iniciar inspección' : 'Abrir ficha'}
-                    </button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {item.status === 'ASIGNADA' && canExecute && (
+                        <button
+                          type="button"
+                          onClick={() => void runTransition(item, 'start')}
+                          className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white"
+                        >
+                          Iniciar
+                        </button>
+                      )}
+                      {item.status === 'FINALIZADA' && canExecute && (
+                        <button
+                          type="button"
+                          onClick={() => void runTransition(item, 'submit')}
+                          className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white"
+                        >
+                          Enviar
+                        </button>
+                      )}
+                      {item.status === 'ENVIADA' && canReview && (
+                        <button
+                          type="button"
+                          onClick={() => void runTransition(item, 'review')}
+                          className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white"
+                        >
+                          Revisar
+                        </button>
+                      )}
+                      {item.status === 'EN_REVISION' && canReview && (
+                        <button
+                          type="button"
+                          onClick={() => void runTransition(item, 'approve')}
+                          className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white"
+                        >
+                          Aprobar
+                        </button>
+                      )}
+                      {item.status === 'APROBADA' && canReview && (
+                        <button
+                          type="button"
+                          onClick={() => void runTransition(item, 'close')}
+                          className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
+                        >
+                          Cerrar
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setSelected(item)}
+                        className="rounded-lg border px-3 py-2 font-bold"
+                      >
+                        Abrir ficha
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -185,7 +268,10 @@ export function EvaluationsManagement({
 
       {selected && (
         <div className="mt-8 border-t border-slate-200 pt-8">
-          <DynamicInspectionForm selectedEvaluationId={selected.id} />
+          <DynamicInspectionForm
+            selectedEvaluationId={selected.id}
+            onFinalized={() => void load()}
+          />
         </div>
       )}
       {creating && options && (

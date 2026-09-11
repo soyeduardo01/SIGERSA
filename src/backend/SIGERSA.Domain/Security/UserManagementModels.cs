@@ -1,5 +1,7 @@
 namespace SIGERSA.Domain.Security;
 
+using SIGERSA.Domain.Entities;
+
 public sealed record ManagedUser(
     Guid Id,
     string NombreCompleto,
@@ -39,6 +41,18 @@ public sealed record ManagedUserDraft(
     string Estado,
     string? PasswordHash,
     long? VersionFila);
+
+public sealed record PublicUserRegistrationDraft(
+    Guid Id,
+    string NombreCompleto,
+    string Correo,
+    string TipoIdentificacion,
+    string IdentificacionNormalizada,
+    string? Telefono,
+    string RequestedRole,
+    string PasswordHash,
+    DateTimeOffset TermsAcceptedAt,
+    SupportingDocument AuthorizationLetter);
 
 public sealed record RoleOption(string Code, string Name);
 

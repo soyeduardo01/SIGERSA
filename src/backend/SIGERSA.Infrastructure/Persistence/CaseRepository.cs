@@ -14,6 +14,7 @@ public sealed class CaseRepository(IDbConnectionFactory connectionFactory)
     {
         const string sql = """
             SELECT c.id AS Id, c.numero AS Number, c.solicitud_id AS RequestId,
+                   c.alerta_lapch_id AS AlertId, c.denuncia_id AS ComplaintId,
                    c.empresa_id AS CompanyId, e.razon_social AS CompanyName,
                    c.establecimiento_id AS EstablishmentId, est.nombre AS EstablishmentName,
                    c.origen AS Origin, c.estado AS Status, c.prioridad AS Priority,
@@ -70,15 +71,45 @@ public sealed class CaseRepository(IDbConnectionFactory connectionFactory)
     public async Task<CaseOptions> GetOptionsAsync(bool canManage, CancellationToken cancellationToken = default)
     {
         const string sql = """
-            SELECT s.id AS Id,
-                   COALESCE(s.numero, 'Solicitud') || ' · ' || e.razon_social || ' · ' || est.nombre AS Name,
-                   s.empresa_id AS CompanyId
-              FROM "SIGERSA"."SOLICITUD" AS s
-              JOIN "SIGERSA"."EMPRESA" AS e ON e.id = s.empresa_id
-              JOIN "SIGERSA"."ESTABLECIMIENTO" AS est ON est.id = s.establecimiento_id
-             WHERE s.estado = 'ENVIADA' AND s.activo = true AND @CanManage = true
-               AND NOT EXISTS (SELECT 1 FROM "SIGERSA"."CASO" AS c WHERE c.solicitud_id = s.id)
-             ORDER BY s.enviada_en;
+            SELECT source.id AS Id, source.kind AS Kind, source.name AS Name,
+                   source.company_id AS CompanyId, source.establishment_id AS EstablishmentId
+              FROM (
+                    SELECT s.id, 'SOLICITUD_EMPRESA'::varchar AS kind,
+                           'Solicitud · ' || COALESCE(s.numero, 'Sin número') || ' · ' || e.razon_social || ' · ' || est.nombre AS name,
+                           s.empresa_id AS company_id, s.establecimiento_id AS establishment_id, s.enviada_en AS occurred_at
+                      FROM "SIGERSA"."SOLICITUD" s
+                      JOIN "SIGERSA"."EMPRESA" e ON e.id = s.empresa_id
+                      JOIN "SIGERSA"."ESTABLECIMIENTO" est ON est.id = s.establecimiento_id
+                     WHERE s.estado = 'PENDIENTE_ASIGNACION' AND s.activo = true
+                       AND NOT EXISTS (SELECT 1 FROM "SIGERSA"."CASO" c WHERE c.solicitud_id = s.id)
+                    UNION ALL
+                    SELECT alert.id, 'ALERTA_LAPCH',
+                           'Alerta LAPCH · ' || alert.numero_alerta || ' · ' || company.razon_social || ' · ' || establishment.nombre,
+                           COALESCE(alert.empresa_id, establishment.empresa_id), establishment.id, alert.fecha_alerta
+                      FROM "SIGERSA"."ALERTA_LAPCH" alert
+                      JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = alert.establecimiento_id
+                      JOIN "SIGERSA"."EMPRESA" company ON company.id = COALESCE(alert.empresa_id, establishment.empresa_id)
+                     WHERE alert.resultado = 'PROCEDE_EVALUACION'
+                       AND NOT EXISTS (SELECT 1 FROM "SIGERSA"."CASO" c WHERE c.alerta_lapch_id = alert.id)
+                    UNION ALL
+                    SELECT complaint.id, 'DENUNCIA',
+                           'Denuncia · ' || complaint.numero || ' · ' || company.razon_social || ' · ' || establishment.nombre,
+                           establishment.empresa_id, establishment.id, complaint.fecha_recepcion
+                      FROM "SIGERSA"."DENUNCIA" complaint
+                      JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = complaint.establecimiento_id
+                      JOIN "SIGERSA"."EMPRESA" company ON company.id = establishment.empresa_id
+                     WHERE complaint.resultado = 'PROCEDE'
+                       AND NOT EXISTS (SELECT 1 FROM "SIGERSA"."CASO" c WHERE c.denuncia_id = complaint.id)
+                    UNION ALL
+                    SELECT establishment.id, 'PROGRAMACION',
+                           'Programa institucional · ' || company.razon_social || ' · ' || establishment.nombre,
+                           establishment.empresa_id, establishment.id, CURRENT_TIMESTAMP
+                      FROM "SIGERSA"."ESTABLECIMIENTO" establishment
+                      JOIN "SIGERSA"."EMPRESA" company ON company.id = establishment.empresa_id
+                     WHERE establishment.activo = true AND company.activo = true
+                   ) source
+             WHERE @CanManage = true
+             ORDER BY source.occurred_at DESC, source.name;
 
             SELECT DISTINCT u.id AS Id, u.nombre_completo AS Name, u.empresa_id AS CompanyId
               FROM "SIGERSA"."USUARIO" AS u
@@ -93,9 +124,10 @@ public sealed class CaseRepository(IDbConnectionFactory connectionFactory)
         {
             using var result = await connection.QueryMultipleAsync(new CommandDefinition(
                 Sql(sql), new { CanManage = canManage }, cancellationToken: cancellationToken));
-            var requests = (await result.ReadAsync<OptionRow>()).Select(ToOption).ToArray();
+            var sources = (await result.ReadAsync<SourceOptionRow>()).Select(row => new CaseSourceOption(
+                row.Id, row.Kind, row.Name, row.CompanyId, row.EstablishmentId)).ToArray();
             var users = (await result.ReadAsync<OptionRow>()).Select(ToOption).ToArray();
-            return new CaseOptions(requests, users, canManage);
+            return new CaseOptions(sources, users, canManage);
         }
     }
 
@@ -135,26 +167,51 @@ public sealed class CaseRepository(IDbConnectionFactory connectionFactory)
 
             var id = Guid.NewGuid();
             var inserted = await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                WITH source AS (
+                    SELECT s.id, s.empresa_id, s.establecimiento_id, s.motivo_inspeccion_id
+                      FROM "SIGERSA"."SOLICITUD" s
+                     WHERE @Origin = 'SOLICITUD_EMPRESA' AND s.id = @SourceId
+                       AND s.estado = 'PENDIENTE_ASIGNACION' AND s.activo = true AND s.establecimiento_id IS NOT NULL
+                       AND NOT EXISTS (SELECT 1 FROM "SIGERSA"."CASO" c WHERE c.solicitud_id = s.id)
+                    UNION ALL
+                    SELECT alert.id, COALESCE(alert.empresa_id, establishment.empresa_id), establishment.id, NULL::uuid
+                      FROM "SIGERSA"."ALERTA_LAPCH" alert
+                      JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = alert.establecimiento_id
+                     WHERE @Origin = 'ALERTA_LAPCH' AND alert.id = @SourceId
+                       AND alert.resultado = 'PROCEDE_EVALUACION'
+                       AND NOT EXISTS (SELECT 1 FROM "SIGERSA"."CASO" c WHERE c.alerta_lapch_id = alert.id)
+                    UNION ALL
+                    SELECT complaint.id, establishment.empresa_id, establishment.id, NULL::uuid
+                      FROM "SIGERSA"."DENUNCIA" complaint
+                      JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = complaint.establecimiento_id
+                     WHERE @Origin = 'DENUNCIA' AND complaint.id = @SourceId
+                       AND complaint.resultado = 'PROCEDE'
+                       AND NOT EXISTS (SELECT 1 FROM "SIGERSA"."CASO" c WHERE c.denuncia_id = complaint.id)
+                    UNION ALL
+                    SELECT establishment.id, establishment.empresa_id, establishment.id, NULL::uuid
+                      FROM "SIGERSA"."ESTABLECIMIENTO" establishment
+                     WHERE @Origin = 'PROGRAMACION' AND establishment.id = @SourceId AND establishment.activo = true
+                )
                 INSERT INTO "SIGERSA"."CASO"
                     (id, numero, solicitud_id, empresa_id, establecimiento_id, motivo_inspeccion_id,
-                     origen, estado, prioridad, responsable_actual_id, decision_analisis,
+                     alerta_lapch_id, denuncia_id, origen, estado, prioridad, responsable_actual_id, decision_analisis,
                      motivo_decision, creado_por)
                 SELECT @Id,
                        'CAS-' || to_char(CURRENT_TIMESTAMP, 'YYYYMMDD') || '-' ||
                            upper(substr(replace(@Id::text, '-', ''), 1, 8)),
-                       s.id, s.empresa_id, s.establecimiento_id, s.motivo_inspeccion_id,
-                       'SOLICITUD_EMPRESA', 'ABIERTO', @Priority, @ResponsibleId,
+                       CASE WHEN @Origin = 'SOLICITUD_EMPRESA' THEN source.id END,
+                       source.empresa_id, source.establecimiento_id, source.motivo_inspeccion_id,
+                       CASE WHEN @Origin = 'ALERTA_LAPCH' THEN source.id END,
+                       CASE WHEN @Origin = 'DENUNCIA' THEN source.id END,
+                       @Origin, 'ABIERTO', @Priority, @ResponsibleId,
                        @AnalysisDecision, @DecisionReason, @ActorId
-                  FROM "SIGERSA"."SOLICITUD" AS s
-                 WHERE s.id = @RequestId AND s.estado = 'ENVIADA' AND s.activo = true
-                   AND s.establecimiento_id IS NOT NULL
-                   AND NOT EXISTS (SELECT 1 FROM "SIGERSA"."CASO" AS c WHERE c.solicitud_id = s.id);
+                  FROM source;
                 """), new
             {
-                Id = id, draft.RequestId, draft.Priority, draft.ResponsibleId,
+                Id = id, draft.Origin, draft.SourceId, draft.Priority, draft.ResponsibleId,
                 draft.AnalysisDecision, draft.DecisionReason, ActorId = actorId
             }, transaction, cancellationToken: cancellationToken));
-            if (inserted != 1) throw new ArgumentException("La solicitud debe estar enviada, tener establecimiento y no poseer un caso.");
+            if (inserted != 1) throw new ArgumentException("El origen seleccionado no está listo para crear un caso o ya fue utilizado.");
             await connection.ExecuteAsync(new CommandDefinition(Sql("""
                 UPDATE "SIGERSA"."OPERACION_SINCRONIZACION"
                    SET recurso_id = @Id, estado = 'APLICADA', codigo_resultado = 'CREATED',
@@ -235,16 +292,18 @@ public sealed class CaseRepository(IDbConnectionFactory connectionFactory)
     private static CaseOption ToOption(OptionRow row) => new(row.Id, row.Name, row.CompanyId);
     private static DateTimeOffset Utc(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
     private sealed class OptionRow { public Guid Id { get; init; } public string Name { get; init; } = string.Empty; public Guid? CompanyId { get; init; } }
+    private sealed class SourceOptionRow { public Guid Id { get; init; } public string Kind { get; init; } = string.Empty; public string Name { get; init; } = string.Empty; public Guid CompanyId { get; init; } public Guid EstablishmentId { get; init; } }
     private sealed class OperationRow { public Guid? ResourceId { get; init; } public string PayloadHash { get; init; } = string.Empty; }
     private sealed class CaseRow
     {
         public Guid Id { get; init; } public string Number { get; init; } = string.Empty; public Guid? RequestId { get; init; }
+        public Guid? AlertId { get; init; } public Guid? ComplaintId { get; init; }
         public Guid CompanyId { get; init; } public string CompanyName { get; init; } = string.Empty;
         public Guid EstablishmentId { get; init; } public string EstablishmentName { get; init; } = string.Empty;
         public string Origin { get; init; } = string.Empty; public string Status { get; init; } = string.Empty; public short Priority { get; init; }
         public Guid? ResponsibleId { get; init; } public string? ResponsibleName { get; init; } public string? AnalysisDecision { get; init; }
         public string? DecisionReason { get; init; } public DateTime OpenedAt { get; init; } public DateTime? ClosedAt { get; init; } public long RowVersion { get; init; }
-        public CaseRecord ToDomain() => new(Id, Number, RequestId, CompanyId, CompanyName, EstablishmentId, EstablishmentName,
+        public CaseRecord ToDomain() => new(Id, Number, RequestId, AlertId, ComplaintId, CompanyId, CompanyName, EstablishmentId, EstablishmentName,
             Origin, Status, Priority, ResponsibleId, ResponsibleName, AnalysisDecision, DecisionReason,
             Utc(OpenedAt), ClosedAt.HasValue ? Utc(ClosedAt.Value) : null, RowVersion);
     }

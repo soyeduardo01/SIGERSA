@@ -16,6 +16,15 @@ public interface IAuthenticationRepository
 
     Task<OtpChallenge?> GetLatestActiveOtpAsync(Guid userId, CancellationToken cancellationToken = default);
 
+    Task InvalidateActiveTwoFactorOtpsAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException();
+
+    Task CreateTwoFactorOtpAsync(Guid userId, string otpHash, DateTimeOffset expiresAt, string? ipHash,
+        CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+    Task<OtpChallenge?> GetLatestActiveTwoFactorOtpAsync(Guid userId,
+        CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
     Task RecordFailedOtpAttemptAsync(Guid otpId, int maximumAttempts, DateTimeOffset now, CancellationToken cancellationToken = default);
 
     Task<bool> ConsumeOtpAsync(Guid otpId, DateTimeOffset now, CancellationToken cancellationToken = default);

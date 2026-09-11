@@ -39,7 +39,6 @@ public sealed class EstablishmentRequestValidator : AbstractValidator<Establishm
     public EstablishmentRequestValidator()
     {
         RuleFor(request => request.CompanyId).NotEmpty();
-        RuleFor(request => request.Code).NotEmpty().MaximumLength(50);
         RuleFor(request => request.Name).NotEmpty().MaximumLength(250);
         RuleFor(request => request.Street).MaximumLength(250);
         RuleFor(request => request.AddressNumber).MaximumLength(50);
@@ -58,9 +57,19 @@ public sealed class EstablishmentRequestValidator : AbstractValidator<Establishm
             .WithMessage("Seleccione el nivel de implementación HACCP.");
         RuleFor(request => request.HaccpPercentage).Null().When(request => request.HaccpImplemented != true);
         RuleFor(request => request.SamplingApplicationCode).NotEmpty().When(request => request.MicrobiologicalSamplingPlan == true);
+        RuleFor(request => request.SamplingApplicationCode)
+            .Must(value => value is "MP" or "AP_PT" or "MP_AP_PT" or
+                "MATERIAS_PRIMAS" or "AREAS_PROCESO_PRODUCTOS_TERMINADOS" or
+                "MATERIAS_PRIMAS_AREAS_PROCESO_PRODUCTOS_TERMINADOS")
+            .When(request => request.MicrobiologicalSamplingPlan == true);
         RuleFor(request => request.SamplingApplicationCode).Null().When(request => request.MicrobiologicalSamplingPlan != true);
         RuleFor(request => request.InabieDistributionCode).NotEmpty().When(request => request.IsInabieSupplier == true);
+        RuleFor(request => request.InabieDistributionCode)
+            .Must(value => value is "NACIONAL" or "REGIONAL" or "LOCAL")
+            .When(request => request.IsInabieSupplier == true);
         RuleFor(request => request.InabieDistributionCode).Null().When(request => request.IsInabieSupplier != true);
+        RuleFor(request => request.MarketIds).Must(values => values is null || values.Count <= 1)
+            .WithMessage("Seleccione un solo mercado objetivo.");
         RuleForEach(request => request.Contacts).ChildRules(contact =>
         {
             contact.RuleFor(value => value.Type).Must(value => value is "PRINCIPAL" or "LEGAL");

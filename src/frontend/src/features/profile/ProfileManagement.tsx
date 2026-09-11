@@ -20,6 +20,7 @@ export function ProfileManagement() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -172,15 +173,57 @@ export function ProfileManagement() {
             </div>
           </form>
 
-          <form
-            onSubmit={(event) => void savePassword(event)}
-            className="rounded-card bg-white p-6 shadow-card"
-          >
+          <article className="rounded-card bg-white p-6 shadow-card">
             <h2 className="text-lg font-extrabold text-ink-strong">Cambiar contraseña</h2>
             <p className="mt-2 text-sm text-ink-muted">
-              Use al menos ocho caracteres con mayúscula, minúscula, número y símbolo.
+              Actualice su clave de acceso desde un formulario protegido.
             </p>
-            <div className="mt-5 grid gap-4">
+            <div className="mt-6 flex justify-end border-t border-slate-100 pt-5">
+              <button
+                type="button"
+                onClick={() => setPasswordModalOpen(true)}
+                className="min-h-11 rounded-xl bg-surface-inverse px-5 font-bold text-white disabled:opacity-50"
+              >
+                Cambiar contraseña
+              </button>
+            </div>
+          </article>
+        </div>
+      )}
+
+      {passwordModalOpen && profile && (
+        <div className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="password-modal-title"
+            className="sigersa-modal-panel w-full max-w-xl overflow-hidden"
+          >
+            <div className="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <p className="text-xs font-bold tracking-[0.14em] text-brand-700 uppercase">
+                  Seguridad de la cuenta
+                </p>
+                <h2
+                  id="password-modal-title"
+                  className="mt-1 text-xl font-extrabold text-ink-strong"
+                >
+                  Cambiar contraseña
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPasswordModalOpen(false)}
+                aria-label="Cerrar formulario"
+                className="rounded-lg px-3 py-2 text-xl text-slate-500 hover:bg-slate-100"
+              >
+                ×
+              </button>
+            </div>
+            <form onSubmit={(event) => void savePassword(event)} className="grid gap-4 p-6">
+              <p className="text-sm text-ink-muted">
+                Use al menos ocho caracteres con mayúscula, minúscula, número y símbolo.
+              </p>
               <Field label="Contraseña actual">
                 <input
                   required
@@ -215,16 +258,23 @@ export function ProfileManagement() {
                   className={inputClass}
                 />
               </Field>
-            </div>
-            <div className="mt-6 flex justify-end border-t border-slate-100 pt-5">
-              <button
-                disabled={changingPassword}
-                className="min-h-11 rounded-xl bg-surface-inverse px-5 font-bold text-white disabled:opacity-50"
-              >
-                {changingPassword ? 'Actualizando…' : 'Cambiar contraseña'}
-              </button>
-            </div>
-          </form>
+              <div className="flex justify-end gap-3 border-t border-slate-200 pt-5">
+                <button
+                  type="button"
+                  onClick={() => setPasswordModalOpen(false)}
+                  className="min-h-11 rounded-xl border border-slate-300 px-5 font-bold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  disabled={changingPassword}
+                  className="min-h-11 rounded-xl bg-brand-700 px-5 font-bold text-white disabled:opacity-50"
+                >
+                  {changingPassword ? 'Actualizando…' : 'Actualizar contraseña'}
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
       )}
     </section>

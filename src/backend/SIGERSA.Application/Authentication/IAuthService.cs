@@ -2,7 +2,9 @@ namespace SIGERSA.Application.Authentication;
 
 public interface IAuthService
 {
-    Task<AuthTokensResponse> LoginAsync(LoginCommand command, CancellationToken cancellationToken = default);
+    Task<LoginResult> LoginAsync(LoginCommand command, CancellationToken cancellationToken = default);
+
+    Task<AuthTokensResponse> VerifyTwoFactorAsync(VerifyTwoFactorCommand command, CancellationToken cancellationToken = default);
 
     Task<AuthTokensResponse> RefreshAsync(RefreshTokenCommand command, CancellationToken cancellationToken = default);
 

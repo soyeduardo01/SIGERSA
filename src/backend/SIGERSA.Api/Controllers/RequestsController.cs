@@ -1,15 +1,21 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using SIGERSA.Application.Documents;
 using SIGERSA.Application.Requests;
 using SIGERSA.Domain.Entities;
+using SIGERSA.Infrastructure.Configuration;
 
 namespace SIGERSA.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/requests")]
 [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
-public sealed class RequestsController(InspectionRequestService service) : ControllerBase
+public sealed class RequestsController(
+    InspectionRequestService service,
+    SupportingDocumentService documents,
+    IOptions<SupabaseOptions> storageOptions) : ControllerBase
 {
     [HttpGet]
     public Task<InspectionRequestsPage> Search(
@@ -55,6 +61,21 @@ public sealed class RequestsController(InspectionRequestService service) : Contr
         return NoContent();
     }
 
+    [HttpPost("{id:guid}/documents")]
+    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(10_485_760)]
+    public async Task<ActionResult<object>> UploadDocument(
+        Guid id, IFormFile file, [FromForm] string documentType,
+        [FromForm] bool required, CancellationToken cancellationToken)
+    {
+        await using var content = file.OpenReadStream();
+        var documentId = await documents.UploadRequestDocumentAsync(
+            id, documentType, required, storageOptions.Value.DefaultBucketName,
+            file.FileName, file.ContentType, file.Length, content, DocumentActor(), cancellationToken);
+        return Created($"/api/v1/requests/{id}/documents/{documentId}", new { id = documentId });
+    }
+
     [HttpPost("{id:guid}/submit")]
     [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR")]
     public async Task<IActionResult> Submit(
@@ -62,7 +83,7 @@ public sealed class RequestsController(InspectionRequestService service) : Contr
         InspectionRequestTransitionInput input,
         CancellationToken cancellationToken)
     {
-        await service.TransitionAsync(id, input, "ENVIADA", Actor(), cancellationToken);
+        await service.TransitionAsync(id, input, "PENDIENTE_ASIGNACION", Actor(), cancellationToken);
         return NoContent();
     }
 
@@ -89,5 +110,11 @@ public sealed class RequestsController(InspectionRequestService service) : Contr
             .Distinct(StringComparer.Ordinal)
             .ToArray();
         return new InspectionRequestActor(userId, roles, companyId);
+    }
+
+    private DocumentActor DocumentActor()
+    {
+        var actor = Actor();
+        return new DocumentActor(actor.UserId, actor.Roles, actor.CompanyId);
     }
 }

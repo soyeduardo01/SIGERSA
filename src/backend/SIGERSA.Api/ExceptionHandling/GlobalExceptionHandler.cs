@@ -48,7 +48,7 @@ public sealed partial class GlobalExceptionHandler(
             Detail = exception switch
             {
                 PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } =>
-                    "Ya existe un registro con el mismo correo o identificación.",
+                    "Ya existe un registro con los mismos datos únicos.",
                 _ when status == StatusCodes.Status500InternalServerError => "La solicitud no pudo completarse.",
                 _ => exception.Message
             },

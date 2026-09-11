@@ -15,7 +15,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task LoginShouldIssueAndPersistRotatingSessionTokens()
     {
-        var passwords = new Pbkdf2PasswordService();
+        var passwords = new BcryptPasswordService();
         var repository = new FakeAuthenticationRepository
         {
             User = ActiveUser(passwords.Hash("Valid-Password-2026!"))
@@ -25,17 +25,18 @@ public sealed class AuthServiceTests
         var result = await service.LoginAsync(
             new LoginCommand("USER@EXAMPLE.COM", "Valid-Password-2026!", "test", "ip"));
 
-        Assert.Equal("access-token", result.AccessToken);
-        Assert.NotEmpty(result.RefreshToken);
+        Assert.False(result.RequiresTwoFactor);
+        Assert.Equal("access-token", result.Session!.AccessToken);
+        Assert.NotEmpty(result.Session.RefreshToken);
         Assert.NotNull(repository.StoredRefreshHash);
-        Assert.DoesNotContain(result.RefreshToken, repository.StoredRefreshHash, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Session.RefreshToken, repository.StoredRefreshHash, StringComparison.Ordinal);
         Assert.True(repository.SuccessfulLoginRecorded);
     }
 
     [Fact]
     public async Task LoginShouldRecordAFailedAttemptWithoutDisclosingCause()
     {
-        var passwords = new Pbkdf2PasswordService();
+        var passwords = new BcryptPasswordService();
         var repository = new FakeAuthenticationRepository
         {
             User = ActiveUser(passwords.Hash("Valid-Password-2026!"))
@@ -50,9 +51,33 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
+    public async Task TwoFactorLoginShouldIssueSessionOnlyAfterValidEmailOtp()
+    {
+        var passwords = new BcryptPasswordService();
+        var user = ActiveUser(passwords.Hash("Valid-Password-2026!"));
+        var repository = new FakeAuthenticationRepository { User = user };
+        var email = new FakeEmailSender();
+        var service = CreateService(repository, passwords, email, twoFactorEnabled: true);
+
+        var challenge = await service.LoginAsync(
+            new LoginCommand("user@example.com", "Valid-Password-2026!", "test", "ip"));
+        repository.TwoFactorChallenge = new OtpChallenge(
+            Guid.NewGuid(), user.Id, repository.StoredTwoFactorOtpHash!,
+            Now.AddMinutes(5), 0, "ACTIVO");
+        var session = await service.VerifyTwoFactorAsync(
+            new VerifyTwoFactorCommand("user@example.com", email.TwoFactorOtp!, "test", "ip"));
+
+        Assert.True(challenge.RequiresTwoFactor);
+        Assert.Null(challenge.Session);
+        Assert.Equal("access-token", session.AccessToken);
+        Assert.True(repository.OtpConsumed);
+        Assert.NotNull(repository.StoredRefreshHash);
+    }
+
+    [Fact]
     public async Task RecoveryShouldStoreOnlyAHashAndSendSixDigitOtp()
     {
-        var passwords = new Pbkdf2PasswordService();
+        var passwords = new BcryptPasswordService();
         var repository = new FakeAuthenticationRepository { User = ActiveUser(passwords.Hash("Valid-Password-2026!")) };
         var email = new FakeEmailSender();
         var service = CreateService(repository, passwords, email);
@@ -68,7 +93,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task RecoveryShouldInvalidateOtpWhenEmailDeliveryFails()
     {
-        var passwords = new Pbkdf2PasswordService();
+        var passwords = new BcryptPasswordService();
         var repository = new FakeAuthenticationRepository { User = ActiveUser(passwords.Hash("Valid-Password-2026!")) };
         var email = new FakeEmailSender { ShouldFail = true };
         var service = CreateService(repository, passwords, email);
@@ -82,7 +107,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task VerifyRecoveryShouldConsumeOtpAndIssueSinglePurposeToken()
     {
-        var passwords = new Pbkdf2PasswordService();
+        var passwords = new BcryptPasswordService();
         var repository = new FakeAuthenticationRepository
         {
             User = ActiveUser(passwords.Hash("Valid-Password-2026!")),
@@ -101,7 +126,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task ResetPasswordShouldRejectAConsumedOrExpiredProof()
     {
-        var passwords = new Pbkdf2PasswordService();
+        var passwords = new BcryptPasswordService();
         var repository = new FakeAuthenticationRepository
         {
             User = ActiveUser(passwords.Hash("Valid-Password-2026!")),
@@ -116,7 +141,7 @@ public sealed class AuthServiceTests
     [Fact]
     public async Task LogoutShouldRevokeOnlyThePresentedRefreshTokenHash()
     {
-        var passwords = new Pbkdf2PasswordService();
+        var passwords = new BcryptPasswordService();
         var repository = new FakeAuthenticationRepository { User = ActiveUser(passwords.Hash("Valid-Password-2026!")) };
         var service = CreateService(repository, passwords, new FakeEmailSender());
 
@@ -126,13 +151,15 @@ public sealed class AuthServiceTests
         Assert.DoesNotContain("refresh-token", repository.RevokedRefreshHash, StringComparison.Ordinal);
     }
 
-    private static AuthService CreateService(FakeAuthenticationRepository repository, IPasswordService passwords, FakeEmailSender email) =>
+    private static AuthService CreateService(
+        FakeAuthenticationRepository repository, IPasswordService passwords,
+        FakeEmailSender email, bool twoFactorEnabled = false) =>
         new(
             repository,
             passwords,
             new FakeTokenService(),
             email,
-            Options.Create(new AuthFlowOptions()),
+            Options.Create(new AuthFlowOptions { TwoFactorEnabled = twoFactorEnabled }),
             new FixedTimeProvider(Now),
             new LoginCommandValidator(),
             new RefreshTokenCommandValidator(),
@@ -166,11 +193,19 @@ public sealed class AuthServiceTests
     private sealed class FakeEmailSender : IEmailSender
     {
         public string? Otp { get; private set; }
+        public string? TwoFactorOtp { get; private set; }
         public bool ShouldFail { get; init; }
         public Task SendPasswordRecoveryOtpAsync(string recipient, string recipientName, string otp, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
         {
             if (ShouldFail) throw new EmailDeliveryException("SMTP no disponible.");
             Otp = otp;
+            return Task.CompletedTask;
+        }
+
+        public Task SendTwoFactorOtpAsync(string recipient, string recipientName, string otp, DateTimeOffset expiresAt, CancellationToken cancellationToken = default)
+        {
+            if (ShouldFail) throw new EmailDeliveryException("SMTP no disponible.");
+            TwoFactorOtp = otp;
             return Task.CompletedTask;
         }
     }
@@ -179,12 +214,14 @@ public sealed class AuthServiceTests
     {
         public AuthenticationUser? User { get; init; }
         public OtpChallenge? Challenge { get; init; }
+        public OtpChallenge? TwoFactorChallenge { get; set; }
         public int FailedLogins { get; private set; }
         public bool SuccessfulLoginRecorded { get; private set; }
         public bool PreviousOtpsInvalidated { get; private set; }
         public int OtpInvalidations { get; private set; }
         public bool OtpConsumed { get; private set; }
         public string? StoredOtpHash { get; private set; }
+        public string? StoredTwoFactorOtpHash { get; private set; }
         public string? StoredRefreshHash { get; private set; }
         public Guid? StoredProofId { get; private set; }
         public bool PasswordResetAccepted { get; init; } = true;
@@ -196,6 +233,9 @@ public sealed class AuthServiceTests
         public Task InvalidateActiveOtpsAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken = default) { PreviousOtpsInvalidated = true; OtpInvalidations++; return Task.CompletedTask; }
         public Task CreateOtpAsync(Guid userId, string otpHash, DateTimeOffset expiresAt, string? ipHash, CancellationToken cancellationToken = default) { StoredOtpHash = otpHash; return Task.CompletedTask; }
         public Task<OtpChallenge?> GetLatestActiveOtpAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(Challenge);
+        public Task InvalidateActiveTwoFactorOtpsAsync(Guid userId, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task CreateTwoFactorOtpAsync(Guid userId, string otpHash, DateTimeOffset expiresAt, string? ipHash, CancellationToken cancellationToken = default) { StoredTwoFactorOtpHash = otpHash; return Task.CompletedTask; }
+        public Task<OtpChallenge?> GetLatestActiveTwoFactorOtpAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(TwoFactorChallenge);
         public Task RecordFailedOtpAttemptAsync(Guid otpId, int maximumAttempts, DateTimeOffset now, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<bool> ConsumeOtpAsync(Guid otpId, DateTimeOffset now, CancellationToken cancellationToken = default) { OtpConsumed = true; return Task.FromResult(true); }
         public Task StorePasswordResetProofAsync(Guid proofId, Guid userId, DateTimeOffset expiresAt, CancellationToken cancellationToken = default) { StoredProofId = proofId; return Task.CompletedTask; }

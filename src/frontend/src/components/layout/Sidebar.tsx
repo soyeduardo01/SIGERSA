@@ -180,19 +180,12 @@ export function Sidebar({ mobile = false, currentModule = 'resumen', onNavigate 
         className="pointer-events-none absolute -bottom-40 -left-40 z-0 size-96 rounded-full border-[5rem] border-emerald-400/16 opacity-70 blur-lg"
         aria-hidden="true"
       />
-      <div className="relative z-10 flex h-20 items-center gap-3 px-5">
+      <div className="relative z-10 flex h-20 items-center px-5">
         <img
-          src="/assets/sigersa-icon.png"
-          alt=""
-          className="size-11 rounded-xl object-cover shadow-lg shadow-black/20"
-          aria-hidden="true"
+          src="/assets/logo-white.png"
+          alt="SIGERSA"
+          className="h-9 w-auto max-w-[11rem] object-contain object-left"
         />
-        <div>
-          <p className="text-xl font-extrabold tracking-tight">SIGERSA</p>
-          <p className="text-[0.66rem] font-semibold tracking-[0.14em] text-emerald-100 uppercase">
-            Riesgo sanitario
-          </p>
-        </div>
       </div>
       <nav
         className="sigersa-scrollbar relative z-10 flex-1 overflow-y-auto px-3 py-5"

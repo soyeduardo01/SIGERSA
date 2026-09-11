@@ -4,6 +4,8 @@ public sealed record CaseRecord(
     Guid Id,
     string Number,
     Guid? RequestId,
+    Guid? AlertId,
+    Guid? ComplaintId,
     Guid CompanyId,
     string CompanyName,
     Guid EstablishmentId,
@@ -33,7 +35,8 @@ public sealed record CaseSearch(
 
 public sealed record CaseDraft(
     Guid IdempotencyKey,
-    Guid RequestId,
+    string Origin,
+    Guid SourceId,
     short Priority,
     Guid? ResponsibleId,
     string? AnalysisDecision,
@@ -41,7 +44,8 @@ public sealed record CaseDraft(
     long? RowVersion);
 
 public sealed record CaseOption(Guid Id, string Name, Guid? CompanyId = null);
+public sealed record CaseSourceOption(Guid Id, string Kind, string Name, Guid CompanyId, Guid EstablishmentId);
 public sealed record CaseOptions(
-    IReadOnlyList<CaseOption> Requests,
+    IReadOnlyList<CaseSourceOption> Sources,
     IReadOnlyList<CaseOption> ResponsibleUsers,
     bool CanManage);

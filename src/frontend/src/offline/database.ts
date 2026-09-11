@@ -27,15 +27,21 @@ export interface AnswerPayload {
   evaluationId: string
   itemId: string
   value: string | number | boolean | Record<string, unknown> | null
+  observation?: string
+  comment?: string
 }
 
 export interface EvidencePayload {
   evaluationId: string
+  sourceItem?: number
   mimeType: string
   fileName: string
   evidenceType: string
   file: Blob
   sha256Hash: string
+  latitude?: number
+  longitude?: number
+  accuracyMeters?: number
 }
 
 export interface RequestPayload {
@@ -50,7 +56,8 @@ export interface RequestPayload {
 }
 
 export interface CasePayload {
-  requestId: string
+  origin: 'SOLICITUD_EMPRESA' | 'PROGRAMACION' | 'ALERTA_LAPCH' | 'DENUNCIA'
+  sourceId: string
   priority: number
   responsibleId: string | null
   analysisDecision: string | null
@@ -78,6 +85,7 @@ export interface CorrectionPayload {
   coordinatorObservation: string
   dueAt: string
   idempotencyKey: string
+  fields: Array<{ sourceItem: number; reason: string }>
 }
 
 export interface SyncQueueItem {

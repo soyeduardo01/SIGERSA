@@ -1,0 +1,23 @@
+BEGIN;
+
+ALTER TABLE "SIGERSA"."USUARIO"
+    ADD COLUMN IF NOT EXISTS rol_solicitado varchar(50),
+    ADD COLUMN IF NOT EXISTS terminos_aceptados_en timestamptz;
+
+ALTER TABLE "SIGERSA"."USUARIO"
+    DROP CONSTRAINT IF EXISTS "CK_USUARIO_ROL_SOLICITADO";
+
+ALTER TABLE "SIGERSA"."USUARIO"
+    ADD CONSTRAINT "CK_USUARIO_ROL_SOLICITADO" CHECK (
+        rol_solicitado IS NULL OR (
+            rol_solicitado IN ('ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO')
+            AND terminos_aceptados_en IS NOT NULL
+            AND estado IN ('PENDIENTE_VALIDACION', 'RECHAZADO')
+        )
+    );
+
+CREATE INDEX IF NOT EXISTS "IX_USUARIO_SOLICITUD_PUBLICA_PENDIENTE"
+    ON "SIGERSA"."USUARIO" (estado, creado_en DESC)
+    WHERE rol_solicitado IS NOT NULL;
+
+COMMIT;

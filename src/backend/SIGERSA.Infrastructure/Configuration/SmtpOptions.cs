@@ -11,4 +11,6 @@ public sealed class SmtpOptions
     public string Password { get; init; } = string.Empty;
     public string FromAddress { get; init; } = string.Empty;
     public string FromName { get; init; } = "SIGERSA";
+    public string ApplicationUrl { get; init; } = "http://127.0.0.1:5173/";
+    public string PasswordRecoveryUrl { get; init; } = "http://127.0.0.1:5173/recuperar-clave.html";
 }

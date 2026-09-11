@@ -53,13 +53,13 @@ public sealed class ProfileServiceTests
 
     private static ProfileService CreateService(FakeRepository repository) => new(
         repository,
-        new Pbkdf2PasswordService(),
+        new BcryptPasswordService(),
         new UpdateProfileRequestValidator(),
         new ChangePasswordRequestValidator());
 
     private sealed class FakeRepository : IUserProfileRepository
     {
-        private readonly Pbkdf2PasswordService passwordService = new();
+        private readonly BcryptPasswordService passwordService = new();
         public bool AllowPasswordChange { get; init; } = true;
         public bool PasswordChanged { get; private set; }
         public UserProfileAccount Profile { get; private set; }

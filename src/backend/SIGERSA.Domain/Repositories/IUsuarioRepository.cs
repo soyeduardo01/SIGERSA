@@ -24,6 +24,17 @@ public interface IUsuarioRepository
     Task<IReadOnlyList<CompanyOption>> GetActiveCompanyOptionsAsync(
         CancellationToken cancellationToken = default);
 
+    Task<bool> CanActivateAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task<bool> PublicRegistrationExistsAsync(
+        string normalizedEmail,
+        string normalizedIdentification,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> CreatePublicRegistrationAsync(
+        PublicUserRegistrationDraft draft,
+        CancellationToken cancellationToken = default);
+
     Task<Guid> CreateManagedAsync(
         ManagedUserDraft draft,
         Guid actorId,

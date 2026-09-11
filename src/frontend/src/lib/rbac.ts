@@ -46,7 +46,7 @@ export const moduleRoles: Record<AppModule, readonly CanonicalRole[]> = {
   solicitudes: ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO', 'COORDINADOR'],
   'alertas-denuncias': ['COORDINADOR'],
   casos: ['COORDINADOR'],
-  programacion: ['COORDINADOR'],
+  programacion: ['COORDINADOR', 'TECNICO_EVALUADOR'],
   evaluaciones: ['COORDINADOR', 'TECNICO_EVALUADOR'],
   inspecciones: ['COORDINADOR', 'TECNICO_EVALUADOR'],
   establecimientos: ['ADMINISTRADOR'],

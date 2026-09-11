@@ -75,6 +75,9 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             Required(evaluationId, nameof(evaluationId)),
             Required(actorId, nameof(actorId)),
             cancellationToken);
+        var requiredAnswers = input.Items.Count(item => item.IsEvaluable);
+        if (input.Answers.Count != requiredAnswers)
+            throw new InvalidOperationException($"Debe responder los {requiredAnswers} ítems evaluables antes de calcular el riesgo.");
         var ratings = input.Answers.Select(answer => ParseRating(answer.Rating)).ToArray();
         var bpm = RiskEngine.CalculateBpm(ratings);
         var nodes = input.Items.Select(item => new AllItem(
@@ -143,6 +146,63 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         return calculation with { RowVersion = version };
     }
 
+    public async Task<long> StartAsync(
+        Guid evaluationId,
+        EvaluationTransitionDraft transition,
+        EvaluationActor actor,
+        CancellationToken cancellationToken)
+    {
+        if (!HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("Solo el técnico asignado puede iniciar la evaluación.");
+        ValidateCoordinates(transition);
+        return await TransitionAsync(evaluationId, transition with { Action = "START" }, actor, cancellationToken);
+    }
+
+    public async Task<EvaluationCalculation> FinalizeAsync(
+        Guid evaluationId,
+        decimal productRisk,
+        EvaluationActor actor,
+        CancellationToken cancellationToken)
+    {
+        if (!HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("Solo el técnico asignado puede finalizar la evaluación.");
+        var calculation = await CalculateAsync(evaluationId, productRisk, actor.UserId, cancellationToken);
+        if (calculation.TotalRisk is null)
+            throw new InvalidOperationException("La evaluación no puede finalizar hasta completar las respuestas y factores de riesgo requeridos.");
+        var rowVersion = await TransitionAsync(evaluationId,
+            new EvaluationTransitionDraft("FINALIZE", calculation.RowVersion), actor, cancellationToken);
+        return calculation with { RowVersion = rowVersion };
+    }
+
+    public async Task<long> TransitionAsync(
+        Guid evaluationId,
+        EvaluationTransitionDraft transition,
+        EvaluationActor actor,
+        CancellationToken cancellationToken)
+    {
+        if (transition.RowVersion <= 0) throw new ArgumentException("La versión de la evaluación es obligatoria.");
+        var action = transition.Action.Trim().ToUpperInvariant();
+        var technicianAction = action is "START" or "FINALIZE" or "SUBMIT";
+        var reviewerAction = action is "REVIEW" or "APPROVE" or "CLOSE";
+        if (!technicianAction && !reviewerAction) throw new ArgumentException("La transición solicitada no es válida.");
+        if (technicianAction && !HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("La transición corresponde al técnico evaluador asignado.");
+        if (reviewerAction && !HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "COORDINADOR"))
+            throw new ForbiddenException("La transición corresponde al coordinador revisor.");
+        var version = await repository.TransitionAsync(
+            evaluationId, transition with { Action = action }, actor.UserId, cancellationToken);
+        return version ?? throw new OptimisticConcurrencyException(evaluationId);
+    }
+
+    private static void ValidateCoordinates(EvaluationTransitionDraft transition)
+    {
+        if ((transition.Latitude.HasValue) != (transition.Longitude.HasValue))
+            throw new ArgumentException("La latitud y longitud deben enviarse juntas.");
+        if (transition.Latitude is < -90m or > 90m || transition.Longitude is < -180m or > 180m)
+            throw new ArgumentException("Las coordenadas no son válidas.");
+        if (transition.AccuracyMeters < 0m) throw new ArgumentException("La precisión no puede ser negativa.");
+    }
+
     private static string NormalizeRating(string value) => ParseRating(value) switch
     {
         BpmRating.Compliant => "CUMPLE",
@@ -209,9 +269,9 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
     {
         null => null,
         false => 3m,
-        true when application == "MATERIAS_PRIMAS" => 2.33m,
-        true when application == "AREAS_PROCESO_PRODUCTOS_TERMINADOS" => 1.67m,
-        true when application == "MATERIAS_PRIMAS_AREAS_PROCESO_PRODUCTOS_TERMINADOS" => 1m,
+        true when application is "MP" or "MATERIAS_PRIMAS" => 2.33m,
+        true when application is "AP_PT" or "AREAS_PROCESO_PRODUCTOS_TERMINADOS" => 1.67m,
+        true when application is "MP_AP_PT" or "MATERIAS_PRIMAS_AREAS_PROCESO_PRODUCTOS_TERMINADOS" => 1m,
         _ => null
     };
 

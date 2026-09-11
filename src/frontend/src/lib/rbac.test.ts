@@ -55,6 +55,7 @@ const expectedByRole: Record<(typeof canonicalRoles)[number], AppModule[]> = {
     'perfil',
     'notificaciones',
     'reportes',
+    'programacion',
     'evaluaciones',
     'inspecciones',
     'hallazgos',

@@ -269,7 +269,15 @@ function CaseForm({
   onSave: (draft: CaseDraft) => Promise<void>
 }) {
   const decisions = useParameterOptions('DECISION_ANALISIS')
-  const [requestId, setRequestId] = useState(item?.requestId ?? '')
+  const [origin, setOrigin] = useState<CaseDraft['origin']>(
+    (item?.origin as CaseDraft['origin']) ?? 'SOLICITUD_EMPRESA',
+  )
+  const [sourceId, setSourceId] = useState(
+    item?.requestId ??
+      item?.alertId ??
+      item?.complaintId ??
+      (item?.origin === 'PROGRAMACION' ? item.establishmentId : ''),
+  )
   const [priority, setPriority] = useState(item?.priority ?? 3)
   const [responsibleId, setResponsibleId] = useState(item?.responsibleId ?? '')
   const [decision, setDecision] = useState(item?.analysisDecision ?? '')
@@ -280,7 +288,8 @@ function CaseForm({
     setSaving(true)
     try {
       await onSave({
-        requestId,
+        origin,
+        sourceId,
         priority,
         responsibleId: responsibleId || null,
         analysisDecision: decision || null,
@@ -306,7 +315,7 @@ function CaseForm({
         <div className="flex justify-between">
           <div>
             <h2 id="case-form-title" className="text-xl font-extrabold">
-              {item ? 'Analizar caso' : 'Crear caso desde solicitud'}
+              {item ? 'Analizar caso' : 'Crear caso sanitario'}
             </h2>
             <p className="mt-1 text-sm text-ink-muted">
               Defina prioridad, responsable y decisión inicial.
@@ -318,18 +327,26 @@ function CaseForm({
         </div>
         <form onSubmit={(event) => void submit(event)} className="mt-6 grid gap-4 md:grid-cols-2">
           <label className="text-sm font-bold md:col-span-2">
-            Solicitud enviada
+            Origen del caso
             <select
               required
               disabled={Boolean(item)}
-              value={requestId}
-              onChange={(event) => setRequestId(event.target.value)}
+              value={sourceId ? `${origin}:${sourceId}` : ''}
+              onChange={(event) => {
+                const [selectedOrigin, selectedId] = event.target.value.split(':')
+                setOrigin(selectedOrigin as CaseDraft['origin'])
+                setSourceId(selectedId ?? '')
+              }}
               className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal disabled:bg-slate-100"
             >
               <option value="">Seleccione</option>
-              {item?.requestId && <option value={item.requestId}>{item.number}</option>}
-              {options.requests.map((option) => (
-                <option key={option.id} value={option.id}>
+              {item && (
+                <option value={`${origin}:${sourceId}`}>
+                  {formatStatusLabel(item.origin)} · {item.number}
+                </option>
+              )}
+              {options.sources.map((option) => (
+                <option key={`${option.kind}-${option.id}`} value={`${option.kind}:${option.id}`}>
                   {option.name}
                 </option>
               ))}

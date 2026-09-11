@@ -1,0 +1,1245 @@
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import {
+  closeFinding,
+  createFinding,
+  createSurveillance,
+  downloadEvaluationReport,
+  generateEvaluationReport,
+  getAuditEvents,
+  getEvaluationHistory,
+  getEvaluationTimeline,
+  getFindingOptions,
+  getFindings,
+  getSurveillance,
+  getSurveillanceOptions,
+  updateSurveillance,
+  type AuditEventRecord,
+  type FindingOptions,
+  type FindingRecord,
+  type HistoricalEvaluation,
+  type SurveillanceDraft,
+  type SurveillanceOptions,
+  type SurveillanceRecord,
+  type TimelineEvent,
+} from '../../lib/api'
+import { alerts } from '../../lib/alerts'
+import { formatStatusLabel } from '../../lib/formatters'
+import { useAuth } from '../../contexts/useAuth'
+
+const fieldClass =
+  'mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 font-normal'
+const labelClass = 'text-sm font-bold text-ink-body'
+
+function PageHeader({
+  eyebrow,
+  title,
+  description,
+  action,
+}: {
+  eyebrow: string
+  title: string
+  description: string
+  action?: ReactNode
+}) {
+  return (
+    <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+      <div>
+        <p className="text-xs font-bold tracking-[0.14em] text-brand-700 uppercase">{eyebrow}</p>
+        <h1 className="mt-2 text-2xl font-extrabold text-ink-strong">{title}</h1>
+        <p className="mt-2 max-w-3xl text-sm text-ink-muted">{description}</p>
+      </div>
+      {action}
+    </div>
+  )
+}
+
+function ErrorBox({ message }: { message: string }) {
+  return message ? (
+    <div
+      role="alert"
+      className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800"
+    >
+      {message}
+    </div>
+  ) : null
+}
+
+function dateTimeLocal(value?: string) {
+  const date = value ? new Date(value) : new Date()
+  const offset = date.getTimezoneOffset() * 60_000
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
+}
+
+export function SurveillanceManagement() {
+  const [items, setItems] = useState<SurveillanceRecord[]>([])
+  const [options, setOptions] = useState<SurveillanceOptions | null>(null)
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+  const [kind, setKind] = useState('')
+  const [error, setError] = useState('')
+  const [editing, setEditing] = useState<SurveillanceRecord | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+
+  async function load() {
+    try {
+      const result = await getSurveillance({ search, kind, pageSize: 100 })
+      setItems(result.items)
+      setError('')
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : 'No se pudo cargar la vigilancia sanitaria.',
+      )
+    }
+  }
+
+  useEffect(() => {
+    let active = true
+    void getSurveillance({ search, kind, pageSize: 100 })
+      .then((result) => {
+        if (active) {
+          setItems(result.items)
+          setError('')
+        }
+      })
+      .catch((caught) => {
+        if (active)
+          setError(
+            caught instanceof Error ? caught.message : 'No se pudo cargar la vigilancia sanitaria.',
+          )
+      })
+    return () => {
+      active = false
+    }
+  }, [search, kind])
+  useEffect(() => {
+    void getSurveillanceOptions()
+      .then(setOptions)
+      .catch((caught) =>
+        setError(caught instanceof Error ? caught.message : 'No se pudieron cargar las opciones.'),
+      )
+  }, [])
+
+  return (
+    <section aria-labelledby="surveillance-title">
+      <PageHeader
+        eyebrow="Vigilancia sanitaria"
+        title="Alertas LAPCH y denuncias"
+        description="Registre, evalúe y dé seguimiento a cada alerta o denuncia hasta su decisión."
+        action={
+          options?.canManage && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(null)
+                setModalOpen(true)
+              }}
+              className="min-h-11 rounded-xl bg-brand-700 px-5 font-bold text-white"
+            >
+              + Nuevo registro
+            </button>
+          )
+        }
+      />
+      <div className="mt-6 rounded-card bg-white p-5 shadow-card">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            setSearch(searchInput.trim())
+          }}
+          className="grid gap-3 md:grid-cols-[1fr_14rem_auto]"
+        >
+          <label className={labelClass}>
+            Buscar
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Número, producto, tipo o establecimiento"
+              className={fieldClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Tipo
+            <select
+              value={kind}
+              onChange={(event) => setKind(event.target.value)}
+              className={fieldClass}
+            >
+              <option value="">Todos</option>
+              <option value="ALERTA_LAPCH">Alerta LAPCH</option>
+              <option value="DENUNCIA">Denuncia</option>
+            </select>
+          </label>
+          <button className="text-brand-800 mt-auto min-h-11 rounded-xl border border-brand-700 px-5 font-bold">
+            Aplicar
+          </button>
+        </form>
+        <ErrorBox message={error} />
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[950px] text-left text-sm">
+            <thead>
+              <tr className="border-b text-xs text-ink-muted uppercase">
+                <th className="px-3 py-3">Registro</th>
+                <th className="px-3 py-3">Empresa / establecimiento</th>
+                <th className="px-3 py-3">Asunto</th>
+                <th className="px-3 py-3">Prioridad</th>
+                <th className="px-3 py-3">Resultado</th>
+                <th className="px-3 py-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={`${item.kind}-${item.id}`} className="border-b border-slate-100">
+                  <td className="px-3 py-4">
+                    <strong>{item.number}</strong>
+                    <span className="block text-xs text-ink-muted">
+                      {item.kind === 'ALERTA_LAPCH' ? 'Alerta LAPCH' : 'Denuncia'} ·{' '}
+                      {new Intl.DateTimeFormat('es-DO').format(new Date(item.occurredAt))}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4">
+                    {item.companyName ?? 'Sin empresa'}
+                    <span className="block text-xs text-ink-muted">
+                      {item.establishmentName ?? 'Sin establecimiento'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4">
+                    <strong>{item.subject}</strong>
+                    <span className="block max-w-md truncate text-xs text-ink-muted">
+                      {item.description}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4">{item.priority}</td>
+                  <td className="px-3 py-4">
+                    {item.result ? formatStatusLabel(item.result) : 'Pendiente'}
+                    {item.hasCase && (
+                      <span className="text-brand-800 ml-2 rounded-full bg-brand-50 px-2 py-1 text-xs font-bold">
+                        Con caso
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-3 py-4 text-right">
+                    {options?.canManage && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditing(item)
+                          setModalOpen(true)
+                        }}
+                        className="rounded-lg border px-3 py-2 font-bold"
+                      >
+                        Editar / decidir
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {items.length === 0 && !error && (
+            <p className="p-10 text-center text-sm text-ink-muted">
+              No hay alertas ni denuncias registradas.
+            </p>
+          )}
+        </div>
+      </div>
+      {modalOpen && options && (
+        <SurveillanceForm
+          item={editing}
+          options={options}
+          onClose={() => setModalOpen(false)}
+          onSave={async (draft) => {
+            try {
+              if (editing) await updateSurveillance(editing.id, draft)
+              else await createSurveillance(draft)
+              setModalOpen(false)
+              await load()
+              await alerts.success(editing ? 'Registro actualizado' : 'Registro creado')
+            } catch (caught) {
+              await alerts.error(caught, 'No se pudo guardar el registro')
+              throw caught
+            }
+          }}
+        />
+      )}
+    </section>
+  )
+}
+
+function SurveillanceForm({
+  item,
+  options,
+  onClose,
+  onSave,
+}: {
+  item: SurveillanceRecord | null
+  options: SurveillanceOptions
+  onClose: () => void
+  onSave: (draft: SurveillanceDraft) => Promise<void>
+}) {
+  const [kind, setKind] = useState<'ALERTA_LAPCH' | 'DENUNCIA'>(item?.kind ?? 'ALERTA_LAPCH')
+  const [occurredAt, setOccurredAt] = useState(dateTimeLocal(item?.occurredAt))
+  const [companyId, setCompanyId] = useState(item?.companyId ?? '')
+  const [establishmentId, setEstablishmentId] = useState(item?.establishmentId ?? '')
+  const [subject, setSubject] = useState(item?.subject ?? '')
+  const [description, setDescription] = useState(item?.description ?? '')
+  const [priority, setPriority] = useState(item?.priority ?? 3)
+  const [channel, setChannel] = useState(item?.channel ?? '')
+  const [isAnonymous, setAnonymous] = useState(item?.isAnonymous ?? false)
+  const [isConfidential, setConfidential] = useState(item?.isConfidential ?? true)
+  const [result, setResult] = useState(item?.result ?? '')
+  const [saving, setSaving] = useState(false)
+  const establishments = options.establishments.filter(
+    (option) => !companyId || option.companyId === companyId,
+  )
+  const results =
+    kind === 'ALERTA_LAPCH'
+      ? ['PROCEDE_EVALUACION', 'NO_PROCEDE', 'REQUIERE_INFORMACION']
+      : ['PROCEDE', 'NO_PROCEDE', 'REMITIDA_OTRO_PROCESO', 'REQUIERE_INFORMACION']
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    setSaving(true)
+    try {
+      await onSave({
+        kind,
+        occurredAt: new Date(occurredAt).toISOString(),
+        companyId: companyId || null,
+        establishmentId: establishmentId || null,
+        subject,
+        description,
+        priority,
+        channel: kind === 'DENUNCIA' ? channel : null,
+        isAnonymous: kind === 'DENUNCIA' && isAnonymous,
+        isConfidential: kind === 'DENUNCIA' && isConfidential,
+        result: result || null,
+        rowVersion: item?.rowVersion ?? null,
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <div
+      className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
+      role="presentation"
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="surveillance-form-title"
+        className="sigersa-modal-panel max-h-[92vh] w-full max-w-3xl overflow-y-auto p-6"
+      >
+        <div className="flex justify-between">
+          <div>
+            <h2 id="surveillance-form-title" className="text-xl font-extrabold">
+              {item ? 'Actualizar vigilancia' : 'Nuevo registro de vigilancia'}
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Los datos se guardan directamente en el expediente sanitario.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar" className="p-2">
+            ✕
+          </button>
+        </div>
+        <form onSubmit={(event) => void submit(event)} className="mt-6 grid gap-4 md:grid-cols-2">
+          <label className={labelClass}>
+            Tipo
+            <select
+              disabled={Boolean(item)}
+              value={kind}
+              onChange={(event) => {
+                setKind(event.target.value as typeof kind)
+                setResult('')
+              }}
+              className={fieldClass}
+            >
+              <option value="ALERTA_LAPCH">Alerta LAPCH</option>
+              <option value="DENUNCIA">Denuncia</option>
+            </select>
+          </label>
+          <label className={labelClass}>
+            Fecha y hora
+            <input
+              required
+              type="datetime-local"
+              value={occurredAt}
+              onChange={(event) => setOccurredAt(event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Empresa
+            <select
+              required={kind === 'ALERTA_LAPCH'}
+              value={companyId}
+              onChange={(event) => {
+                setCompanyId(event.target.value)
+                setEstablishmentId('')
+              }}
+              className={fieldClass}
+            >
+              <option value="">Seleccione</option>
+              {options.companies.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={labelClass}>
+            Establecimiento
+            <select
+              required={kind === 'DENUNCIA'}
+              value={establishmentId}
+              onChange={(event) => {
+                const selected = options.establishments.find(
+                  (option) => option.id === event.target.value,
+                )
+                setEstablishmentId(event.target.value)
+                if (selected?.companyId) setCompanyId(selected.companyId)
+              }}
+              className={fieldClass}
+            >
+              <option value="">{kind === 'DENUNCIA' ? 'Seleccione' : 'Opcional'}</option>
+              {establishments.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={`${labelClass} md:col-span-2`}>
+            {kind === 'ALERTA_LAPCH' ? 'Producto' : 'Tipo de denuncia'}
+            <input
+              required
+              maxLength={300}
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+          <label className={`${labelClass} md:col-span-2`}>
+            Descripción
+            <textarea
+              required
+              rows={4}
+              maxLength={5000}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              className={`${fieldClass} py-3`}
+            />
+          </label>
+          {kind === 'ALERTA_LAPCH' ? (
+            <label className={labelClass}>
+              Prioridad (1 crítica – 5 baja)
+              <input
+                required
+                type="number"
+                min="1"
+                max="5"
+                value={priority}
+                onChange={(event) => setPriority(Number(event.target.value))}
+                className={fieldClass}
+              />
+            </label>
+          ) : (
+            <>
+              <label className={labelClass}>
+                Canal
+                <input
+                  required
+                  maxLength={50}
+                  value={channel}
+                  onChange={(event) => setChannel(event.target.value)}
+                  className={fieldClass}
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm font-bold">
+                <input
+                  type="checkbox"
+                  checked={isAnonymous}
+                  onChange={(event) => setAnonymous(event.target.checked)}
+                />{' '}
+                Denuncia anónima
+              </label>
+              <label className="flex items-center gap-2 text-sm font-bold">
+                <input
+                  type="checkbox"
+                  checked={isConfidential}
+                  onChange={(event) => setConfidential(event.target.checked)}
+                />{' '}
+                Información confidencial
+              </label>
+            </>
+          )}
+          <label className={labelClass}>
+            Resultado
+            <select
+              value={result}
+              onChange={(event) => setResult(event.target.value)}
+              className={fieldClass}
+            >
+              <option value="">Pendiente de decisión</option>
+              {results.map((value) => (
+                <option key={value} value={value}>
+                  {formatStatusLabel(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex justify-end gap-3 border-t pt-5 md:col-span-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border px-4 py-2.5 font-bold"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={saving}
+              className="rounded-xl bg-brand-700 px-5 py-2.5 font-bold text-white"
+            >
+              {saving ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  )
+}
+
+export function FindingsManagement() {
+  const [items, setItems] = useState<FindingRecord[]>([])
+  const [options, setOptions] = useState<FindingOptions | null>(null)
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('')
+  const [error, setError] = useState('')
+  const [modalOpen, setModalOpen] = useState(false)
+  async function load() {
+    try {
+      setItems((await getFindings({ search, status, pageSize: 100 })).items)
+      setError('')
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'No se pudieron cargar los hallazgos.')
+    }
+  }
+  useEffect(() => {
+    let active = true
+    void getFindings({ search, status, pageSize: 100 })
+      .then((result) => {
+        if (active) {
+          setItems(result.items)
+          setError('')
+        }
+      })
+      .catch((caught) => {
+        if (active)
+          setError(
+            caught instanceof Error ? caught.message : 'No se pudieron cargar los hallazgos.',
+          )
+      })
+    return () => {
+      active = false
+    }
+  }, [search, status])
+  useEffect(() => {
+    void getFindingOptions()
+      .then(setOptions)
+      .catch((caught) =>
+        setError(caught instanceof Error ? caught.message : 'No se pudieron cargar las opciones.'),
+      )
+  }, [])
+  async function close(item: FindingRecord) {
+    const reason = await alerts.textInput({
+      title: 'Cerrar hallazgo',
+      label: 'Justificación del cierre',
+      confirmText: 'Cerrar',
+    })
+    if (!reason) return
+    try {
+      await closeFinding(item.id, item.rowVersion, reason)
+      await load()
+      await alerts.success('Hallazgo cerrado')
+    } catch (caught) {
+      await alerts.error(caught, 'No se pudo cerrar el hallazgo')
+    }
+  }
+  return (
+    <section aria-labelledby="findings-title">
+      <PageHeader
+        eyebrow="Ejecución de campo"
+        title="Hallazgos y no conformidades"
+        description="Registre los incumplimientos vinculados a la evaluación y al ítem exacto de la ficha."
+        action={
+          options?.canCreate && (
+            <button
+              type="button"
+              onClick={() => setModalOpen(true)}
+              className="min-h-11 rounded-xl bg-brand-700 px-5 font-bold text-white"
+            >
+              + Nuevo hallazgo
+            </button>
+          )
+        }
+      />
+      <div className="mt-6 rounded-card bg-white p-5 shadow-card">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            setSearch(searchInput.trim())
+          }}
+          className="grid gap-3 md:grid-cols-[1fr_14rem_auto]"
+        >
+          <label className={labelClass}>
+            Buscar
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Código, evaluación o establecimiento"
+              className={fieldClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Estado
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className={fieldClass}
+            >
+              <option value="">Todos</option>
+              {['ABIERTA', 'EN_CORRECCION', 'CORREGIDA', 'VERIFICADA', 'CERRADA'].map((value) => (
+                <option key={value} value={value}>
+                  {formatStatusLabel(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className="text-brand-800 mt-auto min-h-11 rounded-xl border border-brand-700 px-5 font-bold">
+            Aplicar
+          </button>
+        </form>
+        <ErrorBox message={error} />
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead>
+              <tr className="border-b text-xs text-ink-muted uppercase">
+                <th className="px-3 py-3">Hallazgo</th>
+                <th className="px-3 py-3">Evaluación</th>
+                <th className="px-3 py-3">Ítem</th>
+                <th className="px-3 py-3">Criticidad</th>
+                <th className="px-3 py-3">Estado</th>
+                <th className="px-3 py-3 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} className="border-b border-slate-100">
+                  <td className="px-3 py-4">
+                    <strong>{item.code}</strong>
+                    <span className="block max-w-xs truncate text-xs text-ink-muted">
+                      {item.description}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4">
+                    {item.evaluationNumber}
+                    <span className="block text-xs text-ink-muted">{item.establishmentName}</span>
+                  </td>
+                  <td className="px-3 py-4">
+                    {item.sourceItem} · {item.itemTitle}
+                  </td>
+                  <td className="px-3 py-4">{item.criticality}</td>
+                  <td className="px-3 py-4">{formatStatusLabel(item.status)}</td>
+                  <td className="px-3 py-4 text-right">
+                    {item.status !== 'CERRADA' && (
+                      <button
+                        type="button"
+                        onClick={() => void close(item)}
+                        className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
+                      >
+                        Cerrar
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {items.length === 0 && !error && (
+            <p className="p-10 text-center text-sm text-ink-muted">No hay hallazgos registrados.</p>
+          )}
+        </div>
+      </div>
+      {modalOpen && options && (
+        <FindingForm
+          options={options}
+          onClose={() => setModalOpen(false)}
+          onSave={async (input) => {
+            try {
+              await createFinding(input)
+              setModalOpen(false)
+              await load()
+              await alerts.success('Hallazgo registrado')
+            } catch (caught) {
+              await alerts.error(caught, 'No se pudo registrar el hallazgo')
+              throw caught
+            }
+          }}
+        />
+      )}
+    </section>
+  )
+}
+
+function FindingForm({
+  options,
+  onClose,
+  onSave,
+}: {
+  options: FindingOptions
+  onClose: () => void
+  onSave: (input: {
+    evaluationId: string
+    sourceItem: number
+    criticalityId: string
+    description: string
+  }) => Promise<void>
+}) {
+  const [evaluationId, setEvaluationId] = useState('')
+  const [sourceItem, setSourceItem] = useState('')
+  const [criticalityId, setCriticalityId] = useState('')
+  const [description, setDescription] = useState('')
+  const [saving, setSaving] = useState(false)
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    setSaving(true)
+    try {
+      await onSave({ evaluationId, sourceItem: Number(sourceItem), criticalityId, description })
+    } finally {
+      setSaving(false)
+    }
+  }
+  return (
+    <div
+      className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
+      role="presentation"
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="finding-form-title"
+        className="sigersa-modal-panel w-full max-w-2xl p-6"
+      >
+        <div className="flex justify-between">
+          <h2 id="finding-form-title" className="text-xl font-extrabold">
+            Registrar hallazgo
+          </h2>
+          <button type="button" onClick={onClose} aria-label="Cerrar">
+            ✕
+          </button>
+        </div>
+        <form onSubmit={(event) => void submit(event)} className="mt-6 grid gap-4">
+          <label className={labelClass}>
+            Evaluación
+            <select
+              required
+              value={evaluationId}
+              onChange={(event) => setEvaluationId(event.target.value)}
+              className={fieldClass}
+            >
+              <option value="">Seleccione</option>
+              {options.evaluations.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className={labelClass}>
+              Número de ítem de la ficha
+              <input
+                required
+                type="number"
+                min="1"
+                value={sourceItem}
+                onChange={(event) => setSourceItem(event.target.value)}
+                className={fieldClass}
+              />
+            </label>
+            <label className={labelClass}>
+              Criticidad
+              <select
+                required
+                value={criticalityId}
+                onChange={(event) => setCriticalityId(event.target.value)}
+                className={fieldClass}
+              >
+                <option value="">Seleccione</option>
+                {options.criticalities.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <label className={labelClass}>
+            Descripción
+            <textarea
+              required
+              rows={4}
+              maxLength={4000}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              className={`${fieldClass} py-3`}
+            />
+          </label>
+          <div className="flex justify-end gap-3 border-t pt-5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border px-4 py-2.5 font-bold"
+            >
+              Cancelar
+            </button>
+            <button
+              disabled={saving}
+              className="rounded-xl bg-brand-700 px-5 py-2.5 font-bold text-white"
+            >
+              {saving ? 'Guardando…' : 'Registrar'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  )
+}
+
+export function HistoryManagement() {
+  const initialSearch = new URLSearchParams(window.location.search).get('search') ?? ''
+  const [items, setItems] = useState<HistoricalEvaluation[]>([])
+  const [searchInput, setSearchInput] = useState(initialSearch)
+  const [search, setSearch] = useState(initialSearch)
+  const [status, setStatus] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [error, setError] = useState('')
+  const [timeline, setTimeline] = useState<{
+    evaluation: HistoricalEvaluation
+    events: TimelineEvent[]
+  } | null>(null)
+  const [refresh, setRefresh] = useState(0)
+  const { roles } = useAuth()
+  const canReview = roles.some((role) => role === 'ADMINISTRADOR' || role === 'COORDINADOR')
+  useEffect(() => {
+    let active = true
+    void getEvaluationHistory({
+      search,
+      status,
+      from: from ? new Date(`${from}T00:00:00`).toISOString() : undefined,
+      to: to ? new Date(`${to}T23:59:59`).toISOString() : undefined,
+      pageSize: 100,
+    })
+      .then((result) => {
+        if (active) {
+          setItems(result.items)
+          setError('')
+        }
+      })
+      .catch((caught) => {
+        if (active)
+          setError(caught instanceof Error ? caught.message : 'No se pudo cargar el histórico.')
+      })
+    return () => {
+      active = false
+    }
+  }, [search, status, from, to, refresh])
+  async function showTimeline(evaluation: HistoricalEvaluation) {
+    try {
+      setTimeline({ evaluation, events: await getEvaluationTimeline(evaluation.id) })
+    } catch (caught) {
+      await alerts.error(caught, 'No se pudo cargar la línea de tiempo')
+    }
+  }
+  async function generateReport(evaluation: HistoricalEvaluation, official: boolean) {
+    try {
+      const report = await generateEvaluationReport(evaluation.id, official)
+      setRefresh((value) => value + 1)
+      await alerts.success(
+        official ? 'Informe oficial emitido' : 'Borrador de informe generado',
+        `${report.reportNumber}, versión ${report.version}.`,
+      )
+    } catch (caught) {
+      await alerts.error(
+        caught,
+        official ? 'No se pudo emitir el informe' : 'No se pudo generar el informe',
+      )
+    }
+  }
+  async function downloadReport(reportId: string, number: string) {
+    try {
+      const blob = await downloadEvaluationReport(reportId)
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `${number}.pdf`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (caught) {
+      await alerts.error(caught, 'No se pudo descargar el informe')
+    }
+  }
+  return (
+    <section aria-labelledby="history-title">
+      <PageHeader
+        eyebrow="Análisis y decisión"
+        title="Informes e histórico"
+        description="Consulte evaluaciones por empresa, caso, fecha o estado y revise su trazabilidad completa."
+      />
+      <div className="mt-6 rounded-card bg-white p-5 shadow-card">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            setSearch(searchInput.trim())
+          }}
+          className="grid gap-3 lg:grid-cols-[1fr_12rem_11rem_11rem_auto]"
+        >
+          <label className={labelClass}>
+            Buscar
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Empresa, caso, evaluación o establecimiento"
+              className={fieldClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Estado
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className={fieldClass}
+            >
+              <option value="">Todos</option>
+              {[
+                'ASIGNADA',
+                'EN_EJECUCION',
+                'FINALIZADA',
+                'ENVIADA',
+                'EN_REVISION',
+                'EN_CORRECCION',
+                'APROBADA',
+                'CERRADA',
+              ].map((value) => (
+                <option key={value} value={value}>
+                  {formatStatusLabel(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={labelClass}>
+            Desde
+            <input
+              type="date"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Hasta
+            <input
+              type="date"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+          <button className="text-brand-800 mt-auto min-h-11 rounded-xl border border-brand-700 px-5 font-bold">
+            Aplicar
+          </button>
+        </form>
+        <ErrorBox message={error} />
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[1050px] text-left text-sm">
+            <thead>
+              <tr className="border-b text-xs text-ink-muted uppercase">
+                <th className="px-3 py-3">Evaluación</th>
+                <th className="px-3 py-3">Empresa / establecimiento</th>
+                <th className="px-3 py-3">Técnico</th>
+                <th className="px-3 py-3">Resultado</th>
+                <th className="px-3 py-3">Informe</th>
+                <th className="px-3 py-3 text-right">Detalle</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} className="border-b border-slate-100">
+                  <td className="px-3 py-4">
+                    <strong>{item.number}</strong>
+                    <span className="block text-xs text-ink-muted">
+                      {item.caseNumber} · {formatStatusLabel(item.status)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4">
+                    {item.companyName}
+                    <span className="block text-xs text-ink-muted">{item.establishmentName}</span>
+                  </td>
+                  <td className="px-3 py-4">{item.evaluatorName}</td>
+                  <td className="px-3 py-4">
+                    {item.compliancePercentage === null
+                      ? 'Sin calcular'
+                      : `${item.compliancePercentage.toFixed(1)}%`}
+                    <span className="block text-xs text-ink-muted">
+                      {item.riskLevel
+                        ? `${formatStatusLabel(item.riskLevel)} · ${formatStatusLabel(item.frequency ?? '')}`
+                        : 'Sin riesgo calculado'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4">
+                    {item.reportNumber ?? 'No generado'}
+                    {item.hasOfficialReport && (
+                      <span className="block text-xs font-bold text-brand-700">Oficial</span>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {canReview &&
+                        ['FINALIZADA', 'ENVIADA', 'EN_REVISION', 'EN_CORRECCION'].includes(
+                          item.status,
+                        ) && (
+                          <button
+                            type="button"
+                            onClick={() => void generateReport(item, false)}
+                            className="rounded border px-2 py-1 text-xs font-bold"
+                          >
+                            Generar borrador
+                          </button>
+                        )}
+                      {canReview && item.status === 'APROBADA' && !item.hasOfficialReport && (
+                        <button
+                          type="button"
+                          onClick={() => void generateReport(item, true)}
+                          className="rounded bg-brand-700 px-2 py-1 text-xs font-bold text-white"
+                        >
+                          Emitir oficial
+                        </button>
+                      )}
+                      {item.reportId && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void downloadReport(item.reportId!, item.reportNumber ?? 'informe')
+                          }
+                          className="rounded border px-2 py-1 text-xs font-bold"
+                        >
+                          Descargar
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-4 text-right">
+                    <button
+                      type="button"
+                      onClick={() => void showTimeline(item)}
+                      className="rounded-lg border px-3 py-2 font-bold"
+                    >
+                      Línea de tiempo
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {items.length === 0 && !error && (
+            <p className="p-10 text-center text-sm text-ink-muted">
+              No hay evaluaciones para los filtros seleccionados.
+            </p>
+          )}
+        </div>
+      </div>
+      {timeline && (
+        <div
+          className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
+          role="presentation"
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="timeline-title"
+            className="sigersa-modal-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto p-6"
+          >
+            <div className="flex justify-between">
+              <div>
+                <h2 id="timeline-title" className="text-xl font-extrabold">
+                  Trazabilidad de {timeline.evaluation.number}
+                </h2>
+                <p className="mt-1 text-sm text-ink-muted">
+                  {timeline.evaluation.establishmentName}
+                </p>
+              </div>
+              <button type="button" onClick={() => setTimeline(null)} aria-label="Cerrar">
+                ✕
+              </button>
+            </div>
+            <ol className="mt-6 space-y-4 border-l-2 border-brand-100 pl-5">
+              {timeline.events.map((event, index) => (
+                <li key={`${event.occurredAt}-${index}`} className="relative">
+                  <span className="absolute top-1 -left-[1.65rem] size-3 rounded-full bg-brand-600" />
+                  <strong className="block text-sm">{event.title}</strong>
+                  <span className="text-xs text-ink-muted">
+                    {new Intl.DateTimeFormat('es-DO', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    }).format(new Date(event.occurredAt))}
+                    {event.actorName ? ` · ${event.actorName}` : ''}
+                  </span>
+                  {event.detail && <p className="mt-1 text-sm text-ink-body">{event.detail}</p>}
+                </li>
+              ))}
+            </ol>
+          </section>
+        </div>
+      )}
+    </section>
+  )
+}
+
+export function AuditManagement() {
+  const initialSearch = new URLSearchParams(window.location.search).get('search') ?? ''
+  const [items, setItems] = useState<AuditEventRecord[]>([])
+  const [searchInput, setSearchInput] = useState(initialSearch)
+  const [search, setSearch] = useState(initialSearch)
+  const [result, setResult] = useState('')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let active = true
+    void getAuditEvents({
+      search,
+      result,
+      from: from ? new Date(`${from}T00:00:00`).toISOString() : undefined,
+      to: to ? new Date(`${to}T23:59:59`).toISOString() : undefined,
+      pageSize: 100,
+    })
+      .then((page) => {
+        if (active) {
+          setItems(page.items)
+          setError('')
+        }
+      })
+      .catch((caught) => {
+        if (active)
+          setError(caught instanceof Error ? caught.message : 'No se pudo cargar la auditoría.')
+      })
+    return () => {
+      active = false
+    }
+  }, [search, result, from, to])
+  return (
+    <section aria-labelledby="audit-title">
+      <PageHeader
+        eyebrow="Trazabilidad"
+        title="Auditoría"
+        description="Eventos inmutables de seguridad, cambios sensibles, decisiones y resultados."
+      />
+      <div className="mt-6 rounded-card bg-white p-5 shadow-card">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            setSearch(searchInput.trim())
+          }}
+          className="grid gap-3 lg:grid-cols-[1fr_12rem_11rem_11rem_auto]"
+        >
+          <label className={labelClass}>
+            Buscar
+            <input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Acción, recurso o actor"
+              className={fieldClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Resultado
+            <select
+              value={result}
+              onChange={(event) => setResult(event.target.value)}
+              className={fieldClass}
+            >
+              <option value="">Todos</option>
+              {['EXITOSO', 'FALLIDO', 'DENEGADO'].map((value) => (
+                <option key={value} value={value}>
+                  {formatStatusLabel(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={labelClass}>
+            Desde
+            <input
+              type="date"
+              value={from}
+              onChange={(event) => setFrom(event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Hasta
+            <input
+              type="date"
+              value={to}
+              onChange={(event) => setTo(event.target.value)}
+              className={fieldClass}
+            />
+          </label>
+          <button className="text-brand-800 mt-auto min-h-11 rounded-xl border border-brand-700 px-5 font-bold">
+            Aplicar
+          </button>
+        </form>
+        <ErrorBox message={error} />
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[950px] text-left text-sm">
+            <thead>
+              <tr className="border-b text-xs text-ink-muted uppercase">
+                <th className="px-3 py-3">Fecha</th>
+                <th className="px-3 py-3">Acción</th>
+                <th className="px-3 py-3">Recurso</th>
+                <th className="px-3 py-3">Actor</th>
+                <th className="px-3 py-3">Resultado</th>
+                <th className="px-3 py-3">Motivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.id} className="border-b border-slate-100">
+                  <td className="px-3 py-4">
+                    {new Intl.DateTimeFormat('es-DO', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    }).format(new Date(item.occurredAt))}
+                  </td>
+                  <td className="px-3 py-4 font-bold">{formatStatusLabel(item.action)}</td>
+                  <td className="px-3 py-4">
+                    {item.resourceType}
+                    <span className="block text-xs text-ink-muted">
+                      {item.resourceId ?? 'Sin identificador'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-4">{item.actorName ?? 'Sistema'}</td>
+                  <td className="px-3 py-4">{formatStatusLabel(item.result)}</td>
+                  <td className="px-3 py-4">{item.reason ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {items.length === 0 && !error && (
+            <p className="p-10 text-center text-sm text-ink-muted">
+              No hay eventos para los filtros seleccionados.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}

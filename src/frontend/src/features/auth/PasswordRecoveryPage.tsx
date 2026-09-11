@@ -198,16 +198,21 @@ export function PasswordRecoveryPage({ onBack }: { onBack: () => void }) {
               }
               className="group flex min-h-14 w-full items-center justify-center gap-4 rounded-xl bg-[linear-gradient(90deg,#086a4c,#125640)] px-5 text-base font-bold text-white shadow-[0_12px_26px_rgba(18,86,64,0.2)] transition hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0"
             >
+              {loading && <LoadingSpinner />}
               <span>
                 {loading
-                  ? 'Procesando…'
+                  ? stage === 'request'
+                    ? 'Enviando código…'
+                    : stage === 'verify'
+                      ? 'Validando código…'
+                      : 'Actualizando contraseña…'
                   : stage === 'request'
                     ? 'Enviar código'
                     : stage === 'verify'
                       ? 'Validar código'
                       : 'Cambiar contraseña'}
               </span>
-              <ArrowRightIcon />
+              {!loading && <ArrowRightIcon />}
             </button>
 
             {stage === 'verify' && (
@@ -373,6 +378,16 @@ function ArrowRightIcon() {
     >
       <path d="M5 12h14M14 7l5 5-5 5" />
     </svg>
+  )
+}
+
+function LoadingSpinner() {
+  return (
+    <span
+      className="h-5 w-5 animate-spin rounded-full border-2 border-white/35 border-t-white"
+      role="status"
+      aria-label="Procesando solicitud"
+    />
   )
 }
 

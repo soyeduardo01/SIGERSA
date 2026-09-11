@@ -156,6 +156,10 @@ async function processQueueItem(item: SyncQueueItem) {
         mimeType: evidence.mimeType,
         sha256Hash: evidence.sha256Hash,
         evidenceType: evidence.evidenceType,
+        sourceItem: evidence.sourceItem,
+        latitude: evidence.latitude,
+        longitude: evidence.longitude,
+        accuracyMeters: evidence.accuracyMeters,
       })
     } else if (item.kind === 'request') {
       await postJson('/api/v1/requests', item.payload, item.idempotencyKey)

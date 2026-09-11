@@ -6,6 +6,7 @@ import {
   getInspectionRequests,
   transitionInspectionRequest,
   updateInspectionRequest,
+  uploadInspectionRequestDocument,
   type InspectionRequest,
   type InspectionRequestDraft,
   type InspectionRequestOptions,
@@ -17,7 +18,7 @@ import { queueRequest } from '../../offline/syncQueue'
 const emptyPage: InspectionRequestsPage = { items: [], page: 1, pageSize: 10, total: 0 }
 const statusLabels: Record<InspectionRequest['status'], string> = {
   BORRADOR: 'Borrador',
-  ENVIADA: 'Enviada',
+  PENDIENTE_ASIGNACION: 'Pendiente de asignación',
   CANCELADA: 'Cancelada',
   RECHAZADA: 'Rechazada',
 }
@@ -85,14 +86,18 @@ export function RequestsManagement() {
     setSearch(searchInput.trim())
   }
 
-  async function save(draft: InspectionRequestDraft) {
+  async function save(draft: InspectionRequestDraft, supportingDocument: File | null) {
     try {
       if (editing) {
         await updateInspectionRequest(editing.id, draft)
+        if (supportingDocument)
+          await uploadInspectionRequestDocument(editing.id, supportingDocument)
         await reload()
         await alerts.success('Solicitud actualizada')
       } else if (navigator.onLine) {
-        await createInspectionRequest(draft)
+        const created = await createInspectionRequest(draft)
+        if (supportingDocument)
+          await uploadInspectionRequestDocument(created.id, supportingDocument)
         await reload()
         await alerts.success('Solicitud creada', 'El borrador quedó guardado en SIGERSA.')
       } else {
@@ -229,7 +234,12 @@ export function RequestsManagement() {
                     </span>
                   </td>
                   <td className="px-3 py-4 text-ink-body">{item.inspectionReasonName}</td>
-                  <td className="px-3 py-4 text-ink-body">{item.applicantName}</td>
+                  <td className="px-3 py-4 text-ink-body">
+                    {item.applicantName}
+                    <span className="mt-1 block text-xs text-ink-muted">
+                      {item.documentCount} documento(s)
+                    </span>
+                  </td>
                   <td className="px-3 py-4">
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-ink-body">
                       {statusLabels[item.status]}
@@ -253,13 +263,20 @@ export function RequestsManagement() {
                             <button
                               type="button"
                               onClick={() => void transition(item, 'submit')}
-                              className="text-brand-800 rounded-lg border border-brand-700 px-3 py-2 font-bold"
+                              disabled={item.documentCount === 0}
+                              title={
+                                item.documentCount === 0
+                                  ? 'Adjunte la documentación obligatoria antes de enviar.'
+                                  : undefined
+                              }
+                              className="text-brand-800 rounded-lg border border-brand-700 px-3 py-2 font-bold disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               Enviar
                             </button>
                           </>
                         )}
-                        {(item.status === 'BORRADOR' || item.status === 'ENVIADA') && (
+                        {(item.status === 'BORRADOR' ||
+                          item.status === 'PENDIENTE_ASIGNACION') && (
                           <button
                             type="button"
                             onClick={() => void transition(item, 'cancel')}
@@ -332,7 +349,7 @@ function RequestForm({
   request: InspectionRequest | null
   options: InspectionRequestOptions
   onClose: () => void
-  onSave: (draft: InspectionRequestDraft) => Promise<void>
+  onSave: (draft: InspectionRequestDraft, supportingDocument: File | null) => Promise<void>
 }) {
   const [companyId, setCompanyId] = useState(request?.companyId ?? options.companies[0]?.id ?? '')
   const [establishmentId, setEstablishmentId] = useState(request?.establishmentId ?? '')
@@ -341,6 +358,7 @@ function RequestForm({
   const [establishmentType, setEstablishmentType] = useState(request?.establishmentType ?? '')
   const [observations, setObservations] = useState(request?.observations ?? '')
   const [saving, setSaving] = useState(false)
+  const [supportingDocument, setSupportingDocument] = useState<File | null>(null)
   const establishments = useMemo(
     () => options.establishments.filter((item) => item.companyId === companyId),
     [companyId, options.establishments],
@@ -359,7 +377,7 @@ function RequestForm({
         observations,
         idempotencyKey: request ? crypto.randomUUID() : crypto.randomUUID(),
         rowVersion: request?.rowVersion ?? null,
-      })
+      }, supportingDocument)
     } finally {
       setSaving(false)
     }
@@ -473,6 +491,19 @@ function RequestForm({
               rows={3}
               className="mt-1.5 w-full rounded-xl border border-slate-300 p-3 font-normal"
             />
+          </label>
+          <label className="text-sm font-bold text-ink-body md:col-span-2">
+            Documentación de soporte obligatoria para enviar
+            <input
+              type="file"
+              accept="application/pdf,image/jpeg,image/png"
+              onChange={(event) => setSupportingDocument(event.target.files?.[0] ?? null)}
+              className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white p-2 font-normal"
+            />
+            <span className="mt-1 block text-xs font-normal text-ink-muted">
+              Puede guardar el borrador sin archivo, pero deberá adjuntarlo antes de enviarlo. PDF,
+              JPG o PNG; máximo 10 MB.
+            </span>
           </label>
           <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 md:col-span-2">
             <button

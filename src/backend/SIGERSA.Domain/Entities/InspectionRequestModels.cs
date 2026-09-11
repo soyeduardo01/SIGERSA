@@ -14,6 +14,7 @@ public sealed record InspectionRequestRecord(
     string? ReasonDetail,
     string? EstablishmentType,
     string? Observations,
+    int DocumentCount,
     string Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset? SubmittedAt,

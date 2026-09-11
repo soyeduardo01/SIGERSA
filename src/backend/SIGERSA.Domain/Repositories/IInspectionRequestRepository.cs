@@ -32,4 +32,9 @@ public interface IInspectionRequestRepository
         Guid actorId,
         Guid? companyScope,
         CancellationToken cancellationToken = default);
+
+    Task<bool> HasRequiredDocumentAsync(
+        Guid id,
+        Guid? companyScope,
+        CancellationToken cancellationToken = default) => Task.FromResult(true);
 }

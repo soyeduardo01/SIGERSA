@@ -8,6 +8,7 @@ import { AllItemsAdmin } from '../admin/AllItemsAdmin'
 import { ParametersManagement } from '../admin/ParametersManagement'
 import { CasesManagement } from '../cases/CasesManagement'
 import { CorrectionsManagement } from '../corrections/CorrectionsManagement'
+import { CompaniesManagement } from '../companies/CompaniesManagement'
 import { EvaluationsManagement } from '../evaluations/EvaluationsManagement'
 import { EvidenceManagement } from '../evidences/EvidenceManagement'
 import { EstablishmentsManagement } from '../establishments/EstablishmentsManagement'
@@ -15,18 +16,16 @@ import { RequestsManagement } from '../requests/RequestsManagement'
 import { SchedulingManagement } from '../scheduling/SchedulingManagement'
 import { ProfileManagement } from '../profile/ProfileManagement'
 import { DashboardOverview } from './DashboardOverview'
-import { OperationalModulePage, type OperationalModuleConfig } from './OperationalModulePage'
+import {
+  AuditManagement,
+  FindingsManagement,
+  HistoryManagement,
+  SurveillanceManagement,
+} from './OperationalDataPages'
 
 function useRole(...allowed: string[]) {
   const { roles } = useAuth()
   return roles.some((role) => allowed.includes(role))
-}
-
-function Workspace(props: Omit<OperationalModuleConfig, 'canCreate'> & { editors: string[] }) {
-  const canCreate = useRole(...props.editors)
-  const { editors: _editors, ...config } = props
-  void _editors
-  return <OperationalModulePage config={{ ...config, canCreate }} />
 }
 
 export function OverviewPage() {
@@ -34,18 +33,7 @@ export function OverviewPage() {
 }
 
 export function CompaniesPage() {
-  return (
-    <Workspace
-      title="Empresas"
-      eyebrow="Administración empresarial"
-      description="Administre el perfil de las organizaciones sujetas al proceso EBR/BPM y sus ámbitos autorizados."
-      actionLabel="Nueva empresa"
-      referenceLabel="RNC o código"
-      detailLabel="Razón social y datos de contacto"
-      statusKeyWord="ESTADO_EMPRESA"
-      editors={['ADMINISTRADOR', 'ADMINISTRADOR_EMPRESA', 'COORDINADOR']}
-    />
-  )
+  return <CompaniesManagement />
 }
 export function EstablishmentsPage() {
   return <EstablishmentsManagement />
@@ -57,18 +45,7 @@ export function RequestsPage() {
   return <RequestsManagement />
 }
 export function AlertsPage() {
-  return (
-    <Workspace
-      title="Alertas y denuncias"
-      eyebrow="Vigilancia sanitaria"
-      description="Centralice alertas relacionadas, denuncias y su evaluación inicial para priorización."
-      actionLabel="Nueva alerta"
-      referenceLabel="Código de alerta"
-      detailLabel="Origen, categoría y descripción"
-      statusKeyWord="ESTADO_ALERTA"
-      editors={['ADMINISTRADOR', 'COORDINADOR']}
-    />
-  )
+  return <SurveillanceManagement />
 }
 export function CasesPage() {
   return <CasesManagement />
@@ -77,18 +54,7 @@ export function SchedulingPage() {
   return <SchedulingManagement />
 }
 export function FindingsPage() {
-  return (
-    <Workspace
-      title="Hallazgos y no conformidades"
-      eyebrow="Ejecución de campo"
-      description="Documente incumplimientos, severidad y relación con los ítems de la ficha versionada."
-      actionLabel="Nuevo hallazgo"
-      referenceLabel="Ítem / Hallazgo"
-      detailLabel="Descripción y severidad"
-      statusKeyWord="ESTADO_HALLAZGO"
-      editors={['ADMINISTRADOR', 'TECNICO_EVALUADOR']}
-    />
-  )
+  return <FindingsManagement />
 }
 export function EvidencePage() {
   return <EvidenceManagement />
@@ -97,32 +63,10 @@ export function CorrectionsPage() {
   return <CorrectionsManagement />
 }
 export function ReportsPage() {
-  return (
-    <Workspace
-      title="Informes e indicadores"
-      eyebrow="Análisis y decisión"
-      description="Prepare consultas de cumplimiento, riesgo, frecuencia e histórico dentro del ámbito permitido."
-      actionLabel="Nuevo informe"
-      referenceLabel="Informe"
-      detailLabel="Período, indicador y alcance"
-      statusKeyWord="ESTADO_INFORME"
-      editors={['ADMINISTRADOR', 'COORDINADOR']}
-    />
-  )
+  return <HistoryManagement />
 }
 export function AuditPage() {
-  return (
-    <Workspace
-      title="Auditoría"
-      eyebrow="Trazabilidad"
-      description="Consulte eventos inmutables de seguridad, cambios sensibles, versiones y decisiones autorizadas."
-      actionLabel="Exportar consulta"
-      referenceLabel="Correlación / Actor"
-      detailLabel="Evento, recurso y resultado"
-      statusKeyWord="RESULTADO_AUDITORIA"
-      editors={[]}
-    />
-  )
+  return <AuditManagement />
 }
 
 export function EvaluationsPage() {

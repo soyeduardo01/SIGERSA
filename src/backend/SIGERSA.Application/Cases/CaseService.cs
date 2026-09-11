@@ -57,7 +57,8 @@ public sealed class CaseService(ICaseRepository repository, IValidator<CaseInput
     }
 
     private static CaseDraft ToDraft(CaseInput value) => new(
-        value.IdempotencyKey, value.RequestId, value.Priority, value.ResponsibleId,
+        value.IdempotencyKey, value.Origin.Trim().ToUpperInvariant(), value.SourceId,
+        value.Priority, value.ResponsibleId,
         Normalize(value.AnalysisDecision)?.ToUpperInvariant(), Normalize(value.DecisionReason), value.RowVersion);
 
     private static bool CanManage(CaseActor actor) => HasRole(actor, "ADMINISTRADOR") || HasRole(actor, "COORDINADOR");

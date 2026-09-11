@@ -11,6 +11,7 @@ import {
   type EvaluationSummary,
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
+import { getOptionalLocation } from '../../lib/geolocation'
 import { formatStatusLabel } from '../../lib/formatters'
 import { offlineDb } from '../../offline/database'
 import { flushSyncQueue, queueEvidence } from '../../offline/syncQueue'
@@ -63,12 +64,14 @@ export function EvidenceManagement() {
 
   async function save(evaluationId: string, evidenceType: string, file: File) {
     try {
+      const location = await getOptionalLocation()
       const queueId = await queueEvidence({
         evaluationId,
         evidenceType,
         fileName: file.name,
         mimeType: file.type,
         file,
+        ...location,
       })
       if (navigator.onLine) await flushSyncQueue()
       const pending = await offlineDb.syncQueue.get(queueId)

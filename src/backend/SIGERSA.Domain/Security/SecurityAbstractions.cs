@@ -22,4 +22,11 @@ public interface IEmailSender
         string otp,
         DateTimeOffset expiresAt,
         CancellationToken cancellationToken = default);
+
+    Task SendTwoFactorOtpAsync(
+        string recipient,
+        string recipientName,
+        string otp,
+        DateTimeOffset expiresAt,
+        CancellationToken cancellationToken = default);
 }

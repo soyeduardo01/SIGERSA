@@ -60,7 +60,7 @@ public sealed class CaseServiceTests
         new(repository, new CaseInputValidator());
 
     private static CaseInput ValidInput() =>
-        new(Guid.NewGuid(), 2, null, "PROCEDE", "Cumple los criterios", Guid.NewGuid(), null);
+        new("SOLICITUD_EMPRESA", Guid.NewGuid(), 2, null, "PROCEDE", "Cumple los criterios", Guid.NewGuid(), null);
 
     private sealed class FakeRepository : ICaseRepository
     {

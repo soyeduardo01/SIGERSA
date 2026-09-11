@@ -25,7 +25,7 @@ public sealed class AuthService(
     private const string GenericAuthenticationError = "Las credenciales no son válidas.";
     private readonly AuthFlowOptions _options = options.Value;
 
-    public async Task<AuthTokensResponse> LoginAsync(
+    public async Task<LoginResult> LoginAsync(
         LoginCommand command,
         CancellationToken cancellationToken = default)
     {
@@ -52,6 +52,58 @@ public sealed class AuthService(
                 cancellationToken);
             throw new UnauthorizedAccessException(GenericAuthenticationError);
         }
+
+        if (_options.TwoFactorEnabled)
+        {
+            var expiresAt = now.AddMinutes(_options.OtpLifetimeMinutes);
+            var otp = CreateOtp();
+            await repository.InvalidateActiveTwoFactorOtpsAsync(user.Id, now, cancellationToken);
+            await repository.CreateTwoFactorOtpAsync(
+                user.Id, passwordService.Hash(otp), expiresAt, command.IpHash, cancellationToken);
+            try
+            {
+                await emailSender.SendTwoFactorOtpAsync(
+                    user.Correo, user.NombreCompleto, otp, expiresAt, cancellationToken);
+            }
+            catch (EmailDeliveryException)
+            {
+                await repository.InvalidateActiveTwoFactorOtpsAsync(
+                    user.Id, timeProvider.GetUtcNow(), cancellationToken);
+                throw;
+            }
+            return new LoginResult(true, expiresAt, null);
+        }
+
+        await repository.RecordSuccessfulLoginAsync(user.Id, now, cancellationToken);
+        return new LoginResult(false, null,
+            await IssueSessionAsync(user, command.Device, command.IpHash, now, cancellationToken));
+    }
+
+    public async Task<AuthTokensResponse> VerifyTwoFactorAsync(
+        VerifyTwoFactorCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_options.TwoFactorEnabled)
+            throw new InvalidOperationException("La autenticación de dos factores no está habilitada.");
+        if (string.IsNullOrWhiteSpace(command.Email) ||
+            !System.Text.RegularExpressions.Regex.IsMatch(command.Otp ?? string.Empty, "^[0-9]{6}$"))
+            throw new ArgumentException("El correo y el código de seis dígitos son obligatorios.");
+        var otp = command.Otp!;
+
+        var now = timeProvider.GetUtcNow();
+        var user = await repository.FindByEmailAsync(NormalizeEmail(command.Email), cancellationToken);
+        if (user is null || !user.Activo || user.Estado is not "ACTIVO")
+            throw new UnauthorizedAccessException("El código no es válido.");
+        var challenge = await repository.GetLatestActiveTwoFactorOtpAsync(user.Id, cancellationToken);
+        if (challenge is null || challenge.ExpiraEn <= now || !passwordService.Verify(challenge.OtpHash, otp))
+        {
+            if (challenge is not null)
+                await repository.RecordFailedOtpAttemptAsync(
+                    challenge.Id, _options.MaximumOtpAttempts, now, cancellationToken);
+            throw new UnauthorizedAccessException("El código no es válido.");
+        }
+        if (!await repository.ConsumeOtpAsync(challenge.Id, now, cancellationToken))
+            throw new UnauthorizedAccessException("El código no es válido.");
 
         await repository.RecordSuccessfulLoginAsync(user.Id, now, cancellationToken);
         return await IssueSessionAsync(user, command.Device, command.IpHash, now, cancellationToken);
@@ -113,7 +165,7 @@ public sealed class AuthService(
 
         var now = timeProvider.GetUtcNow();
         var expiresAt = now.AddMinutes(_options.OtpLifetimeMinutes);
-        var otp = RandomNumberGenerator.GetInt32(100000, 1000000).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var otp = CreateOtp();
 
         await repository.InvalidateActiveOtpsAsync(user.Id, now, cancellationToken);
         await repository.CreateOtpAsync(
@@ -225,6 +277,9 @@ public sealed class AuthService(
     }
 
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
+
+    private static string CreateOtp() => RandomNumberGenerator.GetInt32(100000, 1000000)
+        .ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private static string CreateOpaqueToken()
     {

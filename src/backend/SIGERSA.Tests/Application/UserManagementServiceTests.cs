@@ -56,6 +56,23 @@ public sealed class UserManagementServiceTests
     }
 
     [Fact]
+    public async Task EnterpriseUserStartsPendingAndCannotBeApprovedWithoutAuthorizationLetter()
+    {
+        var repository = new FakeRepository { CanActivate = false };
+        var service = CreateService(repository);
+
+        await service.CreateAsync(
+            ValidRequest("USUARIO_DELEGADO", CompanyId),
+            Actor("ADMINISTRADOR", null), CancellationToken.None);
+
+        Assert.Equal("PENDIENTE_VALIDACION", repository.Created?.Estado);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(
+            Guid.NewGuid(),
+            ValidRequest("USUARIO_DELEGADO", CompanyId) with { VersionFila = 1 },
+            Actor("ADMINISTRADOR", null), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task CompanyAdministratorReceivesOnlyItsCompanyAndEnterpriseRoles()
     {
         var service = CreateService(new FakeRepository());
@@ -70,7 +87,7 @@ public sealed class UserManagementServiceTests
     }
 
     private static UserManagementService CreateService(FakeRepository repository) =>
-        new(repository, new Pbkdf2PasswordService(), new UserManagementRequestValidator());
+        new(repository, new BcryptPasswordService(), new UserManagementRequestValidator());
 
     private static UserManagementActor Actor(string role, Guid? companyId = null) =>
         new(Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"), [role], companyId);
@@ -82,6 +99,8 @@ public sealed class UserManagementServiceTests
     private sealed class FakeRepository : IUsuarioRepository
     {
         public ManagedUsersQuery? LastQuery { get; private set; }
+        public bool CanActivate { get; init; } = true;
+        public ManagedUserDraft? Created { get; private set; }
 
         public Task<ManagedUsersPage> SearchManagedAsync(ManagedUsersQuery query, CancellationToken cancellationToken = default)
         {
@@ -100,7 +119,13 @@ public sealed class UserManagementServiceTests
         public Task<IReadOnlyList<CompanyOption>> GetActiveCompanyOptionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<CompanyOption>>([new(CompanyId, "Empresa propia"), new(Guid.NewGuid(), "Otra empresa")]);
 
-        public Task<Guid> CreateManagedAsync(ManagedUserDraft draft, Guid actorId, CancellationToken cancellationToken = default) => Task.FromResult(Guid.NewGuid());
+        public Task<bool> CanActivateAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(CanActivate);
+        public Task<bool> PublicRegistrationExistsAsync(string normalizedEmail, string normalizedIdentification,
+            CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<Guid> CreatePublicRegistrationAsync(PublicUserRegistrationDraft draft,
+            CancellationToken cancellationToken = default) => Task.FromResult(draft.Id);
+
+        public Task<Guid> CreateManagedAsync(ManagedUserDraft draft, Guid actorId, CancellationToken cancellationToken = default) { Created = draft; return Task.FromResult(Guid.NewGuid()); }
         public Task<bool> UpdateManagedAsync(Guid id, ManagedUserDraft draft, Guid actorId, Guid? companyScope, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<bool> SetSuspendedAsync(Guid id, bool suspended, long versionFila, Guid actorId, Guid? companyScope, CancellationToken cancellationToken = default) => Task.FromResult(true);
         public Task<Usuario?> ObtenerPorIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Usuario?>(null);

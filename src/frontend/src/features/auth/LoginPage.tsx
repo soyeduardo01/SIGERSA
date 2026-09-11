@@ -1,25 +1,39 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { alerts } from '../../lib/alerts'
-import { login, type AuthSession } from '../../lib/api'
+import { login, verifyTwoFactor, type AuthSession } from '../../lib/api'
 
 export function LoginPage({
   onAuthenticated,
   onRecover,
+  onRegister,
 }: {
   onAuthenticated: (session: AuthSession) => void
   onRecover: () => void
+  onRegister?: () => void
 }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberSession, setRememberSession] = useState(false)
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false)
+  const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
 
   async function submit(event: FormEvent) {
     event.preventDefault()
     setLoading(true)
     try {
-      onAuthenticated(await login(email, password, rememberSession))
+      if (twoFactorRequired) {
+        onAuthenticated(await verifyTwoFactor(email, otp, rememberSession))
+      } else {
+        const result = await login(email, password, rememberSession)
+        if ('requiresTwoFactor' in result) {
+          setTwoFactorRequired(true)
+          setPassword('')
+          return
+        }
+        onAuthenticated(result)
+      }
     } catch (reason) {
       await alerts.error(reason, 'No se pudo iniciar sesión', { showUnauthorized: true })
     } finally {
@@ -44,54 +58,7 @@ export function LoginPage({
         className="relative z-10 mx-auto grid min-h-dvh w-full max-w-[1240px] lg:min-h-[min(680px,calc(100vh-2rem))] lg:grid-cols-[45%_55%] lg:overflow-hidden lg:rounded-[1.5rem] lg:bg-white lg:shadow-[0_24px_64px_rgba(18,86,64,0.16)]"
         aria-labelledby="login-title"
       >
-        <aside className="relative hidden overflow-hidden bg-[#064b38] lg:flex lg:flex-col lg:justify-end lg:p-10 xl:p-12">
-          <div
-            className="absolute inset-0 bg-[url('/assets/login-background.png')] bg-cover bg-center opacity-100"
-            aria-hidden="true"
-          />
-          <div
-            className="absolute inset-0 bg-[linear-gradient(135deg,rgba(3,70,51,0.8)_0%,rgba(5,86,62,0.68)_48%,rgba(4,61,47,0.5)_100%)]"
-            aria-hidden="true"
-          />
-          <div
-            className="absolute -bottom-44 -left-48 h-[34rem] w-[46rem] rounded-[50%] bg-[#063e31]/65"
-            aria-hidden="true"
-          />
-          <div
-            className="absolute top-0 -right-48 h-full w-[34rem] rotate-[-18deg] bg-[#a7d89b]/18"
-            aria-hidden="true"
-          />
-
-          <div className="relative max-w-[30rem] text-shadow-sm">
-            <div className="h-1 w-16 rounded-full bg-[#8bd36d]" aria-hidden="true" />
-            <p className="mt-6 max-w-sm text-2xl leading-snug font-light text-white xl:text-[1.75rem]">
-              Comprometidos con la salud y la seguridad de todos.
-            </p>
-
-            <ul className="mt-8 space-y-4" aria-label="Beneficios de SIGERSA">
-              <Benefit icon={<ShieldIcon />} title="Productos seguros" text="para una mejor vida" />
-              <Benefit
-                icon={<LeafIcon />}
-                title="Alimentos de calidad"
-                text="para un país más fuerte"
-              />
-              <Benefit
-                icon={<PeopleIcon />}
-                title="Un control más eficiente"
-                text="al servicio de la ciudadanía"
-              />
-            </ul>
-          </div>
-
-          <a
-            href="https://digemaps.gob.do/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative mt-10 cursor-pointer border-t border-white/20 pt-5 text-sm leading-relaxed text-white/75 no-underline transition duration-200 hover:translate-x-1 hover:text-white focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:outline-none"
-          >
-            Dirección General de Medicamentos, Alimentos y Productos Sanitarios
-          </a>
-        </aside>
+        <LoginVisualPanel />
 
         <div className="relative flex min-h-dvh flex-col justify-center px-5 py-8 sm:px-10 lg:min-h-0 lg:bg-white lg:px-12 lg:py-8 xl:px-16">
           <DecorativeLeaf className="absolute -top-20 -right-24 hidden h-80 w-80 rotate-[-25deg] text-[#74b75d]/8 lg:block" />
@@ -124,7 +91,7 @@ export function LoginPage({
             </div>
 
             <form className="space-y-4" onSubmit={submit}>
-              <label className="block text-sm font-semibold text-[#153f34]">
+              {!twoFactorRequired && <label className="block text-sm font-semibold text-[#153f34]">
                 Correo institucional
                 <span className="relative mt-2 block">
                   <MailIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-[#125640]" />
@@ -139,9 +106,9 @@ export function LoginPage({
                     className="min-h-12 w-full rounded-xl border border-slate-300 bg-[#f8fafc] pr-4 pl-13 text-base font-normal text-slate-800 shadow-sm transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#16835f] focus:ring-4 focus:ring-[#16835f]/12 focus:outline-none xl:min-h-13"
                   />
                 </span>
-              </label>
+              </label>}
 
-              <label className="block text-sm font-semibold text-[#153f34]">
+              {!twoFactorRequired ? <label className="block text-sm font-semibold text-[#153f34]">
                 Contraseña
                 <span className="relative mt-2 block">
                   <LockIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-[#125640]" />
@@ -164,9 +131,39 @@ export function LoginPage({
                     {showPassword ? <EyeIcon /> : <EyeOffIcon />}
                   </button>
                 </span>
-              </label>
+              </label> : (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+                  <p className="text-sm font-semibold text-[#153f34]">Verificación en dos pasos</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    Enviamos un código de seis dígitos a {email}. Escríbelo para completar el acceso.
+                  </p>
+                  <label className="mt-3 block text-sm font-semibold text-[#153f34]">
+                    Código de verificación
+                    <input
+                      required
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      pattern="[0-9]{6}"
+                      maxLength={6}
+                      value={otp}
+                      onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-center text-xl font-bold tracking-[0.35em] text-slate-800 focus:border-[#16835f] focus:ring-4 focus:ring-[#16835f]/12 focus:outline-none"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTwoFactorRequired(false)
+                      setOtp('')
+                    }}
+                    className="mt-3 text-xs font-bold text-[#087452] hover:underline"
+                  >
+                    Usar otra cuenta
+                  </button>
+                </div>
+              )}
 
-              <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              {!twoFactorRequired && <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                 <label className="inline-flex min-h-9 cursor-pointer items-center gap-3 text-slate-700">
                   <input
                     type="checkbox"
@@ -183,17 +180,30 @@ export function LoginPage({
                 >
                   ¿Olvidaste tu contraseña?
                 </button>
-              </div>
+              </div>}
 
               <button
                 type="submit"
                 disabled={loading}
                 className="group flex min-h-12 w-full items-center justify-center gap-5 rounded-xl bg-[linear-gradient(90deg,#086a4c,#125640)] px-5 text-base font-bold text-white shadow-[0_12px_28px_rgba(18,86,64,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(18,86,64,0.3)] hover:brightness-110 disabled:cursor-wait disabled:opacity-65 disabled:hover:translate-y-0 xl:min-h-13"
               >
-                <span>{loading ? 'Validando…' : 'Entrar'}</span>
+                <span>{loading ? 'Validando…' : twoFactorRequired ? 'Verificar código' : 'Entrar'}</span>
                 <ArrowRightIcon className="h-6 w-6 transition-transform group-hover:translate-x-1" />
               </button>
             </form>
+
+            {!twoFactorRequired && (
+              <div className="mt-5 border-t border-slate-200 pt-5 text-center">
+                <p className="text-sm text-slate-500">¿Aún no tienes una cuenta?</p>
+                <button
+                  type="button"
+                  onClick={onRegister}
+                  className="mt-2 min-h-10 rounded-lg px-4 text-sm font-bold text-[#087452] transition hover:bg-emerald-50 hover:text-[#125640]"
+                >
+                  Crear una cuenta
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="relative mx-auto mt-8 flex w-full max-w-xl items-center justify-center gap-6 text-center text-xs text-[#125640] lg:hidden">
@@ -208,6 +218,38 @@ export function LoginPage({
         </div>
       </section>
     </main>
+  )
+}
+
+export function LoginVisualPanel() {
+  return (
+    <aside className="relative hidden overflow-hidden bg-[#064b38] lg:flex lg:flex-col lg:justify-end lg:p-10 xl:p-12">
+      <div className="absolute inset-0 bg-[url('/assets/login-background.png')] bg-cover bg-center opacity-100" aria-hidden="true" />
+      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(3,70,51,0.8)_0%,rgba(5,86,62,0.68)_48%,rgba(4,61,47,0.5)_100%)]" aria-hidden="true" />
+      <div className="absolute -bottom-44 -left-48 h-[34rem] w-[46rem] rounded-[50%] bg-[#063e31]/65" aria-hidden="true" />
+      <div className="absolute top-0 -right-48 h-full w-[34rem] rotate-[-18deg] bg-[#a7d89b]/18" aria-hidden="true" />
+
+      <div className="relative max-w-[30rem] text-shadow-sm">
+        <div className="h-1 w-16 rounded-full bg-[#8bd36d]" aria-hidden="true" />
+        <p className="mt-6 max-w-sm text-2xl leading-snug font-light text-white xl:text-[1.75rem]">
+          Comprometidos con la salud y la seguridad de todos.
+        </p>
+        <ul className="mt-8 space-y-4" aria-label="Beneficios de SIGERSA">
+          <Benefit icon={<ShieldIcon />} title="Productos seguros" text="para una mejor vida" />
+          <Benefit icon={<LeafIcon />} title="Alimentos de calidad" text="para un país más fuerte" />
+          <Benefit icon={<PeopleIcon />} title="Un control más eficiente" text="al servicio de la ciudadanía" />
+        </ul>
+      </div>
+
+      <a
+        href="https://digemaps.gob.do/"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="relative mt-10 cursor-pointer border-t border-white/20 pt-5 text-sm leading-relaxed text-white/75 no-underline transition duration-200 hover:translate-x-1 hover:text-white focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:outline-none"
+      >
+        Dirección General de Medicamentos, Alimentos y Productos Sanitarios
+      </a>
+    </aside>
   )
 }
 
@@ -364,7 +406,7 @@ function PeopleIcon() {
   )
 }
 
-function DecorativeLeaf({ className }: { className: string }) {
+export function DecorativeLeaf({ className }: { className: string }) {
   return (
     <svg className={className} viewBox="0 0 200 200" fill="currentColor" aria-hidden="true">
       <path d="M176 20C83 23 27 71 29 133c1 28 20 47 49 47 65 0 100-69 98-160Z" />

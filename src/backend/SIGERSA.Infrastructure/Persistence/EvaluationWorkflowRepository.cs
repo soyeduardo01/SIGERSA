@@ -341,8 +341,8 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                  evaluador_principal_id, estado, programada_inicio_en, programada_fin_en,
                  iniciada_en, version_regla_riesgo_id, creado_por)
             SELECT @Id, @Number, inspection_case.id, establishment.id, template.id,
-                   evaluator.id, 'EN_EJECUCION', @ScheduledStart, @ScheduledEnd,
-                   CURRENT_TIMESTAMP, risk_rule.id, @ActorId
+                   evaluator.id, 'ASIGNADA', @ScheduledStart, @ScheduledEnd,
+                   NULL, risk_rule.id, @ActorId
               FROM "SIGERSA"."CASO" inspection_case
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment
                 ON establishment.id = @EstablishmentId
@@ -406,12 +406,13 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 JOIN "SIGERSA"."ITEM_FICHA" item ON item.ficha_inspeccion_id = evaluation.ficha_inspeccion_id
                 WHERE evaluation.id = @EvaluationId AND item.source_allitems_item = @SourceItem
                   AND item.es_evaluable = true AND {AccessPredicate}
+                  AND evaluation.estado IN ('EN_EJECUCION', 'EN_CORRECCION')
                 FOR UPDATE;
                 """;
             var itemId = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(Sql(contextSql), new { draft.EvaluationId, draft.SourceItem, ActorId = actorId }, transaction, cancellationToken: cancellationToken));
             if (itemId is null) throw new KeyNotFoundException("La evaluación o el ítem evaluable no existe, o el usuario no tiene acceso.");
 
-            var payload = JsonSerializer.Serialize(new { draft.EvaluationId, draft.SourceItem, draft.Rating, draft.Observation });
+            var payload = JsonSerializer.Serialize(new { draft.EvaluationId, draft.SourceItem, draft.Rating, draft.Observation, draft.Comment });
             var payloadHash = Hash(payload);
             var operationId = Guid.NewGuid();
             var inserted = await connection.ExecuteAsync(new CommandDefinition(Sql("""
@@ -443,13 +444,14 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
             var answerId = Guid.NewGuid();
             var answer = await connection.QuerySingleOrDefaultAsync<AnswerRow>(new CommandDefinition(Sql("""
                 INSERT INTO "SIGERSA"."RESPUESTA_USUARIO"
-                    (id, evaluacion_id, item_ficha_id, valor_texto, observacion,
+                    (id, evaluacion_id, item_ficha_id, valor_texto, observacion, comentario,
                      puntaje_obtenido, maximo_aplicable, respondido_por, fecha_cliente,
                      idempotency_key, creado_por)
-                VALUES (@Id, @EvaluationId, @ItemId, @Rating, @Observation,
+                VALUES (@Id, @EvaluationId, @ItemId, @Rating, @Observation, @Comment,
                         @Score, @MaximumScore, @ActorId, @ClientDate, @IdempotencyKey, @ActorId)
                 ON CONFLICT (evaluacion_id, item_ficha_id) DO UPDATE
                 SET valor_texto = EXCLUDED.valor_texto, observacion = EXCLUDED.observacion,
+                    comentario = EXCLUDED.comentario,
                     puntaje_obtenido = EXCLUDED.puntaje_obtenido,
                     maximo_aplicable = EXCLUDED.maximo_aplicable,
                     respondido_por = EXCLUDED.respondido_por,
@@ -457,7 +459,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                     idempotency_key = EXCLUDED.idempotency_key, modificado_por = @ActorId
                 WHERE @BaseVersion IS NULL OR "SIGERSA"."RESPUESTA_USUARIO".version_fila = @BaseVersion
                 RETURNING id AS Id, version_fila AS RowVersion;
-                """), new { Id = answerId, draft.EvaluationId, ItemId = itemId.Value, draft.Rating, draft.Observation, Score = score, MaximumScore = score is null ? (decimal?)null : 1m, ActorId = actorId, draft.ClientDate, draft.IdempotencyKey, draft.BaseVersion }, transaction, cancellationToken: cancellationToken));
+                """), new { Id = answerId, draft.EvaluationId, ItemId = itemId.Value, draft.Rating, draft.Observation, draft.Comment, Score = score, MaximumScore = score is null ? (decimal?)null : 1m, ActorId = actorId, draft.ClientDate, draft.IdempotencyKey, draft.BaseVersion }, transaction, cancellationToken: cancellationToken));
             if (answer is null)
             {
                 var staleId = await connection.ExecuteScalarAsync<Guid>(new CommandDefinition(Sql("""
@@ -526,8 +528,10 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 riesgo_producto = @ProductRisk, riesgo_establecimiento = @EstablishmentRisk,
                 riesgo_total = @TotalRisk, nivel_riesgo = @RiskLevel,
                 frecuencia = @DatabaseFrequency, snapshot_calculo = @Snapshot::jsonb,
-                hash_calculo = @Hash, modificado_por = @ActorId
+                hash_calculo = @Hash, modificado_por = @ActorId,
+                modificado_en = CURRENT_TIMESTAMP, version_fila = version_fila + 1
             WHERE id = @EvaluationId AND version_fila = @ExpectedVersion
+              AND estado IN ('EN_EJECUCION', 'EN_CORRECCION')
             RETURNING version_fila;
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
@@ -586,5 +590,87 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
             CompliancePercentage, TotalRisk, RiskLevel, AnsweredItems, RowVersion);
         private static DateTimeOffset? Utc(DateTime? value) => value.HasValue
             ? new DateTimeOffset(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)) : null;
+    }
+
+    public async Task<long?> TransitionAsync(
+        Guid evaluationId,
+        EvaluationTransitionDraft transition,
+        Guid actorId,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            WITH updated AS (
+                UPDATE "SIGERSA"."EVALUACION" evaluation
+                   SET estado = CASE @Action
+                           WHEN 'START' THEN 'EN_EJECUCION'
+                           WHEN 'FINALIZE' THEN 'FINALIZADA'
+                           WHEN 'SUBMIT' THEN 'ENVIADA'
+                           WHEN 'REVIEW' THEN 'EN_REVISION'
+                           WHEN 'APPROVE' THEN 'APROBADA'
+                           WHEN 'CLOSE' THEN 'CERRADA'
+                       END,
+                       iniciada_en = CASE WHEN @Action = 'START' THEN CURRENT_TIMESTAMP ELSE iniciada_en END,
+                       finalizada_en = CASE WHEN @Action = 'FINALIZE' THEN CURRENT_TIMESTAMP ELSE finalizada_en END,
+                       enviada_en = CASE WHEN @Action = 'SUBMIT' THEN CURRENT_TIMESTAMP ELSE enviada_en END,
+                       aprobada_en = CASE WHEN @Action = 'APPROVE' THEN CURRENT_TIMESTAMP ELSE aprobada_en END,
+                       cerrada_en = CASE WHEN @Action = 'CLOSE' THEN CURRENT_TIMESTAMP ELSE cerrada_en END,
+                       latitud_inicio = CASE WHEN @Action = 'START' THEN @Latitude ELSE latitud_inicio END,
+                       longitud_inicio = CASE WHEN @Action = 'START' THEN @Longitude ELSE longitud_inicio END,
+                       precision_m = CASE WHEN @Action = 'START' THEN @AccuracyMeters ELSE precision_m END,
+                       modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
+                       version_fila = version_fila + 1
+                 WHERE evaluation.id = @EvaluationId AND evaluation.version_fila = @RowVersion
+                   AND (
+                       (@Action = 'START' AND evaluation.estado = 'ASIGNADA')
+                       OR (@Action = 'FINALIZE' AND evaluation.estado IN ('EN_EJECUCION', 'EN_CORRECCION')
+                           AND evaluation.riesgo_total IS NOT NULL)
+                       OR (@Action = 'SUBMIT' AND evaluation.estado IN ('FINALIZADA', 'EN_CORRECCION'))
+                       OR (@Action = 'REVIEW' AND evaluation.estado = 'ENVIADA')
+                       OR (@Action = 'APPROVE' AND evaluation.estado IN ('ENVIADA', 'EN_REVISION')
+                           AND evaluation.evaluador_principal_id <> @ActorId)
+                       OR (@Action = 'CLOSE' AND evaluation.estado = 'APROBADA'
+                           AND EXISTS (
+                               SELECT 1 FROM "SIGERSA"."INFORME" report
+                               JOIN "SIGERSA"."INFORME_VERSION" version ON version.informe_id = report.id
+                               WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true))
+                   )
+                   AND (
+                       (@Action IN ('START', 'FINALIZE', 'SUBMIT')
+                        AND (evaluation.evaluador_principal_id = @ActorId OR EXISTS (
+                            SELECT 1 FROM "SIGERSA"."USUARIO_ROL" user_role
+                            JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                            WHERE user_role.usuario_id = @ActorId AND user_role.activo = true
+                              AND role.codigo = 'ADMINISTRADOR')))
+                       OR (@Action IN ('REVIEW', 'APPROVE', 'CLOSE') AND EXISTS (
+                            SELECT 1 FROM "SIGERSA"."USUARIO_ROL" user_role
+                            JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                            WHERE user_role.usuario_id = @ActorId AND user_role.activo = true
+                              AND role.codigo IN ('ADMINISTRADOR', 'COORDINADOR')))
+                   )
+                RETURNING evaluation.version_fila AS RowVersion, evaluation.caso_id AS CaseId
+            ), closed_case AS (
+                UPDATE "SIGERSA"."CASO" inspection_case
+                   SET estado = 'CERRADO', cerrado_en = CURRENT_TIMESTAMP,
+                       modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
+                       version_fila = version_fila + 1
+                 WHERE @Action = 'CLOSE' AND inspection_case.id IN (SELECT CaseId FROM updated)
+                RETURNING inspection_case.id
+            )
+            SELECT RowVersion FROM updated;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            return await connection.ExecuteScalarAsync<long?>(new CommandDefinition(Sql(sql), new
+            {
+                EvaluationId = evaluationId,
+                transition.Action,
+                transition.RowVersion,
+                transition.Latitude,
+                transition.Longitude,
+                transition.AccuracyMeters,
+                ActorId = actorId
+            }, cancellationToken: cancellationToken));
+        }
     }
 }
