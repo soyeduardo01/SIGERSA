@@ -16,6 +16,7 @@ export interface AuthSession {
 export interface TwoFactorChallenge {
   requiresTwoFactor: true
   expiresAt: string
+  provider?: 'EMAIL_OTP' | 'SUPABASE_TOTP'
 }
 
 export interface PublicRegistrationDraft {
@@ -67,6 +68,9 @@ export interface UserProfile {
   fullName: string
   email: string
   phone: string | null
+  status: string
+  lastAccessAt: string | null
+  mfaEnabled: boolean
   rowVersion: number
 }
 
@@ -434,6 +438,66 @@ export interface EvaluationFormItem {
   order: number
 }
 
+export interface EvaluationSavedAnswer {
+  sourceItem: number
+  rating: string
+  criticalityCode: string | null
+  observation: string | null
+  comment: string | null
+}
+
+export interface EvaluationFollowUpItem {
+  detail: string
+  dueDate: string | null
+}
+
+export interface EvaluationSupplement {
+  previousInspectionDate: string | null
+  previousQualification: string | null
+  currentInspectionDate: string | null
+  currentQualification: string | null
+  dpsDasOfficer1: string | null
+  dpsDasOfficer2: string | null
+  digemapsTechnician1: string | null
+  digemapsTechnician2: string | null
+  correctiveMeasures: EvaluationFollowUpItem[]
+  recommendations: EvaluationFollowUpItem[]
+  rowVersion: number
+}
+
+export interface EvaluationWorkspace {
+  items: EvaluationFormItem[]
+  answers: EvaluationSavedAnswer[]
+  supplement: EvaluationSupplement
+  policy: EvaluationInspectionPolicy
+}
+
+export interface EvaluationInspectionPolicy {
+  mode: 'FICHA_COMPLETA' | 'DESDE_1_1_3' | 'NO_CONFORMIDADES_ANTERIORES' | 'DENUNCIA_DISCRECIONAL'
+  title: string
+  explanation: string
+  isReady: boolean
+  blockingReason: string | null
+  requiredSourceItems: number[]
+  excludedSourceItems: number[]
+  approvalPurpose: string | null
+  previousEvaluationId: string | null
+  previousInspectionDate: string | null
+  previousCompliancePercentage: number | null
+}
+
+export interface EvaluationDecisionGuidance {
+  band: string
+  condition: string
+  primaryRecommendation: string
+  approvalEligible: boolean | null
+  applicableItems: number
+  criticalNonconformities: number
+  majorNonconformities: number
+  minorNonconformities: number
+  messages: string[]
+}
+
 export interface EvaluationCalculation {
   evaluationId: string
   compliancePercentage: number | null
@@ -442,6 +506,7 @@ export interface EvaluationCalculation {
   totalRisk: number | null
   riskLevel: 'BAJO' | 'MEDIO' | 'ALTO' | 'NO_CALCULABLE'
   frequency: 'ANUAL' | 'SEMESTRAL' | 'TRIMESTRAL' | 'NO_APLICA'
+  decision: EvaluationDecisionGuidance
   rowVersion: number
 }
 
@@ -593,6 +658,7 @@ export interface InspectionRequestOptions {
   companies: Array<{ id: string; name: string; companyId: string | null }>
   establishments: Array<{ id: string; name: string; companyId: string | null }>
   reasons: Array<{ id: string; name: string; companyId: string | null }>
+  establishmentTypes: string[]
   canManage: boolean
 }
 
@@ -833,17 +899,31 @@ export async function login(email: string, password: string, rememberSession = f
   return session
 }
 
-export async function verifyTwoFactor(
-  email: string,
-  otp: string,
-  rememberSession = false,
-) {
+export async function verifyTwoFactor(email: string, otp: string, rememberSession = false) {
   const response = await publicFetch('/api/v1/auth/login/verify-2fa', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, otp }),
   })
   if (response.status === 401) throw new ApiError('El código no es válido.', response.status)
+  if (!response.ok) throw await apiError(response)
+  const session = (await response.json()) as AuthSession
+  saveSession(session, rememberSession)
+  return session
+}
+
+export async function verifySupabaseMfa(
+  email: string,
+  supabaseAccessToken: string,
+  rememberSession = false,
+) {
+  const response = await publicFetch('/api/v1/auth/login/verify-supabase-mfa', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, supabaseAccessToken }),
+  })
+  if (response.status === 401)
+    throw new ApiError('El código de la aplicación autenticadora no es válido.', response.status)
   if (!response.ok) throw await apiError(response)
   const session = (await response.json()) as AuthSession
   saveSession(session, rememberSession)
@@ -945,6 +1025,11 @@ export async function deleteParameter(id: number) {
   if (!response.ok) throw await apiError(response)
 }
 
+export async function activateParameter(id: number) {
+  const response = await apiFetch(`/api/v1/parameters/${id}/activate`, { method: 'POST' })
+  if (!response.ok) throw await apiError(response)
+}
+
 export async function getProfile() {
   return getJson<UserProfile>('/api/v1/profile')
 }
@@ -1019,6 +1104,27 @@ export async function changeProfilePassword(input: {
   return sendJson<void>('/api/v1/profile/password', 'PUT', input)
 }
 
+export async function beginMfaEnrollment(currentPassword: string) {
+  return sendJson<{ email: string }>('/api/v1/profile/mfa/enrollment', 'POST', {
+    currentPassword,
+  })
+}
+
+export async function completeMfaEnrollment(factorId: string, supabaseAccessToken: string) {
+  return sendJson<UserProfile>('/api/v1/profile/mfa/enrollment/complete', 'POST', {
+    factorId,
+    supabaseAccessToken,
+  })
+}
+
+export async function disableMfa(input: {
+  currentPassword: string
+  factorId: string
+  supabaseAccessToken: string
+}) {
+  return sendJson<UserProfile>('/api/v1/profile/mfa/disable', 'POST', input)
+}
+
 export function updateSessionIdentity(userName: string, email: string) {
   const session = getSession()
   if (!session) return
@@ -1056,6 +1162,21 @@ export async function calculateInspectionRisk(ratings: Array<{ item: number; rat
 
 export async function getEvaluationForm(evaluationId: string) {
   return getJson<EvaluationFormItem[]>(`/api/v1/evaluations/${evaluationId}/form`)
+}
+
+export async function getEvaluationWorkspace(evaluationId: string) {
+  return getJson<EvaluationWorkspace>(`/api/v1/evaluations/${evaluationId}/workspace`)
+}
+
+export async function saveEvaluationSupplement(
+  evaluationId: string,
+  supplement: EvaluationSupplement,
+) {
+  return sendJson<EvaluationSupplement>(
+    `/api/v1/evaluations/${evaluationId}/supplement`,
+    'PUT',
+    supplement,
+  )
 }
 
 export async function getEvaluations(filters: {
@@ -1210,7 +1331,35 @@ export async function uploadUserAuthorizationLetter(id: string, file: File) {
 export async function downloadUserAuthorizationLetter(id: string) {
   const response = await apiFetch(`/api/v1/users/${id}/authorization-letter/content`)
   if (!response.ok) throw await apiError(response)
-  return response.blob()
+  const blob = await response.blob()
+  return {
+    blob,
+    fileName: downloadFileName(response.headers.get('Content-Disposition'), blob.type),
+  }
+}
+
+function downloadFileName(contentDisposition: string | null, mimeType: string) {
+  const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition ?? '')?.[1]
+  if (encodedName) {
+    try {
+      return decodeURIComponent(encodedName.trim().replace(/^"|"$/g, ''))
+    } catch {
+      // Continue with the regular filename or a MIME-based fallback.
+    }
+  }
+
+  const regularName = /filename="?([^";]+)"?/i.exec(contentDisposition ?? '')?.[1]?.trim()
+  if (regularName) return regularName
+
+  const extension =
+    mimeType === 'application/pdf'
+      ? '.pdf'
+      : mimeType === 'image/png'
+        ? '.png'
+        : mimeType === 'image/jpeg'
+          ? '.jpg'
+          : ''
+  return `carta-autorizacion${extension}`
 }
 
 export async function setManagedUserSuspension(

@@ -10,6 +10,19 @@ namespace SIGERSA.Application.Evaluations;
 
 public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repository)
 {
+    private static readonly HashSet<string> QualificationOptions = new(StringComparer.Ordinal)
+    {
+        "CONSIDERAR_CIERRE",
+        "URGE_CORREGIR",
+        "NECESARIO_CORREGIR",
+        "ALGUNAS_CORRECCIONES",
+        "DETENER_PRODUCCION",
+        "CORREGIR_NO_CONFORMIDADES",
+        "OTORGAR_CERTIFICACION_BPM",
+        "RENOVAR_PERMISO_SANITARIO",
+        "OTORGAR_PERMISO_SANITARIO"
+    };
+
     public Task<EvaluationsPage> SearchAsync(
         string? search, string? status, int page, int pageSize,
         EvaluationActor actor, CancellationToken cancellationToken)
@@ -52,6 +65,50 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
     public Task<IReadOnlyList<EvaluationFormItem>> GetFormAsync(Guid evaluationId, Guid actorId, CancellationToken cancellationToken) =>
         repository.GetFormAsync(Required(evaluationId, nameof(evaluationId)), Required(actorId, nameof(actorId)), cancellationToken);
 
+    public async Task<EvaluationWorkspace> GetWorkspaceAsync(
+        Guid evaluationId,
+        Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        var id = Required(evaluationId, nameof(evaluationId));
+        var userId = Required(actorId, nameof(actorId));
+        var workspace = await repository.GetWorkspaceAsync(id, userId, cancellationToken);
+        var context = await repository.GetInspectionContextAsync(id, userId, cancellationToken);
+        var policy = InspectionQualificationPolicy.Resolve(
+            context,
+            workspace.Items,
+            workspace.Answers.Select(answer => answer.SourceItem).ToHashSet());
+        return new EvaluationWorkspace(workspace.Items, workspace.Answers, workspace.Supplement, policy);
+    }
+
+    public Task<EvaluationSupplement> SaveSupplementAsync(
+        Guid evaluationId,
+        SaveEvaluationSupplementDraft draft,
+        EvaluationActor actor,
+        CancellationToken cancellationToken)
+    {
+        if (!HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("Solo el técnico asignado puede completar los datos de la evaluación.");
+        if (draft.RowVersion < 0)
+            throw new ArgumentException("La versión de los datos complementarios no es válida.");
+        if (draft.PreviousInspectionDate > draft.CurrentInspectionDate)
+            throw new ArgumentException("La inspección anterior no puede ser posterior a la inspección actual.");
+
+        var normalized = draft with
+        {
+            PreviousQualification = NormalizeQualification(draft.PreviousQualification),
+            CurrentQualification = NormalizeQualification(draft.CurrentQualification),
+            DpsDasOfficer1 = NormalizeLimited(draft.DpsDasOfficer1, 200, "Oficial DPS/DAS"),
+            DpsDasOfficer2 = NormalizeLimited(draft.DpsDasOfficer2, 200, "Oficial DPS/DAS"),
+            DigemapsTechnician1 = NormalizeLimited(draft.DigemapsTechnician1, 200, "Técnico DIGEMAPS"),
+            DigemapsTechnician2 = NormalizeLimited(draft.DigemapsTechnician2, 200, "Técnico DIGEMAPS"),
+            CorrectiveMeasures = NormalizeFollowUps(draft.CorrectiveMeasures, "medidas correctivas"),
+            Recommendations = NormalizeFollowUps(draft.Recommendations, "recomendaciones")
+        };
+        return repository.SaveSupplementAsync(
+            Required(evaluationId, nameof(evaluationId)), normalized, actor.UserId, cancellationToken);
+    }
+
     public Task<EvaluationAnswer> SaveAnswerAsync(SaveEvaluationAnswerDraft draft, Guid actorId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -61,7 +118,13 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         if (draft.SourceItem <= 0) throw new ArgumentOutOfRangeException(nameof(draft), "El elemento de origen debe ser positivo.");
         if (draft.ClientSequence < 0) throw new ArgumentOutOfRangeException(nameof(draft), "La secuencia del cliente no puede ser negativa.");
         var normalized = NormalizeRating(draft.Rating);
-        return repository.SaveAnswerAsync(draft with { Rating = normalized }, Required(actorId, nameof(actorId)), cancellationToken);
+        var criticality = Normalize(draft.CriticalityCode)?.ToUpperInvariant();
+        if (normalized == "NO_CUMPLE" && criticality is not ("C" or "M" or "ME"))
+            throw new ArgumentException("Seleccione la criticidad C, M o Me para un incumplimiento total.");
+        if (normalized != "NO_CUMPLE") criticality = null;
+        return repository.SaveAnswerAsync(
+            draft with { Rating = normalized, CriticalityCode = criticality },
+            Required(actorId, nameof(actorId)), cancellationToken);
     }
 
     public async Task<EvaluationCalculation> CalculateAsync(
@@ -75,10 +138,25 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             Required(evaluationId, nameof(evaluationId)),
             Required(actorId, nameof(actorId)),
             cancellationToken);
-        var requiredAnswers = input.Items.Count(item => item.IsEvaluable);
-        if (input.Answers.Count != requiredAnswers)
-            throw new InvalidOperationException($"Debe responder los {requiredAnswers} ítems evaluables antes de calcular el riesgo.");
-        var ratings = input.Answers.Select(answer => ParseRating(answer.Rating)).ToArray();
+        var context = await repository.GetInspectionContextAsync(evaluationId, actorId, cancellationToken);
+        var policy = InspectionQualificationPolicy.Resolve(
+            context,
+            input.Items,
+            input.Answers.Select(answer => answer.SourceItem).ToHashSet());
+        if (!policy.IsReady)
+            throw new InvalidOperationException(policy.BlockingReason ?? "El alcance de la inspección no está listo para calcularse.");
+        var applicableSources = policy.RequiredSourceItems.ToHashSet();
+        var applicableAnswers = input.Answers
+            .Where(answer => applicableSources.Contains(answer.SourceItem))
+            .GroupBy(answer => answer.SourceItem)
+            .Select(group => group.First())
+            .ToArray();
+        var missingAnswers = policy.RequiredSourceItems.Count - applicableAnswers.Length;
+        if (missingAnswers > 0)
+            throw new InvalidOperationException($"Faltan {missingAnswers} de {policy.RequiredSourceItems.Count} ítems obligatorios para este tipo de inspección.");
+        if (applicableAnswers.Length == 0)
+            throw new InvalidOperationException("Debe responder al menos un ítem aplicable antes de calcular el riesgo.");
+        var ratings = applicableAnswers.Select(answer => ParseRating(answer.Rating)).ToArray();
         var bpm = RiskEngine.CalculateBpm(ratings);
         var nodes = input.Items.Select(item => new AllItem(
             item.SourceItem,
@@ -86,10 +164,12 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             item.Title,
             item.IsEvaluable ? "I" : "S",
             item.ParentId?.ToString("N"))).ToArray();
-        var nodeRatings = input.Answers.Select(answer =>
+        var nodeRatings = applicableAnswers.Select(answer =>
             new AllItemRating(answer.SourceItem, ParseRating(answer.Rating))).ToArray();
         var nodeScores = InspectionTreeRiskCalculator.Calculate(nodes, nodeRatings);
-        var compliance = bpm.Score * 100m;
+        var compliance = bpm.Score.HasValue
+            ? bpm.Score.Value * 100m
+            : throw new InvalidOperationException("Todos los ítems aplicables están marcados como N/A; no es posible calcular una calificación.");
         var productionScore = ScoreProduction(input.MonthlyProduction);
         var haccpScore = ScoreHaccp(input.HaccpImplemented, input.HaccpPercentage);
         var bpmScore = ScoreBpm(compliance);
@@ -119,6 +199,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             InspectionFrequency.Quarterly => "TRIMESTRAL",
             _ => "NO_APLICA"
         };
+        var decision = InspectionQualificationPolicy.Evaluate(policy, compliance, applicableAnswers);
         var calculation = new EvaluationCalculation(
             input.EvaluationId,
             compliance,
@@ -127,6 +208,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             total.TotalRisk,
             level,
             frequency,
+            decision,
             input.RowVersion);
         var snapshot = JsonSerializer.Serialize(new
         {
@@ -137,6 +219,16 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             calculation.TotalRisk,
             calculation.RiskLevel,
             calculation.Frequency,
+            policy = new
+            {
+                policy.Mode,
+                policy.Title,
+                policy.RequiredSourceItems,
+                policy.ExcludedSourceItems,
+                policy.ApprovalPurpose,
+                policy.PreviousEvaluationId
+            },
+            calculation.Decision,
             factors = new { productionScore, haccpScore, bpmScore, inabieScore, rejectionScore, samplingScore },
             nodes = nodeScores
         });
@@ -189,9 +281,38 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             throw new ForbiddenException("La transición corresponde al técnico evaluador asignado.");
         if (reviewerAction && !HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "COORDINADOR"))
             throw new ForbiddenException("La transición corresponde al coordinador revisor.");
+        if (action == "APPROVE")
+            await EnsureApprovalCriteriaAsync(evaluationId, actor.UserId, cancellationToken);
         var version = await repository.TransitionAsync(
             evaluationId, transition with { Action = action }, actor.UserId, cancellationToken);
         return version ?? throw new OptimisticConcurrencyException(evaluationId);
+    }
+
+    private async Task EnsureApprovalCriteriaAsync(
+        Guid evaluationId,
+        Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        var input = await repository.GetCalculationInputAsync(evaluationId, actorId, cancellationToken);
+        var context = await repository.GetInspectionContextAsync(evaluationId, actorId, cancellationToken);
+        var policy = InspectionQualificationPolicy.Resolve(
+            context,
+            input.Items,
+            input.Answers.Select(answer => answer.SourceItem).ToHashSet());
+        if (policy.ApprovalPurpose is null) return;
+        if (!policy.IsReady)
+            throw new InvalidOperationException(policy.BlockingReason ?? "El alcance de la inspección no está listo para aprobarse.");
+        var required = policy.RequiredSourceItems.ToHashSet();
+        var answers = input.Answers.Where(answer => required.Contains(answer.SourceItem)).ToArray();
+        if (answers.Length != required.Count)
+            throw new InvalidOperationException("La evaluación no contiene todas las respuestas obligatorias para aprobarse.");
+        var bpm = RiskEngine.CalculateBpm(answers.Select(answer => ParseRating(answer.Rating)));
+        var compliance = bpm.Score.HasValue
+            ? bpm.Score.Value * 100m
+            : throw new InvalidOperationException("No se puede aprobar una evaluación sin ítems calificables.");
+        var decision = InspectionQualificationPolicy.Evaluate(policy, compliance, answers);
+        if (decision.ApprovalEligible != true)
+            throw new InvalidOperationException("No se puede aprobar: se requiere al menos 81 %, ninguna no conformidad crítica y menos de tres no conformidades mayores.");
     }
 
     private static void ValidateCoordinates(EvaluationTransitionDraft transition)
@@ -279,6 +400,37 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
     {
         if (value == Guid.Empty) throw new ArgumentException("El identificador es obligatorio.", name);
         return value;
+    }
+
+    private static string? NormalizeQualification(string? value)
+    {
+        var normalized = Normalize(value)?.ToUpperInvariant();
+        if (normalized is not null && !QualificationOptions.Contains(normalized))
+            throw new ArgumentException("La calificación seleccionada no es válida.");
+        return normalized;
+    }
+
+    private static string? NormalizeLimited(string? value, int maximumLength, string field)
+    {
+        var normalized = Normalize(value);
+        if (normalized?.Length > maximumLength)
+            throw new ArgumentException($"{field} no puede exceder {maximumLength} caracteres.");
+        return normalized;
+    }
+
+    private static EvaluationFollowUpItem[] NormalizeFollowUps(
+        IReadOnlyList<EvaluationFollowUpItem>? values,
+        string field)
+    {
+        var normalized = (values ?? [])
+            .Select(value => value with { Detail = value.Detail.Trim() })
+            .Where(value => value.Detail.Length > 0)
+            .ToArray();
+        if (normalized.Length > 10)
+            throw new ArgumentException($"Solo se permiten hasta 10 {field}.");
+        if (normalized.Any(value => value.Detail.Length > 2000))
+            throw new ArgumentException($"El detalle de {field} no puede exceder 2000 caracteres.");
+        return normalized;
     }
 
     private static void EnsureReader(EvaluationActor actor)

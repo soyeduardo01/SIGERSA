@@ -52,7 +52,7 @@ public sealed class SupportingDocumentServiceTests
             Guid.NewGuid(), "documentos", "carta.exe", "application/octet-stream", 4,
             new MemoryStream([1, 2, 3, 4]), actor, CancellationToken.None));
         await Assert.ThrowsAsync<InvalidDataException>(() => service.UploadUserAuthorizationAsync(
-            Guid.NewGuid(), "documentos", "carta.pdf", "application/pdf", 11 * 1024 * 1024,
+            Guid.NewGuid(), "documentos", "carta.pdf", "application/pdf", 5 * 1024 * 1024 + 1,
             new MemoryStream([1]), actor, CancellationToken.None));
     }
 

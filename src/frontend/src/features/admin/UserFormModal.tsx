@@ -10,6 +10,9 @@ import {
 import { isPasswordValid } from '../../lib/passwordPolicy'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 
+const maximumAuthorizationSize = 5 * 1024 * 1024
+const acceptedAuthorizationTypes = ['application/pdf', 'image/jpeg', 'image/png']
+
 interface UserFormModalProps {
   user: ManagedUser | null
   options: UserManagementOptions
@@ -39,6 +42,7 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
   const [draft, setDraft] = useState(() => initialDraft(user))
   const [saving, setSaving] = useState(false)
   const [authorizationLetter, setAuthorizationLetter] = useState<File | null>(null)
+  const [authorizationError, setAuthorizationError] = useState('')
   const identificationTypes = useParameterOptions('TIPO_IDENTIFICACION')
   const userStates = useParameterOptions('ESTADO_USUARIO_GESTION')
 
@@ -57,6 +61,25 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
   const passwordReady = user
     ? !draft.temporaryPassword || isPasswordValid(draft.temporaryPassword)
     : isPasswordValid(draft.temporaryPassword)
+
+  function selectAuthorizationLetter(file: File | null) {
+    setAuthorizationError('')
+    if (!file) {
+      setAuthorizationLetter(null)
+      return
+    }
+    if (!acceptedAuthorizationTypes.includes(file.type)) {
+      setAuthorizationLetter(null)
+      setAuthorizationError('Solo se permiten archivos PDF, JPG, JPEG o PNG.')
+      return
+    }
+    if (file.size > maximumAuthorizationSize) {
+      setAuthorizationLetter(null)
+      setAuthorizationError('El archivo no puede superar 5 MB.')
+      return
+    }
+    setAuthorizationLetter(file)
+  }
 
   return (
     <div
@@ -209,18 +232,20 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
             >
               <option value="">Seleccione</option>
               {userStates.options
-                .filter((option) => ['PENDIENTE_VALIDACION', 'ACTIVO', 'RECHAZADO'].includes(option.stringData ?? ''))
+                .filter((option) =>
+                  ['PENDIENTE_VALIDACION', 'ACTIVO', 'RECHAZADO'].includes(option.stringData ?? ''),
+                )
                 .map((option) => (
-                <option key={option.parametersId} value={option.stringData ?? ''}>
-                  {option.stringData === 'ACTIVO'
-                    ? 'Aprobado'
-                    : option.stringData === 'PENDIENTE_VALIDACION'
-                      ? 'Pendiente Validación'
-                      : option.stringData === 'RECHAZADO'
-                        ? 'Rechazado'
-                        : formatStatusLabel(option.stringData ?? '')}
-                </option>
-              ))}
+                  <option key={option.parametersId} value={option.stringData ?? ''}>
+                    {option.stringData === 'ACTIVO'
+                      ? 'Aprobado'
+                      : option.stringData === 'PENDIENTE_VALIDACION'
+                        ? 'Pendiente Validación'
+                        : option.stringData === 'RECHAZADO'
+                          ? 'Rechazado'
+                          : formatStatusLabel(option.stringData ?? '')}
+                  </option>
+                ))}
             </select>
           </label>
           <label className="text-sm font-bold text-ink-body">
@@ -249,13 +274,27 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
               <input
                 required={!user}
                 type="file"
-                accept="application/pdf,image/jpeg,image/png"
-                onChange={(event) => setAuthorizationLetter(event.target.files?.[0] ?? null)}
+                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                onChange={(event) => {
+                  selectAuthorizationLetter(event.target.files?.[0] ?? null)
+                  if (
+                    event.target.files?.[0] &&
+                    (!acceptedAuthorizationTypes.includes(event.target.files[0].type) ||
+                      event.target.files[0].size > maximumAuthorizationSize)
+                  ) {
+                    event.target.value = ''
+                  }
+                }}
                 className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white p-2 font-normal"
               />
               <span className="mt-1 block text-xs font-normal text-ink-muted">
-                PDF, JPG o PNG; máximo 10 MB.
+                PDF, JPG, JPEG o PNG; máximo 5 MB.
               </span>
+              {authorizationError && (
+                <span className="mt-1 block text-xs font-semibold text-red-700" role="alert">
+                  {authorizationError}
+                </span>
+              )}
             </label>
           )}
           <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 md:col-span-2">
@@ -267,7 +306,9 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
               Cancelar
             </button>
             <button
-              disabled={saving || !passwordReady || (enterpriseRole && !user && !authorizationLetter)}
+              disabled={
+                saving || !passwordReady || (enterpriseRole && !user && !authorizationLetter)
+              }
               className="min-h-11 rounded-xl bg-brand-700 px-5 font-bold text-white disabled:opacity-60"
             >
               {saving ? 'Guardando…' : user ? 'Guardar cambios' : 'Crear usuario'}

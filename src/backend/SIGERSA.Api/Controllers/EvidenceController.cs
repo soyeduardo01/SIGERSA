@@ -70,7 +70,7 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
     [HttpPost]
     [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
     [Consumes("multipart/form-data")]
-    [RequestSizeLimit(26_214_400)]
+    [RequestSizeLimit(6_291_456)]
     public async Task<ActionResult<EvidenceRecord>> Upload(
         [FromForm] EvidenceUploadRequest request,
         CancellationToken cancellationToken)
@@ -87,6 +87,7 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
             request.Latitude,
             request.Longitude,
             request.AccuracyMeters,
+            request.File.Length,
             content,
             cancellationToken);
         return Created($"/api/v1/evidences/{result.Id}", result);

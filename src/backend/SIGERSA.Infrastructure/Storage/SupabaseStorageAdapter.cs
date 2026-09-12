@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using Microsoft.Extensions.Options;
+using SIGERSA.Domain.Exceptions;
 using SIGERSA.Domain.Storage;
+using Supabase.Storage.Exceptions;
 using SIGERSA.Infrastructure.Configuration;
 
 namespace SIGERSA.Infrastructure.Storage;
@@ -26,9 +28,18 @@ public sealed class SupabaseStorageAdapter(
             Upsert = false
         };
 
-        await client.Storage
-            .From(upload.BucketName)
-            .Upload(bytes, upload.SupabasePath, fileOptions, cancellationToken: cancellationToken);
+        try
+        {
+            await client.Storage
+                .From(upload.BucketName)
+                .Upload(bytes, upload.SupabasePath, fileOptions, cancellationToken: cancellationToken);
+        }
+        catch (Exception exception) when (exception is SupabaseStorageException or HttpRequestException)
+        {
+            throw new FileStorageUnavailableException(
+                "No fue posible almacenar la carta de autorización. Verifique la configuración del almacenamiento e inténtelo nuevamente.",
+                exception);
+        }
 
         var hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         return new StoredFile(

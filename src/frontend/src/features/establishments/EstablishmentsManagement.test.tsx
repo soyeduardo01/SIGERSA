@@ -59,6 +59,11 @@ describe('EstablishmentsManagement', () => {
 
     expect(screen.getByRole('dialog', { name: 'Registrar establecimiento' })).toBeVisible()
     expect(screen.queryByLabelText('Código')).not.toBeInTheDocument()
+    expect(screen.getByText(/Los campos marcados con/)).toBeInTheDocument()
+
+    const phone = screen.getByLabelText('Teléfono')
+    fireEvent.change(phone, { target: { value: '(809) 555-1234 adicional' } })
+    expect(phone).toHaveValue('809-555-1234')
 
     fireEvent.click(screen.getByRole('tab', { name: 'Producción y mercado' }))
     const commercialization = screen.getByLabelText('Comercialización')
@@ -81,5 +86,13 @@ describe('EstablishmentsManagement', () => {
     expect(screen.getByText('A nivel nacional')).toBeInTheDocument()
     expect(screen.getByText('A nivel regional')).toBeInTheDocument()
     expect(screen.getByText('A nivel local')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Contactos' }))
+    const identifications = screen.getAllByLabelText('Cédula de identidad')
+    const contactPhones = screen.getAllByLabelText('Teléfono celular')
+    fireEvent.change(identifications[0], { target: { value: '0010000000199' } })
+    fireEvent.change(contactPhones[0], { target: { value: '809555123455' } })
+    expect(identifications[0]).toHaveValue('001-0000000-1')
+    expect(contactPhones[0]).toHaveValue('809-555-1234')
   })
 })

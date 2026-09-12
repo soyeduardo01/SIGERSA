@@ -16,6 +16,7 @@ import { alerts } from '../../lib/alerts'
 import { queueRequest } from '../../offline/syncQueue'
 
 const emptyPage: InspectionRequestsPage = { items: [], page: 1, pageSize: 10, total: 0 }
+const maximumSupportingDocumentSize = 5 * 1024 * 1024
 const statusLabels: Record<InspectionRequest['status'], string> = {
   BORRADOR: 'Borrador',
   PENDIENTE_ASIGNACION: 'Pendiente de asignación',
@@ -72,8 +73,10 @@ export function RequestsManagement() {
   async function reload() {
     setLoading(true)
     try {
-      setResult(await getInspectionRequests({ search, status, page, pageSize: 10 }))
+      const nextResult = await getInspectionRequests({ search, status, page, pageSize: 10 })
+      setResult(nextResult)
       setError('')
+      return nextResult
     } finally {
       setLoading(false)
     }
@@ -125,7 +128,10 @@ export function RequestsManagement() {
     })
     if (!confirmed) return
     try {
-      await transitionInspectionRequest(item.id, action, item.rowVersion)
+      const latestPage = await reload()
+      const latest = latestPage.items.find((request) => request.id === item.id)
+      if (!latest) throw new Error('La solicitud ya no está disponible con los filtros actuales.')
+      await transitionInspectionRequest(item.id, action, latest.rowVersion)
       await reload()
       await alerts.success(action === 'submit' ? 'Solicitud enviada' : 'Solicitud cancelada')
     } catch (caught) {
@@ -359,6 +365,7 @@ function RequestForm({
   const [observations, setObservations] = useState(request?.observations ?? '')
   const [saving, setSaving] = useState(false)
   const [supportingDocument, setSupportingDocument] = useState<File | null>(null)
+  const [supportingDocumentError, setSupportingDocumentError] = useState('')
   const establishments = useMemo(
     () => options.establishments.filter((item) => item.companyId === companyId),
     [companyId, options.establishments],
@@ -465,12 +472,18 @@ function RequestForm({
           </label>
           <label className="text-sm font-bold text-ink-body">
             Tipo de establecimiento
-            <input
+            <select
               value={establishmentType}
               onChange={(event) => setEstablishmentType(event.target.value)}
-              maxLength={100}
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
-            />
+            >
+              <option value="">Seleccione</option>
+              {options.establishmentTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="text-sm font-bold text-ink-body md:col-span-2">
             Detalle del motivo
@@ -497,12 +510,27 @@ function RequestForm({
             <input
               type="file"
               accept="application/pdf,image/jpeg,image/png"
-              onChange={(event) => setSupportingDocument(event.target.files?.[0] ?? null)}
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null
+                if (file && file.size > maximumSupportingDocumentSize) {
+                  setSupportingDocument(null)
+                  setSupportingDocumentError('El documento no puede superar 5 MB.')
+                  event.currentTarget.value = ''
+                  return
+                }
+                setSupportingDocument(file)
+                setSupportingDocumentError('')
+              }}
               className="mt-1.5 block w-full rounded-xl border border-slate-300 bg-white p-2 font-normal"
             />
+            {supportingDocumentError && (
+              <span role="alert" className="mt-1 block text-xs font-semibold text-red-700">
+                {supportingDocumentError}
+              </span>
+            )}
             <span className="mt-1 block text-xs font-normal text-ink-muted">
               Puede guardar el borrador sin archivo, pero deberá adjuntarlo antes de enviarlo. PDF,
-              JPG o PNG; máximo 10 MB.
+              JPG o PNG; máximo 5 MB.
             </span>
           </label>
           <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 md:col-span-2">

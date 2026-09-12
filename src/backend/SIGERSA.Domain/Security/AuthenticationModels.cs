@@ -20,6 +20,10 @@ public sealed class AuthenticationUser
 
     public DateTimeOffset? BloqueadoHasta { get; init; }
 
+    public Guid? SupabaseAuthUserId { get; init; }
+
+    public bool MfaHabilitado { get; init; }
+
     public string[] Roles { get; init; } = [];
 }
 

@@ -111,6 +111,11 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
               FROM "SIGERSA"."MOTIVO_INSPECCION"
              WHERE activo = true AND @CanManage = true
              ORDER BY orden, nombre;
+
+            SELECT parameter."StringData"
+              FROM "SIGERSA"."FN_ParametersControl_GetActive"('TIPO_ESTABLECIMIENTO', NULL) AS parameter
+             WHERE @CanManage = true AND parameter."StringData" IS NOT NULL
+             ORDER BY parameter."NumericData", parameter."ParametersId";
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -122,7 +127,8 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
             var companies = (await result.ReadAsync<OptionRow>()).Select(ToOption).ToArray();
             var establishments = (await result.ReadAsync<OptionRow>()).Select(ToOption).ToArray();
             var reasons = (await result.ReadAsync<OptionRow>()).Select(ToOption).ToArray();
-            return new InspectionRequestOptions(companies, establishments, reasons, canManage);
+            var establishmentTypes = (await result.ReadAsync<string>()).ToArray();
+            return new InspectionRequestOptions(companies, establishments, reasons, establishmentTypes, canManage);
         }
     }
 
@@ -231,7 +237,7 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
         CancellationToken cancellationToken = default)
     {
         const string sql = """
-            UPDATE "SIGERSA"."SOLICITUD"
+            UPDATE "SIGERSA"."SOLICITUD" AS request
                SET estado = @TargetStatus,
                    numero = CASE WHEN @TargetStatus = 'PENDIENTE_ASIGNACION' THEN COALESCE(
                        numero,
@@ -240,14 +246,14 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
                    enviada_en = CASE WHEN @TargetStatus = 'PENDIENTE_ASIGNACION' THEN CURRENT_TIMESTAMP ELSE enviada_en END,
                    cancelada_en = CASE WHEN @TargetStatus = 'CANCELADA' THEN CURRENT_TIMESTAMP ELSE cancelada_en END,
                    modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
-                   version_fila = version_fila + 1
-             WHERE id = @Id AND activo = true AND version_fila = @RowVersion
-               AND (@CompanyScope IS NULL OR empresa_id = @CompanyScope)
-               AND ((@TargetStatus = 'PENDIENTE_ASIGNACION' AND estado = 'BORRADOR')
-                    OR (@TargetStatus = 'CANCELADA' AND estado IN ('BORRADOR', 'PENDIENTE_ASIGNACION')))
+                   version_fila = request.version_fila + 1
+             WHERE request.id = @Id AND request.activo = true AND request.version_fila = @RowVersion
+               AND (@CompanyScope IS NULL OR request.empresa_id = @CompanyScope)
+               AND ((@TargetStatus = 'PENDIENTE_ASIGNACION' AND request.estado = 'BORRADOR')
+                    OR (@TargetStatus = 'CANCELADA' AND request.estado IN ('BORRADOR', 'PENDIENTE_ASIGNACION')))
                AND (@TargetStatus <> 'PENDIENTE_ASIGNACION' OR EXISTS (
                    SELECT 1 FROM "SIGERSA"."SOLICITUD_DOCUMENTO" document
-                    WHERE document.solicitud_id = id AND document.activo = true
+                    WHERE document.solicitud_id = request.id AND document.activo = true
                       AND document.obligatorio = true));
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);

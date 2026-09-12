@@ -19,12 +19,15 @@ public sealed partial class GlobalExceptionHandler(
         {
             ValidationException => (StatusCodes.Status400BadRequest, "Error de validación"),
             ArgumentException => (StatusCodes.Status400BadRequest, "Solicitud no válida"),
+            InvalidDataException => (StatusCodes.Status400BadRequest, "Archivo no válido"),
             UnauthorizedAccessException => (StatusCodes.Status401Unauthorized, "No autorizado"),
             ForbiddenException => (StatusCodes.Status403Forbidden, "Acceso denegado"),
             OptimisticConcurrencyException => (StatusCodes.Status409Conflict, "Conflicto de concurrencia"),
             PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } =>
                 (StatusCodes.Status409Conflict, "Registro duplicado"),
             EmailDeliveryException => (StatusCodes.Status503ServiceUnavailable, "Servicio de correo no disponible"),
+            FileStorageUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Almacenamiento no disponible"),
+            MfaProviderUnavailableException => (StatusCodes.Status503ServiceUnavailable, "Servicio MFA no disponible"),
             InvalidOperationException => (StatusCodes.Status409Conflict, "Operación no permitida"),
             KeyNotFoundException => (StatusCodes.Status404NotFound, "Recurso no encontrado"),
             _ => (StatusCodes.Status500InternalServerError, "Error interno del servidor")

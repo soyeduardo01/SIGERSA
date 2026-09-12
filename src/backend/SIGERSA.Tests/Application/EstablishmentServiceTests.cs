@@ -45,6 +45,26 @@ public sealed class EstablishmentServiceTests
     }
 
     [Fact]
+    public async Task CreateConvertsDatesToUtcAndNormalizesMaskedContactIdentification()
+    {
+        var repository = new FakeRepository();
+        var service = new EstablishmentService(repository, new EstablishmentRequestValidator());
+        var localDate = new DateTimeOffset(2026, 9, 14, 0, 0, 0, TimeSpan.FromHours(-4));
+
+        await service.CreateAsync(ValidRequest() with
+        {
+            OperationsStartDate = localDate,
+            SanitaryPermitExpiresAt = localDate.AddYears(1),
+            Contacts = [new EstablishmentContactDraft(
+                "PRINCIPAL", "Propietario", "001-0000000-1", "809-555-1234", null)]
+        }, ActorId, CancellationToken.None);
+
+        Assert.Equal(TimeSpan.Zero, repository.LastDraft!.OperationsStartDate!.Value.Offset);
+        Assert.Equal(TimeSpan.Zero, repository.LastDraft.SanitaryPermitExpiresAt!.Value.Offset);
+        Assert.Equal("00100000001", repository.LastDraft.Contacts.Single().Identification);
+    }
+
+    [Fact]
     public async Task UpdateRequiresAndProtectsTheRowVersion()
     {
         var repository = new FakeRepository { AllowUpdate = false };

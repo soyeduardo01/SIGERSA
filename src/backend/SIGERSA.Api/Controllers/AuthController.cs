@@ -20,7 +20,12 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         var result = await authService.LoginAsync(
             new LoginCommand(request.Email, request.Password, Device(), IpHash()), cancellationToken);
         return result.RequiresTwoFactor
-            ? Accepted(new { requiresTwoFactor = true, expiresAt = result.ExpiresAt })
+            ? Accepted(new
+            {
+                requiresTwoFactor = true,
+                expiresAt = result.ExpiresAt,
+                provider = result.Provider
+            })
             : Ok(result.Session);
     }
 
@@ -31,6 +36,20 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         TwoFactorVerification request, CancellationToken cancellationToken) =>
         authService.VerifyTwoFactorAsync(
             new VerifyTwoFactorCommand(request.Email, request.Otp, Device(), IpHash()), cancellationToken);
+
+    [HttpPost("login/verify-supabase-mfa")]
+    [AllowAnonymous]
+    [EnableRateLimiting("otp-verify")]
+    public Task<AuthTokensResponse> VerifySupabaseMfa(
+        SupabaseMfaVerification request,
+        CancellationToken cancellationToken) =>
+        authService.VerifySupabaseMfaAsync(
+            new VerifySupabaseMfaCommand(
+                request.Email,
+                request.SupabaseAccessToken,
+                Device(),
+                IpHash()),
+            cancellationToken);
 
     [HttpPost("refresh")]
     [AllowAnonymous]
@@ -90,6 +109,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
 
 public sealed record LoginRequest(string Email, string Password);
 public sealed record TwoFactorVerification(string Email, string Otp);
+public sealed record SupabaseMfaVerification(string Email, string SupabaseAccessToken);
 public sealed record RefreshRequest(string RefreshToken);
 public sealed record LogoutRequest(string RefreshToken);
 public sealed record PasswordRecoveryRequest(string Email);

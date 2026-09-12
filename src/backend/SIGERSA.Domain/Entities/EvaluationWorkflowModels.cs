@@ -49,11 +49,81 @@ public sealed record EvaluationFormItem(
     int Level,
     int Order);
 
+public sealed record EvaluationSavedAnswer(
+    int SourceItem,
+    string Rating,
+    string? CriticalityCode,
+    string? Observation,
+    string? Comment);
+
+public sealed record EvaluationInspectionContext(
+    string Origin,
+    string? InspectionReasonCode,
+    string? InspectionReasonName,
+    bool HasValidSanitaryPermit,
+    Guid? PreviousEvaluationId,
+    DateOnly? PreviousInspectionDate,
+    decimal? PreviousCompliancePercentage,
+    IReadOnlyList<int> PreviousNonconformingSourceItems);
+
+public sealed record EvaluationInspectionPolicy(
+    string Mode,
+    string Title,
+    string Explanation,
+    bool IsReady,
+    string? BlockingReason,
+    IReadOnlyList<int> RequiredSourceItems,
+    IReadOnlyList<int> ExcludedSourceItems,
+    string? ApprovalPurpose,
+    Guid? PreviousEvaluationId,
+    DateOnly? PreviousInspectionDate,
+    decimal? PreviousCompliancePercentage);
+
+public sealed record EvaluationFollowUpItem(string Detail, DateOnly? DueDate);
+
+public sealed record EvaluationSupplement(
+    DateOnly? PreviousInspectionDate,
+    string? PreviousQualification,
+    DateOnly? CurrentInspectionDate,
+    string? CurrentQualification,
+    string? DpsDasOfficer1,
+    string? DpsDasOfficer2,
+    string? DigemapsTechnician1,
+    string? DigemapsTechnician2,
+    IReadOnlyList<EvaluationFollowUpItem> CorrectiveMeasures,
+    IReadOnlyList<EvaluationFollowUpItem> Recommendations,
+    long RowVersion);
+
+public sealed record EvaluationWorkspaceData(
+    IReadOnlyList<EvaluationFormItem> Items,
+    IReadOnlyList<EvaluationSavedAnswer> Answers,
+    EvaluationSupplement Supplement);
+
+public sealed record EvaluationWorkspace(
+    IReadOnlyList<EvaluationFormItem> Items,
+    IReadOnlyList<EvaluationSavedAnswer> Answers,
+    EvaluationSupplement Supplement,
+    EvaluationInspectionPolicy Policy);
+
+public sealed record SaveEvaluationSupplementDraft(
+    DateOnly? PreviousInspectionDate,
+    string? PreviousQualification,
+    DateOnly? CurrentInspectionDate,
+    string? CurrentQualification,
+    string? DpsDasOfficer1,
+    string? DpsDasOfficer2,
+    string? DigemapsTechnician1,
+    string? DigemapsTechnician2,
+    IReadOnlyList<EvaluationFollowUpItem> CorrectiveMeasures,
+    IReadOnlyList<EvaluationFollowUpItem> Recommendations,
+    long RowVersion);
+
 public sealed record EvaluationAnswer(
     Guid Id,
     Guid EvaluationId,
     int SourceItem,
     string Rating,
+    string? CriticalityCode,
     decimal? Score,
     long RowVersion);
 
@@ -79,7 +149,19 @@ public sealed record EvaluationCalculation(
     decimal? TotalRisk,
     string RiskLevel,
     string Frequency,
+    EvaluationDecisionGuidance Decision,
     long RowVersion);
+
+public sealed record EvaluationDecisionGuidance(
+    string Band,
+    string Condition,
+    string PrimaryRecommendation,
+    bool? ApprovalEligible,
+    int ApplicableItems,
+    int CriticalNonconformities,
+    int MajorNonconformities,
+    int MinorNonconformities,
+    IReadOnlyList<string> Messages);
 
 public sealed record CreateEvaluationDraft(
     Guid CaseId,
@@ -94,6 +176,7 @@ public sealed record SaveEvaluationAnswerDraft(
     Guid EvaluationId,
     int SourceItem,
     string Rating,
+    string? CriticalityCode,
     string? Observation,
     string? Comment,
     Guid IdempotencyKey,

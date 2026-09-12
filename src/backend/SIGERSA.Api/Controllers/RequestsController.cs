@@ -64,7 +64,7 @@ public sealed class RequestsController(
     [HttpPost("{id:guid}/documents")]
     [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR")]
     [Consumes("multipart/form-data")]
-    [RequestSizeLimit(10_485_760)]
+    [RequestSizeLimit(6_291_456)]
     public async Task<ActionResult<object>> UploadDocument(
         Guid id, IFormFile file, [FromForm] string documentType,
         [FromForm] bool required, CancellationToken cancellationToken)

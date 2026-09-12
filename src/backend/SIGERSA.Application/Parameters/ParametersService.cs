@@ -5,10 +5,10 @@ namespace SIGERSA.Application.Parameters;
 
 public sealed class ParametersService(IParametersControlRepository repository)
 {
-    public Task<IReadOnlyList<ParameterControl>> GetAllActiveAsync(
+    public Task<IReadOnlyList<ParameterControl>> GetAllAsync(
         string? search,
         CancellationToken cancellationToken) =>
-        repository.GetAllActiveAsync(string.IsNullOrWhiteSpace(search) ? null : search.Trim(), cancellationToken);
+        repository.GetAllAsync(string.IsNullOrWhiteSpace(search) ? null : search.Trim(), cancellationToken);
 
     public Task<IReadOnlyList<ParameterControl>> GetActiveAsync(
         string keyWord,
@@ -32,6 +32,14 @@ public sealed class ParametersService(IParametersControlRepository repository)
         if (!await repository.SoftDeleteAsync(id, Required(user, nameof(user)), cancellationToken))
         {
             throw new KeyNotFoundException("El parámetro no existe o ya está inactivo.");
+        }
+    }
+
+    public async Task ActivateAsync(long id, string user, CancellationToken cancellationToken)
+    {
+        if (!await repository.ActivateAsync(id, Required(user, nameof(user)), cancellationToken))
+        {
+            throw new KeyNotFoundException("El parámetro no existe o ya está activo.");
         }
     }
 

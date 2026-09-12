@@ -53,4 +53,5 @@ public sealed record InspectionRequestOptions(
     IReadOnlyList<InspectionRequestOption> Companies,
     IReadOnlyList<InspectionRequestOption> Establishments,
     IReadOnlyList<InspectionRequestOption> Reasons,
+    IReadOnlyList<string> EstablishmentTypes,
     bool CanManage);

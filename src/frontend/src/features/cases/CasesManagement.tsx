@@ -18,6 +18,13 @@ import { useParameterOptions } from '../../hooks/useParameterOptions'
 
 const emptyPage: CasesPage = { items: [], page: 1, pageSize: 10, total: 0 }
 
+const caseOriginOptions: Array<{ value: CaseDraft['origin']; label: string }> = [
+  { value: 'SOLICITUD_EMPRESA', label: 'Solicitud de empresa' },
+  { value: 'PROGRAMACION', label: 'Programación institucional' },
+  { value: 'ALERTA_LAPCH', label: 'Alerta LAPCH' },
+  { value: 'DENUNCIA', label: 'Reporte o denuncia' },
+]
+
 export function CasesManagement() {
   const caseStates = useParameterOptions('ESTADO_CASO')
   const [result, setResult] = useState(emptyPage)
@@ -283,6 +290,7 @@ function CaseForm({
   const [decision, setDecision] = useState(item?.analysisDecision ?? '')
   const [reason, setReason] = useState(item?.decisionReason ?? '')
   const [saving, setSaving] = useState(false)
+  const availableSources = options.sources.filter((option) => option.kind === origin)
   async function submit(event: FormEvent) {
     event.preventDefault()
     setSaving(true)
@@ -326,30 +334,51 @@ function CaseForm({
           </button>
         </div>
         <form onSubmit={(event) => void submit(event)} className="mt-6 grid gap-4 md:grid-cols-2">
-          <label className="text-sm font-bold md:col-span-2">
+          <label className="text-sm font-bold">
             Origen del caso
             <select
               required
               disabled={Boolean(item)}
-              value={sourceId ? `${origin}:${sourceId}` : ''}
+              value={origin}
               onChange={(event) => {
-                const [selectedOrigin, selectedId] = event.target.value.split(':')
-                setOrigin(selectedOrigin as CaseDraft['origin'])
-                setSourceId(selectedId ?? '')
+                setOrigin(event.target.value as CaseDraft['origin'])
+                setSourceId('')
               }}
               className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal disabled:bg-slate-100"
             >
-              <option value="">Seleccione</option>
-              {item && (
-                <option value={`${origin}:${sourceId}`}>
-                  {formatStatusLabel(item.origin)} · {item.number}
-                </option>
-              )}
-              {options.sources.map((option) => (
-                <option key={`${option.kind}-${option.id}`} value={`${option.kind}:${option.id}`}>
-                  {option.name}
+              {caseOriginOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="text-sm font-bold">
+            Registro asociado
+            <select
+              required
+              disabled={Boolean(item)}
+              value={sourceId}
+              onChange={(event) => setSourceId(event.target.value)}
+              className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal disabled:bg-slate-100"
+            >
+              <option value="">
+                {availableSources.length === 0
+                  ? 'No hay registros disponibles para este origen'
+                  : 'Seleccione un registro'}
+              </option>
+              {item && sourceId && (
+                <option value={sourceId}>
+                  {caseOriginOptions.find((option) => option.value === origin)?.label} ·{' '}
+                  {item.number}
+                </option>
+              )}
+              {!item &&
+                availableSources.map((option) => (
+                  <option key={`${option.kind}-${option.id}`} value={option.id}>
+                  {option.name}
+                  </option>
+                ))}
             </select>
           </label>
           <label className="text-sm font-bold">
@@ -394,13 +423,14 @@ function CaseForm({
               ))}
             </select>
           </label>
-          <label className="text-sm font-bold">
+          <label className="text-sm font-bold md:col-span-2">
             Justificación
-            <input
+            <textarea
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               maxLength={2000}
-              className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
+              rows={5}
+              className="mt-1.5 w-full resize-y rounded-xl border px-3 py-2.5 font-normal"
             />
           </label>
           <div className="flex justify-end gap-3 border-t pt-5 md:col-span-2">

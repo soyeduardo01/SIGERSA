@@ -6,6 +6,12 @@ public sealed record LoginCommand(string Email, string Password, string? Device,
 
 public sealed record VerifyTwoFactorCommand(string Email, string Otp, string? Device, string? IpHash);
 
+public sealed record VerifySupabaseMfaCommand(
+    string Email,
+    string SupabaseAccessToken,
+    string? Device,
+    string? IpHash);
+
 public sealed record RefreshTokenCommand(string RefreshToken, string? Device, string? IpHash);
 
 public sealed record LogoutCommand(Guid UserId, string RefreshToken);
@@ -26,6 +32,7 @@ public sealed record AuthTokensResponse(
 public sealed record LoginResult(
     bool RequiresTwoFactor,
     DateTimeOffset? ExpiresAt,
+    string? Provider,
     AuthTokensResponse? Session);
 
 public sealed record PasswordRecoveryTokenResponse(string ResetToken, DateTimeOffset ExpiresAt);

@@ -12,7 +12,7 @@ public sealed class ParametersController(ParametersService service) : Controller
     [HttpGet]
     [Authorize(Policy = "Administrator")]
     public Task<IReadOnlyList<ParameterControl>> GetAll(string? search, CancellationToken cancellationToken) =>
-        service.GetAllActiveAsync(search, cancellationToken);
+        service.GetAllAsync(search, cancellationToken);
 
     [HttpGet("{keyWord}")]
     [Authorize]
@@ -40,6 +40,14 @@ public sealed class ParametersController(ParametersService service) : Controller
     public async Task<IActionResult> Delete(long id, CancellationToken cancellationToken)
     {
         await service.SoftDeleteAsync(id, Actor(), cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("{id:long}/activate")]
+    [Authorize(Policy = "Administrator")]
+    public async Task<IActionResult> Activate(long id, CancellationToken cancellationToken)
+    {
+        await service.ActivateAsync(id, Actor(), cancellationToken);
         return NoContent();
     }
 

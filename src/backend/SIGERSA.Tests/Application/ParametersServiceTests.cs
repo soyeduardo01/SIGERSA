@@ -12,7 +12,7 @@ public sealed class ParametersServiceTests
         var repository = new FakeRepository();
         var service = new ParametersService(repository);
 
-        await service.GetAllActiveAsync("  riesgo  ", CancellationToken.None);
+        await service.GetAllAsync("  riesgo  ", CancellationToken.None);
         await service.GetActiveAsync("  NIVEL_RIESGO_ALIMENTO  ", null, CancellationToken.None);
 
         Assert.Equal("riesgo", repository.Search);
@@ -30,7 +30,7 @@ public sealed class ParametersServiceTests
     }
 
     [Fact]
-    public async Task MissingParameterCannotBeUpdatedOrDeleted()
+    public async Task MissingParameterCannotBeUpdatedDeletedOrActivated()
     {
         var service = new ParametersService(new FakeRepository { MutationResult = false });
         var draft = new ParameterControlDraft("CATALOGO", null, 1, "A", null, null, "Activo", true, null);
@@ -39,6 +39,8 @@ public sealed class ParametersServiceTests
             service.UpdateAsync(1, draft, "admin", CancellationToken.None));
         await Assert.ThrowsAsync<KeyNotFoundException>(() =>
             service.SoftDeleteAsync(1, "admin", CancellationToken.None));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            service.ActivateAsync(1, "admin", CancellationToken.None));
     }
 
     private sealed class FakeRepository : IParametersControlRepository
@@ -47,7 +49,7 @@ public sealed class ParametersServiceTests
         public string? KeyWord { get; private set; }
         public bool MutationResult { get; init; } = true;
 
-        public Task<IReadOnlyList<ParameterControl>> GetAllActiveAsync(string? search, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ParameterControl>> GetAllAsync(string? search, CancellationToken cancellationToken = default)
         {
             Search = search;
             return Task.FromResult<IReadOnlyList<ParameterControl>>([]);
@@ -66,6 +68,9 @@ public sealed class ParametersServiceTests
             Task.FromResult(MutationResult);
 
         public Task<bool> SoftDeleteAsync(long parametersId, string user, CancellationToken cancellationToken = default) =>
+            Task.FromResult(MutationResult);
+
+        public Task<bool> ActivateAsync(long parametersId, string user, CancellationToken cancellationToken = default) =>
             Task.FromResult(MutationResult);
     }
 }

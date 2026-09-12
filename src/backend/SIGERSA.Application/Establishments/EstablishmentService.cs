@@ -42,8 +42,8 @@ public sealed class EstablishmentService(
         request.CompanyId, request.MunicipalityId, request.DpsDasId, request.CommercializationId,
         string.Empty, request.Name.Trim(), NormalizeOptional(request.Street),
         NormalizeOptional(request.AddressNumber), NormalizeOptional(request.Phone),
-        NormalizeOptional(request.Email)?.ToLowerInvariant(), request.OperationsStartDate,
-        NormalizeOptional(request.SanitaryPermitNumber), request.SanitaryPermitExpiresAt,
+        NormalizeOptional(request.Email)?.ToLowerInvariant(), NormalizeUtc(request.OperationsStartDate),
+        NormalizeOptional(request.SanitaryPermitNumber), NormalizeUtc(request.SanitaryPermitExpiresAt),
         NormalizeOptional(request.ProductsDescription), request.AnnualProduction, request.FemaleEmployees,
         request.MaleEmployees, request.MicrobiologicalRejectionsLastFiveYears,
         request.HaccpImplemented, request.HaccpImplemented == true ? request.HaccpPercentage : null,
@@ -51,8 +51,25 @@ public sealed class EstablishmentService(
         request.MicrobiologicalSamplingPlan == true ? NormalizeOptional(request.SamplingApplicationCode) : null,
         request.IsInabieSupplier,
         request.IsInabieSupplier == true ? NormalizeOptional(request.InabieDistributionCode) : null,
-        request.Status.Trim().ToUpperInvariant(), request.MarketIds ?? [], request.Contacts ?? [],
+        request.Status.Trim().ToUpperInvariant(), request.MarketIds ?? [], NormalizeContacts(request.Contacts),
         request.Products ?? [], request.RowVersion);
+
+    private static EstablishmentContactDraft[] NormalizeContacts(
+        IReadOnlyList<EstablishmentContactDraft>? contacts) =>
+        (contacts ?? []).Select(contact => new EstablishmentContactDraft(
+            contact.Type.Trim().ToUpperInvariant(),
+            contact.FullName.Trim(),
+            NormalizeIdentification(contact.Identification),
+            NormalizeOptional(contact.Phone),
+            NormalizeOptional(contact.Email)?.ToLowerInvariant())).ToArray();
+
+    private static string? NormalizeIdentification(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return new string(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
+    }
+
+    private static DateTimeOffset? NormalizeUtc(DateTimeOffset? value) => value?.ToUniversalTime();
 
     private static string? NormalizeOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

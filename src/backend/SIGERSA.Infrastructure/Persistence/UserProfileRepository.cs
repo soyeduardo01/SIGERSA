@@ -14,6 +14,9 @@ public sealed class UserProfileRepository(IDbConnectionFactory connectionFactory
         const string sql = """
             SELECT id AS Id, nombre_completo AS FullName, correo AS Email,
                    telefono AS Phone, password_hash AS PasswordHash,
+                   estado AS Status, ultimo_acceso_en AS LastAccessAt,
+                   supabase_auth_user_id AS SupabaseAuthUserId,
+                   mfa_habilitado AS MfaEnabled, mfa_factor_id AS MfaFactorId,
                    version_fila AS RowVersion
             FROM "SIGERSA"."USUARIO"
             WHERE id = @UserId AND activo = true;
@@ -21,8 +24,9 @@ public sealed class UserProfileRepository(IDbConnectionFactory connectionFactory
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
         {
-            return await connection.QuerySingleOrDefaultAsync<UserProfileAccount>(
+            var row = await connection.QuerySingleOrDefaultAsync<UserProfileRow>(
                 new CommandDefinition(Sql(sql), new { UserId = userId }, cancellationToken: cancellationToken));
+            return row?.ToDomain();
         }
     }
 
@@ -98,5 +102,84 @@ public sealed class UserProfileRepository(IDbConnectionFactory connectionFactory
             await transaction.CommitAsync(cancellationToken);
             return true;
         }
+    }
+
+    public async Task SetSupabaseIdentityAsync(
+        Guid userId,
+        Guid supabaseUserId,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE "SIGERSA"."USUARIO"
+               SET supabase_auth_user_id = @SupabaseUserId,
+                   modificado_en = CURRENT_TIMESTAMP,
+                   modificado_por = @UserId,
+                   version_fila = version_fila + 1
+             WHERE id = @UserId AND activo = true;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            var affected = await connection.ExecuteAsync(new CommandDefinition(
+                Sql(sql), new { UserId = userId, SupabaseUserId = supabaseUserId },
+                cancellationToken: cancellationToken));
+            if (affected != 1) throw new KeyNotFoundException("El usuario no está disponible.");
+        }
+    }
+
+    public async Task SetMfaAsync(
+        Guid userId,
+        bool enabled,
+        Guid? factorId,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE "SIGERSA"."USUARIO"
+               SET mfa_habilitado = @Enabled,
+                   mfa_factor_id = CASE WHEN @Enabled THEN @FactorId ELSE NULL END,
+                   modificado_en = CURRENT_TIMESTAMP,
+                   modificado_por = @UserId,
+                   version_fila = version_fila + 1
+             WHERE id = @UserId AND activo = true
+               AND supabase_auth_user_id IS NOT NULL;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            var affected = await connection.ExecuteAsync(new CommandDefinition(
+                Sql(sql), new { UserId = userId, Enabled = enabled, FactorId = factorId },
+                cancellationToken: cancellationToken));
+            if (affected != 1) throw new KeyNotFoundException("La identidad MFA no está configurada.");
+        }
+    }
+
+    private sealed class UserProfileRow
+    {
+        public Guid Id { get; init; }
+        public string FullName { get; init; } = string.Empty;
+        public string Email { get; init; } = string.Empty;
+        public string? Phone { get; init; }
+        public string PasswordHash { get; init; } = string.Empty;
+        public string Status { get; init; } = string.Empty;
+        public DateTime? LastAccessAt { get; init; }
+        public Guid? SupabaseAuthUserId { get; init; }
+        public bool MfaEnabled { get; init; }
+        public Guid? MfaFactorId { get; init; }
+        public long RowVersion { get; init; }
+
+        public UserProfileAccount ToDomain() => new(
+            Id,
+            FullName,
+            Email,
+            Phone,
+            PasswordHash,
+            Status,
+            LastAccessAt is null
+                ? null
+                : new DateTimeOffset(DateTime.SpecifyKind(LastAccessAt.Value, DateTimeKind.Utc)),
+            SupabaseAuthUserId,
+            MfaEnabled,
+            MfaFactorId,
+            RowVersion);
     }
 }

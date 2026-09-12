@@ -9,7 +9,7 @@ public sealed class SupportingDocumentService(
     ISupportingDocumentRepository repository,
     IFileStorage storage)
 {
-    private const long MaximumSize = 10 * 1024 * 1024;
+    private const long MaximumSize = 5 * 1024 * 1024;
     private static readonly string[] AllowedMimeTypes = ["application/pdf", "image/jpeg", "image/png"];
 
     public async Task<SupportingDocumentDownload> DownloadUserAuthorizationAsync(
@@ -79,7 +79,7 @@ public sealed class SupportingDocumentService(
         if (!AllowedMimeTypes.Contains(mimeType, StringComparer.OrdinalIgnoreCase))
             throw new InvalidDataException("Solo se permiten documentos PDF, JPG o PNG.");
         if (fileSize is <= 0 or > MaximumSize)
-            throw new InvalidDataException("El documento debe pesar entre 1 byte y 10 MB.");
+            throw new InvalidDataException("El documento debe pesar entre 1 byte y 5 MB.");
     }
 
     private static string Extension(string mimeType) => mimeType.ToLowerInvariant() switch

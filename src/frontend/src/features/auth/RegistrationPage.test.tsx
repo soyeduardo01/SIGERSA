@@ -30,7 +30,9 @@ describe('RegistrationPage', () => {
 
     fireEvent.change(screen.getByLabelText(/Nombre completo/), { target: { value: 'María Pérez' } })
     fireEvent.change(screen.getByLabelText(/Número/), { target: { value: '00100000001' } })
-    fireEvent.change(screen.getByLabelText(/Correo electrónico/), { target: { value: 'maria@example.com' } })
+    fireEvent.change(screen.getByLabelText(/Correo electrónico/), {
+      target: { value: 'maria@example.com' },
+    })
     fireEvent.change(screen.getByLabelText(/Teléfono/), { target: { value: '8095551212' } })
     fireEvent.change(screen.getByLabelText(/Rol/), { target: { value: 'USUARIO_DELEGADO' } })
     fireEvent.change(screen.getByLabelText(/Contraseña/), { target: { value: 'Segura8!' } })
@@ -49,5 +51,22 @@ describe('RegistrationPage', () => {
       termsAccepted: true,
     })
     expect(onBack).toHaveBeenCalledOnce()
+  })
+
+  it('alterna la visibilidad de la contraseña mediante iconos accesibles', () => {
+    render(<RegistrationPage onBack={vi.fn()} />)
+
+    const password = screen.getByLabelText(/Contraseña \*/)
+    const toggle = screen.getByRole('button', { name: 'Mostrar contraseña' })
+    expect(password).toHaveAttribute('type', 'password')
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(toggle)
+
+    expect(password).toHaveAttribute('type', 'text')
+    expect(screen.getByRole('button', { name: 'Ocultar contraseña' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
   })
 })

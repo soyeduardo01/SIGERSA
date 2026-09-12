@@ -394,6 +394,205 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         }
     }
 
+    public async Task<EvaluationWorkspaceData> GetWorkspaceAsync(
+        Guid evaluationId,
+        Guid actorId,
+        CancellationToken cancellationToken = default)
+    {
+        var items = await GetFormAsync(evaluationId, actorId, cancellationToken);
+        const string sql = """
+            SELECT item.source_allitems_item AS SourceItem,
+                   response.valor_texto AS Rating,
+                   criticality.codigo AS CriticalityCode,
+                   response.observacion AS Observation,
+                   response.comentario AS Comment
+              FROM "SIGERSA"."RESPUESTA_USUARIO" response
+              JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+              LEFT JOIN "SIGERSA"."NIVEL_CRITICIDAD" criticality
+                ON criticality.id = response.nivel_criticidad_id
+             WHERE response.evaluacion_id = @EvaluationId
+             ORDER BY item.orden;
+
+            SELECT fecha_ultima_inspeccion AS PreviousInspectionDate,
+                   calificacion_ultima_inspeccion AS PreviousQualification,
+                   fecha_inspeccion_actual AS CurrentInspectionDate,
+                   calificacion_inspeccion_actual AS CurrentQualification,
+                   oficial_dps_das_1 AS DpsDasOfficer1,
+                   oficial_dps_das_2 AS DpsDasOfficer2,
+                   tecnico_digemaps_1 AS DigemapsTechnician1,
+                   tecnico_digemaps_2 AS DigemapsTechnician2,
+                   medidas_correctivas::text AS CorrectiveMeasuresJson,
+                   recomendaciones::text AS RecommendationsJson,
+                   version_fila AS RowVersion
+              FROM "SIGERSA"."EVALUACION_COMPLEMENTO"
+             WHERE evaluacion_id = @EvaluationId;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            using var result = await connection.QueryMultipleAsync(new CommandDefinition(
+                Sql(sql), new { EvaluationId = evaluationId }, cancellationToken: cancellationToken));
+            var answers = (await result.ReadAsync<EvaluationSavedAnswer>()).AsList();
+            var supplement = await result.ReadSingleOrDefaultAsync<EvaluationSupplementRow>();
+            return new EvaluationWorkspaceData(items, answers, supplement?.ToDomain() ?? EmptySupplement());
+        }
+    }
+
+    public async Task<EvaluationInspectionContext> GetInspectionContextAsync(
+        Guid evaluationId,
+        Guid actorId,
+        CancellationToken cancellationToken = default)
+    {
+        var contextSql = $"""
+            SELECT inspection_case.origen AS Origin,
+                   reason.codigo AS InspectionReasonCode,
+                   reason.nombre AS InspectionReasonName,
+                   (NULLIF(trim(establishment.permiso_sanitario_numero), '') IS NOT NULL
+                    AND (establishment.permiso_sanitario_vence_en IS NULL
+                         OR establishment.permiso_sanitario_vence_en::date >= CURRENT_DATE)) AS HasValidSanitaryPermit,
+                   (SELECT prior.id
+                      FROM "SIGERSA"."EVALUACION" prior
+                     WHERE prior.establecimiento_id = evaluation.establecimiento_id
+                       AND prior.id <> evaluation.id
+                       AND prior.estado IN ('FINALIZADA', 'ENVIADA', 'EN_REVISION', 'APROBADA', 'CERRADA')
+                     ORDER BY COALESCE(prior.finalizada_en, prior.iniciada_en, prior.creado_en) DESC, prior.id DESC
+                     LIMIT 1) AS PreviousEvaluationId,
+                   (SELECT COALESCE(prior.finalizada_en, prior.iniciada_en)::date
+                      FROM "SIGERSA"."EVALUACION" prior
+                     WHERE prior.establecimiento_id = evaluation.establecimiento_id
+                       AND prior.id <> evaluation.id
+                       AND prior.estado IN ('FINALIZADA', 'ENVIADA', 'EN_REVISION', 'APROBADA', 'CERRADA')
+                     ORDER BY COALESCE(prior.finalizada_en, prior.iniciada_en, prior.creado_en) DESC, prior.id DESC
+                     LIMIT 1) AS PreviousInspectionDate,
+                   (SELECT prior.porcentaje_cumplimiento
+                      FROM "SIGERSA"."EVALUACION" prior
+                     WHERE prior.establecimiento_id = evaluation.establecimiento_id
+                       AND prior.id <> evaluation.id
+                       AND prior.estado IN ('FINALIZADA', 'ENVIADA', 'EN_REVISION', 'APROBADA', 'CERRADA')
+                     ORDER BY COALESCE(prior.finalizada_en, prior.iniciada_en, prior.creado_en) DESC, prior.id DESC
+                     LIMIT 1) AS PreviousCompliancePercentage
+              FROM "SIGERSA"."EVALUACION" evaluation
+              JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
+              JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
+              LEFT JOIN "SIGERSA"."MOTIVO_INSPECCION" reason ON reason.id = inspection_case.motivo_inspeccion_id
+             WHERE evaluation.id = @EvaluationId AND {AccessPredicate};
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            var header = await connection.QuerySingleOrDefaultAsync<InspectionContextRow>(new CommandDefinition(
+                Sql(contextSql), new { EvaluationId = evaluationId, ActorId = actorId }, cancellationToken: cancellationToken));
+            if (header is null)
+                throw new KeyNotFoundException("La evaluación no existe o no está disponible para el usuario.");
+
+            var priorNonconformities = header.PreviousEvaluationId.HasValue
+                ? (await connection.QueryAsync<int>(new CommandDefinition(Sql("""
+                    SELECT DISTINCT item.source_allitems_item
+                      FROM "SIGERSA"."RESPUESTA_USUARIO" response
+                      JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                     WHERE response.evaluacion_id = @PreviousEvaluationId
+                       AND response.valor_texto = 'NO_CUMPLE'
+                       AND item.source_allitems_item IS NOT NULL
+                     ORDER BY item.source_allitems_item;
+                    """), new { header.PreviousEvaluationId }, cancellationToken: cancellationToken))).ToArray()
+                : [];
+
+            return new EvaluationInspectionContext(
+                header.Origin,
+                header.InspectionReasonCode,
+                header.InspectionReasonName,
+                header.HasValidSanitaryPermit,
+                header.PreviousEvaluationId,
+                header.PreviousInspectionDate,
+                header.PreviousCompliancePercentage,
+                priorNonconformities);
+        }
+    }
+
+    public async Task<EvaluationSupplement> SaveSupplementAsync(
+        Guid evaluationId,
+        SaveEvaluationSupplementDraft draft,
+        Guid actorId,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
+        {
+            var accessSql = $"""
+                SELECT evaluation.id
+                  FROM "SIGERSA"."EVALUACION" evaluation
+                 WHERE evaluation.id = @EvaluationId
+                   AND evaluation.estado IN ('EN_EJECUCION', 'EN_CORRECCION')
+                   AND {AccessPredicate}
+                 FOR UPDATE;
+                """;
+            var accessibleId = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+                Sql(accessSql), new { EvaluationId = evaluationId, ActorId = actorId }, transaction,
+                cancellationToken: cancellationToken));
+            if (accessibleId is null)
+                throw new KeyNotFoundException("La evaluación no está en ejecución o no está disponible para el usuario.");
+
+            var saved = await connection.QuerySingleOrDefaultAsync<EvaluationSupplementRow>(new CommandDefinition(Sql("""
+                INSERT INTO "SIGERSA"."EVALUACION_COMPLEMENTO" AS complement
+                    (evaluacion_id, fecha_ultima_inspeccion, calificacion_ultima_inspeccion,
+                     fecha_inspeccion_actual, calificacion_inspeccion_actual,
+                     oficial_dps_das_1, oficial_dps_das_2,
+                     tecnico_digemaps_1, tecnico_digemaps_2,
+                     medidas_correctivas, recomendaciones, creado_por, modificado_por)
+                VALUES
+                    (@EvaluationId, @PreviousInspectionDate, @PreviousQualification,
+                     @CurrentInspectionDate, @CurrentQualification,
+                     @DpsDasOfficer1, @DpsDasOfficer2,
+                     @DigemapsTechnician1, @DigemapsTechnician2,
+                     @CorrectiveMeasures::jsonb, @Recommendations::jsonb, @ActorId, @ActorId)
+                ON CONFLICT (evaluacion_id) DO UPDATE
+                   SET fecha_ultima_inspeccion = EXCLUDED.fecha_ultima_inspeccion,
+                       calificacion_ultima_inspeccion = EXCLUDED.calificacion_ultima_inspeccion,
+                       fecha_inspeccion_actual = EXCLUDED.fecha_inspeccion_actual,
+                       calificacion_inspeccion_actual = EXCLUDED.calificacion_inspeccion_actual,
+                       oficial_dps_das_1 = EXCLUDED.oficial_dps_das_1,
+                       oficial_dps_das_2 = EXCLUDED.oficial_dps_das_2,
+                       tecnico_digemaps_1 = EXCLUDED.tecnico_digemaps_1,
+                       tecnico_digemaps_2 = EXCLUDED.tecnico_digemaps_2,
+                       medidas_correctivas = EXCLUDED.medidas_correctivas,
+                       recomendaciones = EXCLUDED.recomendaciones,
+                       modificado_en = CURRENT_TIMESTAMP,
+                       modificado_por = @ActorId
+                 WHERE @RowVersion > 0 AND complement.version_fila = @RowVersion
+                RETURNING fecha_ultima_inspeccion AS PreviousInspectionDate,
+                          calificacion_ultima_inspeccion AS PreviousQualification,
+                          fecha_inspeccion_actual AS CurrentInspectionDate,
+                          calificacion_inspeccion_actual AS CurrentQualification,
+                          oficial_dps_das_1 AS DpsDasOfficer1,
+                          oficial_dps_das_2 AS DpsDasOfficer2,
+                          tecnico_digemaps_1 AS DigemapsTechnician1,
+                          tecnico_digemaps_2 AS DigemapsTechnician2,
+                          medidas_correctivas::text AS CorrectiveMeasuresJson,
+                          recomendaciones::text AS RecommendationsJson,
+                          version_fila AS RowVersion;
+                """), new
+                {
+                    EvaluationId = evaluationId,
+                    draft.PreviousInspectionDate,
+                    draft.PreviousQualification,
+                    draft.CurrentInspectionDate,
+                    draft.CurrentQualification,
+                    draft.DpsDasOfficer1,
+                    draft.DpsDasOfficer2,
+                    draft.DigemapsTechnician1,
+                    draft.DigemapsTechnician2,
+                    CorrectiveMeasures = JsonSerializer.Serialize(draft.CorrectiveMeasures),
+                    Recommendations = JsonSerializer.Serialize(draft.Recommendations),
+                    RowVersion = draft.RowVersion,
+                    ActorId = actorId
+                }, transaction, cancellationToken: cancellationToken));
+            if (saved is null) throw new OptimisticConcurrencyException(evaluationId);
+            await transaction.CommitAsync(cancellationToken);
+            return saved.ToDomain();
+        }
+    }
+
     public async Task<EvaluationAnswer> SaveAnswerAsync(SaveEvaluationAnswerDraft draft, Guid actorId, CancellationToken cancellationToken = default)
     {
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
@@ -412,7 +611,15 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
             var itemId = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(Sql(contextSql), new { draft.EvaluationId, draft.SourceItem, ActorId = actorId }, transaction, cancellationToken: cancellationToken));
             if (itemId is null) throw new KeyNotFoundException("La evaluación o el ítem evaluable no existe, o el usuario no tiene acceso.");
 
-            var payload = JsonSerializer.Serialize(new { draft.EvaluationId, draft.SourceItem, draft.Rating, draft.Observation, draft.Comment });
+            var payload = JsonSerializer.Serialize(new
+            {
+                draft.EvaluationId,
+                draft.SourceItem,
+                draft.Rating,
+                draft.CriticalityCode,
+                draft.Observation,
+                draft.Comment
+            });
             var payloadHash = Hash(payload);
             var operationId = Guid.NewGuid();
             var inserted = await connection.ExecuteAsync(new CommandDefinition(Sql("""
@@ -444,14 +651,19 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
             var answerId = Guid.NewGuid();
             var answer = await connection.QuerySingleOrDefaultAsync<AnswerRow>(new CommandDefinition(Sql("""
                 INSERT INTO "SIGERSA"."RESPUESTA_USUARIO"
-                    (id, evaluacion_id, item_ficha_id, valor_texto, observacion, comentario,
+                    (id, evaluacion_id, item_ficha_id, valor_texto, nivel_criticidad_id,
+                     observacion, comentario,
                      puntaje_obtenido, maximo_aplicable, respondido_por, fecha_cliente,
                      idempotency_key, creado_por)
-                VALUES (@Id, @EvaluationId, @ItemId, @Rating, @Observation, @Comment,
+                VALUES (@Id, @EvaluationId, @ItemId, @Rating,
+                        (SELECT id FROM "SIGERSA"."NIVEL_CRITICIDAD"
+                          WHERE codigo = @CriticalityCode AND activo = true LIMIT 1),
+                        @Observation, @Comment,
                         @Score, @MaximumScore, @ActorId, @ClientDate, @IdempotencyKey, @ActorId)
                 ON CONFLICT (evaluacion_id, item_ficha_id) DO UPDATE
                 SET valor_texto = EXCLUDED.valor_texto, observacion = EXCLUDED.observacion,
                     comentario = EXCLUDED.comentario,
+                    nivel_criticidad_id = EXCLUDED.nivel_criticidad_id,
                     puntaje_obtenido = EXCLUDED.puntaje_obtenido,
                     maximo_aplicable = EXCLUDED.maximo_aplicable,
                     respondido_por = EXCLUDED.respondido_por,
@@ -459,7 +671,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                     idempotency_key = EXCLUDED.idempotency_key, modificado_por = @ActorId
                 WHERE @BaseVersion IS NULL OR "SIGERSA"."RESPUESTA_USUARIO".version_fila = @BaseVersion
                 RETURNING id AS Id, version_fila AS RowVersion;
-                """), new { Id = answerId, draft.EvaluationId, ItemId = itemId.Value, draft.Rating, draft.Observation, draft.Comment, Score = score, MaximumScore = score is null ? (decimal?)null : 1m, ActorId = actorId, draft.ClientDate, draft.IdempotencyKey, draft.BaseVersion }, transaction, cancellationToken: cancellationToken));
+                """), new { Id = answerId, draft.EvaluationId, ItemId = itemId.Value, draft.Rating, draft.CriticalityCode, draft.Observation, draft.Comment, Score = score, MaximumScore = score is null ? (decimal?)null : 1m, ActorId = actorId, draft.ClientDate, draft.IdempotencyKey, draft.BaseVersion }, transaction, cancellationToken: cancellationToken));
             if (answer is null)
             {
                 var staleId = await connection.ExecuteScalarAsync<Guid>(new CommandDefinition(Sql("""
@@ -475,7 +687,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 WHERE id = @OperationId;
                 """), new { ResourceId = answer.Id, ActorId = actorId, OperationId = operationId }, transaction, cancellationToken: cancellationToken));
             await transaction.CommitAsync(cancellationToken);
-            return new EvaluationAnswer(answer.Id, draft.EvaluationId, draft.SourceItem, draft.Rating, score, answer.RowVersion);
+            return new EvaluationAnswer(answer.Id, draft.EvaluationId, draft.SourceItem, draft.Rating, draft.CriticalityCode, score, answer.RowVersion);
         }
     }
 
@@ -507,9 +719,11 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
             var answers = (await connection.QueryAsync<AnswerInputRow>(new CommandDefinition(Sql("""
                 SELECT response.id AS Id, response.evaluacion_id AS EvaluationId,
                        item.source_allitems_item AS SourceItem, response.valor_texto AS Rating,
+                       criticality.codigo AS CriticalityCode,
                        response.puntaje_obtenido AS Score, response.version_fila AS RowVersion
                 FROM "SIGERSA"."RESPUESTA_USUARIO" response
                 JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                LEFT JOIN "SIGERSA"."NIVEL_CRITICIDAD" criticality ON criticality.id = response.nivel_criticidad_id
                 WHERE response.evaluacion_id = @EvaluationId;
                 """), new { EvaluationId = evaluationId }, cancellationToken: cancellationToken))).Select(row => row.ToDomain()).ToArray();
             return new EvaluationCalculationInput(evaluationId, header.RowVersion, items, answers,
@@ -548,9 +762,11 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         var row = await connection.QuerySingleAsync<AnswerDetailRow>(new CommandDefinition(Sql("""
             SELECT response.id AS Id, response.evaluacion_id AS EvaluationId,
                    item.source_allitems_item AS SourceItem, response.valor_texto AS Rating,
+                   criticality.codigo AS CriticalityCode,
                    response.puntaje_obtenido AS Score, response.version_fila AS RowVersion
             FROM "SIGERSA"."RESPUESTA_USUARIO" response
             JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+            LEFT JOIN "SIGERSA"."NIVEL_CRITICIDAD" criticality ON criticality.id = response.nivel_criticidad_id
             WHERE response.id = @Id;
             """), new { Id = id }, transaction, cancellationToken: cancellationToken));
         return row.ToDomain();
@@ -568,13 +784,53 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
 
     private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
+    private static EvaluationSupplement EmptySupplement() =>
+        new(null, null, null, null, null, null, null, null, [], [], 0);
+
     private sealed class AllItemsRow { public int Items { get; init; } public string ItemsId { get; init; } = string.Empty; public string Description { get; init; } = string.Empty; public string SectionType { get; init; } = string.Empty; public string? Parents { get; init; } }
     private sealed class PreviousTemplateRow { public Guid Id { get; init; } public Guid RootId { get; init; } public int Version { get; init; } }
     private sealed class SyncOperationRow { public string PayloadHash { get; init; } = string.Empty; public Guid? ResourceId { get; init; } public string Status { get; init; } = string.Empty; }
     private sealed class AnswerRow { public Guid Id { get; init; } public long RowVersion { get; init; } }
-    private sealed class AnswerInputRow { public Guid Id { get; init; } public Guid EvaluationId { get; init; } public int SourceItem { get; init; } public string Rating { get; init; } = string.Empty; public decimal? Score { get; init; } public long RowVersion { get; init; } public EvaluationAnswer ToDomain() => new(Id, EvaluationId, SourceItem, Rating, Score, RowVersion); }
-    private sealed class AnswerDetailRow { public Guid Id { get; init; } public Guid EvaluationId { get; init; } public int SourceItem { get; init; } public string Rating { get; init; } = string.Empty; public decimal? Score { get; init; } public long RowVersion { get; init; } public EvaluationAnswer ToDomain() => new(Id, EvaluationId, SourceItem, Rating, Score, RowVersion); }
+    private sealed class AnswerInputRow { public Guid Id { get; init; } public Guid EvaluationId { get; init; } public int SourceItem { get; init; } public string Rating { get; init; } = string.Empty; public string? CriticalityCode { get; init; } public decimal? Score { get; init; } public long RowVersion { get; init; } public EvaluationAnswer ToDomain() => new(Id, EvaluationId, SourceItem, Rating, CriticalityCode, Score, RowVersion); }
+    private sealed class AnswerDetailRow { public Guid Id { get; init; } public Guid EvaluationId { get; init; } public int SourceItem { get; init; } public string Rating { get; init; } = string.Empty; public string? CriticalityCode { get; init; } public decimal? Score { get; init; } public long RowVersion { get; init; } public EvaluationAnswer ToDomain() => new(Id, EvaluationId, SourceItem, Rating, CriticalityCode, Score, RowVersion); }
+    private sealed class InspectionContextRow
+    {
+        public string Origin { get; init; } = string.Empty;
+        public string? InspectionReasonCode { get; init; }
+        public string? InspectionReasonName { get; init; }
+        public bool HasValidSanitaryPermit { get; init; }
+        public Guid? PreviousEvaluationId { get; init; }
+        public DateOnly? PreviousInspectionDate { get; init; }
+        public decimal? PreviousCompliancePercentage { get; init; }
+    }
     private sealed class CalculationHeaderRow { public long RowVersion { get; init; } public decimal? MonthlyProduction { get; init; } public bool? HaccpImplemented { get; init; } public decimal? HaccpPercentage { get; init; } public bool? IsInabieSupplier { get; init; } public string? InabieDistributionCode { get; init; } public int MicrobiologicalRejectionsLastFiveYears { get; init; } public bool? MicrobiologicalSamplingPlan { get; init; } public string? SamplingApplicationCode { get; init; } }
+    private sealed class EvaluationSupplementRow
+    {
+        public DateOnly? PreviousInspectionDate { get; init; }
+        public string? PreviousQualification { get; init; }
+        public DateOnly? CurrentInspectionDate { get; init; }
+        public string? CurrentQualification { get; init; }
+        public string? DpsDasOfficer1 { get; init; }
+        public string? DpsDasOfficer2 { get; init; }
+        public string? DigemapsTechnician1 { get; init; }
+        public string? DigemapsTechnician2 { get; init; }
+        public string CorrectiveMeasuresJson { get; init; } = "[]";
+        public string RecommendationsJson { get; init; } = "[]";
+        public long RowVersion { get; init; }
+
+        public EvaluationSupplement ToDomain() => new(
+            PreviousInspectionDate,
+            PreviousQualification,
+            CurrentInspectionDate,
+            CurrentQualification,
+            DpsDasOfficer1,
+            DpsDasOfficer2,
+            DigemapsTechnician1,
+            DigemapsTechnician2,
+            JsonSerializer.Deserialize<EvaluationFollowUpItem[]>(CorrectiveMeasuresJson) ?? [],
+            JsonSerializer.Deserialize<EvaluationFollowUpItem[]>(RecommendationsJson) ?? [],
+            RowVersion);
+    }
     private sealed class EvaluationSummaryRow
     {
         public Guid Id { get; init; } public string Number { get; init; } = string.Empty;

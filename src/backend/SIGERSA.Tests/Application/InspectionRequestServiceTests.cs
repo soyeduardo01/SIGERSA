@@ -93,7 +93,7 @@ public sealed class InspectionRequestServiceTests
             Guid? companyScope,
             bool canManage,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(new InspectionRequestOptions([], [], [], canManage));
+            Task.FromResult(new InspectionRequestOptions([], [], [], [], canManage));
 
         public Task<Guid> CreateAsync(
             InspectionRequestDraft draft,

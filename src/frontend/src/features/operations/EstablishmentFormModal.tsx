@@ -14,7 +14,7 @@ import type {
   EstablishmentDraft,
   EstablishmentOptions,
 } from '../../lib/api'
-import { formatStatusLabel } from '../../lib/formatters'
+import { formatCedula, formatPhone, formatStatusLabel } from '../../lib/formatters'
 
 interface EstablishmentFormModalProps {
   open: boolean
@@ -96,9 +96,13 @@ export function EstablishmentFormModal(props: EstablishmentFormModalProps) {
   useEffect(() => {
     if (!open) return
     const source = initial?.data ?? newDraft(options)
+    const maskedSource = {
+      ...source,
+      phone: source.phone ? formatPhone(source.phone) : null,
+    }
     const product = source.products[0]
     queueMicrotask(() => {
-      setDraft(source)
+      setDraft(maskedSource)
       setProvinceId(initial?.provinceId ?? '')
       setCategoryId(
         product
@@ -111,11 +115,15 @@ export function EstablishmentFormModal(props: EstablishmentFormModalProps) {
       setMonthlyVolume(product?.monthlyVolume?.toString() ?? '')
       setUnit(product?.unit ?? '')
       setOwner(
-        source.contacts.find((contact) => contact.type === 'PRINCIPAL') ??
-          emptyContact('PRINCIPAL'),
+        maskContact(
+          source.contacts.find((contact) => contact.type === 'PRINCIPAL') ??
+            emptyContact('PRINCIPAL'),
+        ),
       )
       setRepresentative(
-        source.contacts.find((contact) => contact.type === 'LEGAL') ?? emptyContact('LEGAL'),
+        maskContact(
+          source.contacts.find((contact) => contact.type === 'LEGAL') ?? emptyContact('LEGAL'),
+        ),
       )
       setTab('general')
     })
@@ -251,6 +259,10 @@ export function EstablishmentFormModal(props: EstablishmentFormModalProps) {
           onSubmit={(event) => void submit(event)}
           className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-7"
         >
+          <p className="mb-4 text-xs text-ink-muted">
+            Los campos marcados con <span className="font-bold text-red-600">*</span> son
+            obligatorios.
+          </p>
           {missingCatalogs.length > 0 && <CatalogNotice names={missingCatalogs} />}
           <FormSections
             isEditing={Boolean(initial)}
@@ -424,9 +436,11 @@ function FormSections(props: FormSectionsProps) {
         <Field label="Teléfono" className="lg:col-span-3">
           <input
             type="tel"
-            maxLength={40}
+            inputMode="numeric"
+            maxLength={12}
+            placeholder="809-555-1234"
             value={draft.phone ?? ''}
-            onChange={(event) => update('phone', event.target.value || null)}
+            onChange={(event) => update('phone', formatPhone(event.target.value) || null)}
             className={inputClass}
           />
         </Field>
@@ -790,18 +804,22 @@ function ContactFields({
       </Field>
       <Field label="Cédula de identidad">
         <input
-          maxLength={100}
+          inputMode="numeric"
+          maxLength={13}
+          placeholder="001-0000000-1"
           value={value.identification ?? ''}
-          onChange={(event) => onChange('identification', event.target.value)}
+          onChange={(event) => onChange('identification', formatCedula(event.target.value))}
           className={inputClass}
         />
       </Field>
       <Field label="Teléfono celular">
         <input
           type="tel"
-          maxLength={40}
+          inputMode="numeric"
+          maxLength={12}
+          placeholder="809-555-1234"
           value={value.phone ?? ''}
-          onChange={(event) => onChange('phone', event.target.value)}
+          onChange={(event) => onChange('phone', formatPhone(event.target.value))}
           className={inputClass}
         />
       </Field>
@@ -816,6 +834,14 @@ function ContactFields({
       </Field>
     </fieldset>
   )
+}
+
+function maskContact(contact: EstablishmentContactDraft): EstablishmentContactDraft {
+  return {
+    ...contact,
+    identification: contact.identification ? formatCedula(contact.identification) : null,
+    phone: contact.phone ? formatPhone(contact.phone) : null,
+  }
 }
 
 function CatalogNotice({ names }: { names: string[] }) {

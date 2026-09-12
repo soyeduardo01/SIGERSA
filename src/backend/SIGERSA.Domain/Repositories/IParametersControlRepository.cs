@@ -4,7 +4,7 @@ namespace SIGERSA.Domain.Repositories;
 
 public interface IParametersControlRepository
 {
-    Task<IReadOnlyList<ParameterControl>> GetAllActiveAsync(
+    Task<IReadOnlyList<ParameterControl>> GetAllAsync(
         string? search,
         CancellationToken cancellationToken = default);
 
@@ -25,6 +25,11 @@ public interface IParametersControlRepository
         CancellationToken cancellationToken = default);
 
     Task<bool> SoftDeleteAsync(
+        long parametersId,
+        string user,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> ActivateAsync(
         long parametersId,
         string user,
         CancellationToken cancellationToken = default);

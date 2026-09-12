@@ -30,3 +30,23 @@ public interface IEmailSender
         DateTimeOffset expiresAt,
         CancellationToken cancellationToken = default);
 }
+
+public interface ISupabaseMfaGateway
+{
+    Task<Guid> EnsureUserAsync(
+        Guid? supabaseUserId,
+        string email,
+        string password,
+        string fullName,
+        CancellationToken cancellationToken = default);
+
+    Task UpdateUserAsync(
+        Guid supabaseUserId,
+        string? email,
+        string? password,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> ValidateAal2TokenAsync(
+        string accessToken,
+        CancellationToken cancellationToken = default);
+}

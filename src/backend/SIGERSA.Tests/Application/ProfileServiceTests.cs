@@ -2,6 +2,7 @@ using SIGERSA.Application.Profiles;
 using SIGERSA.Domain.Entities;
 using SIGERSA.Domain.Exceptions;
 using SIGERSA.Domain.Repositories;
+using SIGERSA.Domain.Security;
 using SIGERSA.Infrastructure.Security;
 
 namespace SIGERSA.Tests.Application;
@@ -54,6 +55,7 @@ public sealed class ProfileServiceTests
     private static ProfileService CreateService(FakeRepository repository) => new(
         repository,
         new BcryptPasswordService(),
+        new FakeSupabaseMfaGateway(),
         new UpdateProfileRequestValidator(),
         new ChangePasswordRequestValidator());
 
@@ -67,7 +69,7 @@ public sealed class ProfileServiceTests
         public FakeRepository()
         {
             Profile = new UserProfileAccount(UserId, "Ana", "ana@example.com", null,
-                passwordService.Hash("Actual-Segura-1!"), 1);
+                passwordService.Hash("Actual-Segura-1!"), "ACTIVO", null, null, false, null, 1);
         }
 
         public Task<UserProfileAccount?> GetAsync(Guid userId, CancellationToken cancellationToken = default) =>
@@ -84,5 +86,29 @@ public sealed class ProfileServiceTests
             PasswordChanged = AllowPasswordChange;
             return Task.FromResult(AllowPasswordChange);
         }
+
+        public Task SetSupabaseIdentityAsync(Guid userId, Guid supabaseUserId, CancellationToken cancellationToken = default)
+        {
+            Profile = Profile with { SupabaseAuthUserId = supabaseUserId };
+            return Task.CompletedTask;
+        }
+
+        public Task SetMfaAsync(Guid userId, bool enabled, Guid? factorId, CancellationToken cancellationToken = default)
+        {
+            Profile = Profile with { MfaEnabled = enabled, MfaFactorId = enabled ? factorId : null };
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeSupabaseMfaGateway : ISupabaseMfaGateway
+    {
+        public Task<Guid> EnsureUserAsync(Guid? supabaseUserId, string email, string password, string fullName, CancellationToken cancellationToken = default) =>
+            Task.FromResult(supabaseUserId ?? Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
+
+        public Task UpdateUserAsync(Guid supabaseUserId, string? email, string? password, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task<Guid> ValidateAal2TokenAsync(string accessToken, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"));
     }
 }

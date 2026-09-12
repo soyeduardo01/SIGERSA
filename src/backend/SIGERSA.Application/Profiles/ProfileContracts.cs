@@ -7,7 +7,21 @@ public sealed record ProfileResponse(
     string FullName,
     string Email,
     string? Phone,
+    string Status,
+    DateTimeOffset? LastAccessAt,
+    bool MfaEnabled,
     long RowVersion);
+
+public sealed record BeginMfaEnrollmentRequest(string CurrentPassword);
+
+public sealed record MfaEnrollmentBootstrap(string Email);
+
+public sealed record CompleteMfaEnrollmentRequest(Guid FactorId, string SupabaseAccessToken);
+
+public sealed record DisableMfaRequest(
+    string CurrentPassword,
+    Guid FactorId,
+    string SupabaseAccessToken);
 
 public sealed record UpdateProfileRequest(
     string FullName,

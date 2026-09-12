@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   apiFetch,
   clearSession,
+  downloadUserAuthorizationLetter,
   getSession,
   login,
   requestPasswordRecovery,
@@ -149,11 +150,35 @@ describe('apiFetch', () => {
   })
 
   it('explica el límite temporal aunque la respuesta 429 no incluya contenido', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 429 })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 429 })),
+    )
 
     await expect(requestPasswordRecovery('usuario@example.com')).rejects.toMatchObject({
       message: 'Se alcanzó el límite temporal de intentos. Espere unos minutos antes de continuar.',
       status: 429,
     })
+  })
+
+  it('conserva el nombre y tipo real de una carta de autorización descargada', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(new Blob(['imagen'], { type: 'image/png' }), {
+            status: 200,
+            headers: {
+              'Content-Type': 'image/png',
+              'Content-Disposition': "attachment; filename*=UTF-8''carta%20empresa.png",
+            },
+          }),
+      ),
+    )
+
+    const download = await downloadUserAuthorizationLetter('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')
+
+    expect(download.blob.type).toBe('image/png')
+    expect(download.fileName).toBe('carta empresa.png')
   })
 })

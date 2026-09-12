@@ -7,6 +7,8 @@ namespace SIGERSA.Application.Evidences;
 
 public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository repository)
 {
+    public const long MaximumFileSize = 5 * 1024 * 1024;
+
     public Task<EvidencesPage> SearchAsync(
         string? search, string? evidenceType, int page, int pageSize,
         EvidenceActor actor, CancellationToken cancellationToken)
@@ -48,7 +50,7 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
         CancellationToken cancellationToken)
     {
         ValidateIdentifiers(evaluationId, uploadedBy, idempotencyKey);
-        ArgumentException.ThrowIfNullOrWhiteSpace(originalName);
+        ValidateFile(originalName, mimeType, fileSize);
         if (!await repository.CanUploadAsync(uploadedBy, evaluationId, cancellationToken))
         {
             throw new UnauthorizedAccessException("El usuario no está asignado a esta evaluación.");
@@ -77,7 +79,7 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
         CancellationToken cancellationToken)
     {
         ValidateIdentifiers(evaluationId, uploadedBy, idempotencyKey);
-        ArgumentException.ThrowIfNullOrWhiteSpace(originalName);
+        ValidateFile(originalName, mimeType, declaredFileSize);
         ArgumentException.ThrowIfNullOrWhiteSpace(evidenceType);
         ValidateLocation(latitude, longitude, accuracyMeters);
         if (!await repository.CanUploadAsync(uploadedBy, evaluationId, cancellationToken))
@@ -124,10 +126,11 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
         double? latitude,
         double? longitude,
         double? accuracyMeters,
+        long declaredFileSize,
         Stream content,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(originalName);
+        ValidateFile(originalName, mimeType, declaredFileSize);
         ArgumentException.ThrowIfNullOrWhiteSpace(evidenceType);
         ValidateLocation(latitude, longitude, accuracyMeters);
         if (!await repository.CanUploadAsync(uploadedBy, evaluationId, cancellationToken))
@@ -141,6 +144,8 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
         var stored = await storage.UploadAsync(
             new StorageUpload(bucketName, path, mimeType, content),
             cancellationToken);
+        if (stored.FileSize > MaximumFileSize)
+            throw new InvalidDataException("La evidencia excede el límite de 5 MB.");
         var evidence = new EvidenceRecord(
             Guid.NewGuid(),
             evaluationId,
@@ -181,6 +186,15 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
         {
             throw new ArgumentException("Los identificadores de evidencia son obligatorios.");
         }
+    }
+
+    private static void ValidateFile(string originalName, string mimeType, long fileSize)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(originalName);
+        if (fileSize <= 0) throw new InvalidDataException("La evidencia está vacía.");
+        if (fileSize > MaximumFileSize)
+            throw new InvalidDataException("La evidencia excede el límite de 5 MB.");
+        _ = BuildPath(Guid.Empty, Guid.Empty, mimeType);
     }
 
     private static void ValidateLocation(double? latitude, double? longitude, double? accuracyMeters)

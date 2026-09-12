@@ -15,6 +15,7 @@ import {
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
 import { formatIdentification, formatPhone, formatStatusLabel } from '../../lib/formatters'
+import { renderAuthorizationPreview } from './authorizationPreview'
 import { UserFormModal } from './UserFormModal'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 
@@ -126,16 +127,20 @@ export function UsersManagement() {
   }
 
   async function viewAuthorizationLetter(user: ManagedUser) {
-    const preview = window.open('', '_blank', 'noopener,noreferrer')
+    const preview = window.open('', '_blank')
+    if (preview) preview.opener = null
     try {
-      const blob = await downloadUserAuthorizationLetter(user.id)
+      const { blob, fileName } = await downloadUserAuthorizationLetter(user.id)
       const url = URL.createObjectURL(blob)
-      if (preview) preview.location.href = url
+      if (preview) renderAuthorizationPreview(preview, url, blob.type, fileName)
       else {
         const link = document.createElement('a')
         link.href = url
-        link.download = `carta-autorizacion-${user.nombreCompleto}.pdf`
+        link.download = fileName
+        link.rel = 'noopener noreferrer'
+        document.body.appendChild(link)
         link.click()
+        link.remove()
       }
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
     } catch (caught) {
@@ -296,11 +301,13 @@ export function UsersManagement() {
                   <td className="px-3 py-4 text-right">
                     {options?.canManage ? (
                       <div className="flex justify-end gap-2">
-                        {user.roles.some((item) => ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO'].includes(item)) && (
+                        {user.roles.some((item) =>
+                          ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO'].includes(item),
+                        ) && (
                           <button
                             type="button"
                             onClick={() => void viewAuthorizationLetter(user)}
-                            className="rounded-lg border border-emerald-300 px-3 py-2 font-bold text-brand-800"
+                            className="text-brand-800 rounded-lg border border-emerald-300 px-3 py-2 font-bold"
                           >
                             Ver carta
                           </button>

@@ -27,6 +27,24 @@ public sealed class ProfileController(ProfileService service) : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("mfa/enrollment")]
+    public Task<MfaEnrollmentBootstrap> BeginMfaEnrollment(
+        BeginMfaEnrollmentRequest request,
+        CancellationToken cancellationToken) =>
+        service.BeginMfaEnrollmentAsync(UserId(), request, cancellationToken);
+
+    [HttpPost("mfa/enrollment/complete")]
+    public Task<ProfileResponse> CompleteMfaEnrollment(
+        CompleteMfaEnrollmentRequest request,
+        CancellationToken cancellationToken) =>
+        service.CompleteMfaEnrollmentAsync(UserId(), request, cancellationToken);
+
+    [HttpPost("mfa/disable")]
+    public Task<ProfileResponse> DisableMfa(
+        DisableMfaRequest request,
+        CancellationToken cancellationToken) =>
+        service.DisableMfaAsync(UserId(), request, cancellationToken);
+
     private Guid UserId() => Guid.TryParse(User.FindFirstValue("sub"), out var userId)
         ? userId
         : throw new UnauthorizedAccessException();

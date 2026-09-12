@@ -1,4 +1,4 @@
-const MAX_EVIDENCE_SIZE_BYTES = 25 * 1024 * 1024
+export const MAX_EVIDENCE_SIZE_BYTES = 5 * 1024 * 1024
 
 const allowedMimeTypes = new Set(['application/pdf', 'image/jpeg', 'image/png', 'video/mp4'])
 
@@ -8,7 +8,7 @@ export async function validateAndHashEvidence(file: Blob, mimeType: string) {
   }
 
   if (file.size > MAX_EVIDENCE_SIZE_BYTES) {
-    throw new Error('La evidencia excede el límite de 25 MB.')
+    throw new Error('La evidencia excede el límite de 5 MB.')
   }
 
   if (!allowedMimeTypes.has(mimeType)) {

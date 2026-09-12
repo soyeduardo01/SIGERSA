@@ -16,4 +16,15 @@ public interface IUserProfileRepository
         string passwordHash,
         long rowVersion,
         CancellationToken cancellationToken = default);
+
+    Task SetSupabaseIdentityAsync(
+        Guid userId,
+        Guid supabaseUserId,
+        CancellationToken cancellationToken = default);
+
+    Task SetMfaAsync(
+        Guid userId,
+        bool enabled,
+        Guid? factorId,
+        CancellationToken cancellationToken = default);
 }

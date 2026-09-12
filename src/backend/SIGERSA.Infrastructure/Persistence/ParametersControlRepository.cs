@@ -7,7 +7,7 @@ namespace SIGERSA.Infrastructure.Persistence;
 public sealed class ParametersControlRepository(IDbConnectionFactory connectionFactory)
     : DapperRepositoryBase(connectionFactory), IParametersControlRepository
 {
-    public async Task<IReadOnlyList<ParameterControl>> GetAllActiveAsync(string? search, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ParameterControl>> GetAllAsync(string? search, CancellationToken cancellationToken = default)
     {
         const string sql = """
             SELECT
@@ -15,8 +15,7 @@ public sealed class ParametersControlRepository(IDbConnectionFactory connectionF
                 "NumericData", "DoubleData", "StringData", "BooleanData", "DateData",
                 "Status", "CUser", "CDate", "MUser", "MDate", "DUser", "DDate"
             FROM "SIGERSA"."ParametersControl"
-            WHERE "Status" = true
-              AND (@Search IS NULL
+            WHERE (@Search IS NULL
                 OR "KeyWord" ILIKE '%' || @Search || '%'
                 OR COALESCE("CCode", '') ILIKE '%' || @Search || '%'
                 OR COALESCE("StringData", '') ILIKE '%' || @Search || '%')
@@ -74,6 +73,27 @@ public sealed class ParametersControlRepository(IDbConnectionFactory connectionF
             SELECT "SIGERSA"."FN_ParametersControl_SoftDelete"(@ParametersId, @User);
             """;
         return ExecuteScalarAsync<bool>(sql, new { ParametersId = parametersId, User = user }, cancellationToken);
+    }
+
+    public async Task<bool> ActivateAsync(long parametersId, string user, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE "SIGERSA"."ParametersControl"
+               SET "Status" = true,
+                   "MUser" = @User,
+                   "MDate" = CURRENT_TIMESTAMP,
+                   "DUser" = NULL,
+                   "DDate" = NULL
+             WHERE "ParametersId" = @ParametersId
+               AND "Status" = false;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            var command = new CommandDefinition(
+                Sql(sql), new { ParametersId = parametersId, User = user }, cancellationToken: cancellationToken);
+            return await connection.ExecuteAsync(command) == 1;
+        }
     }
 
     private async Task<T> ExecuteScalarAsync<T>(string sql, object parameters, CancellationToken cancellationToken)

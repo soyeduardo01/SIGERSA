@@ -6,6 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\backend\SIGERSA.Application\SIGERSA.Application.csproj" />
     <ProjectReference Include="..\..\src\backend\SIGERSA.Infrastructure\SIGERSA.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

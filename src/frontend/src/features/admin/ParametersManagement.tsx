@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
 import {
+  activateParameter,
   createParameter,
   deleteParameter,
   getAllParameters,
@@ -76,6 +77,22 @@ export function ParametersManagement() {
     }
   }
 
+  async function activate(item: ParameterControl) {
+    const confirmed = await alerts.confirm({
+      title: '¿Activar este parámetro?',
+      text: `${item.keyWord}: ${item.stringData ?? item.cCode ?? item.numericData ?? item.parametersId}`,
+      confirmText: 'Activar',
+    })
+    if (!confirmed) return
+    try {
+      await activateParameter(item.parametersId)
+      await load()
+      await alerts.success('Parámetro activado')
+    } catch (caught) {
+      await alerts.error(caught, 'No se pudo activar el parámetro')
+    }
+  }
+
   return (
     <section aria-labelledby="parameters-title">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -140,6 +157,7 @@ export function ParametersManagement() {
                 <th className="p-3">Valor</th>
                 <th className="p-3">Orden</th>
                 <th className="p-3">Ámbito</th>
+                <th className="p-3">Estado</th>
                 <th className="p-3 text-right">Acciones</th>
               </tr>
             </thead>
@@ -151,6 +169,17 @@ export function ParametersManagement() {
                   <td className="p-3">{displayValue(item)}</td>
                   <td className="p-3">{item.numericData ?? '—'}</td>
                   <td className="p-3">{item.companyCode ?? 'Global'}</td>
+                  <td className="p-3">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-bold ${
+                        item.status
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {item.status ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
                   <td className="p-3 text-right">
                     <div className="flex justify-end gap-2">
                       <button
@@ -163,23 +192,33 @@ export function ParametersManagement() {
                       >
                         Editar
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => void remove(item)}
-                        className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
-                      >
-                        Desactivar
-                      </button>
+                      {item.status ? (
+                        <button
+                          type="button"
+                          onClick={() => void remove(item)}
+                          className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
+                        >
+                          Desactivar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => void activate(item)}
+                          className="rounded-lg border border-emerald-300 px-3 py-2 font-bold text-emerald-700"
+                        >
+                          Activar
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {loading && <TableSkeleton rows={5} columns={6} />}
+          {loading && <TableSkeleton rows={5} columns={7} />}
           {!loading && !error && items.length === 0 && (
             <p className="p-10 text-center text-sm text-ink-muted">
-              No hay parámetros activos para mostrar.
+              No hay parámetros para mostrar.
             </p>
           )}
         </div>

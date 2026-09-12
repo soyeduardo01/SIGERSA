@@ -27,6 +27,7 @@ export interface AnswerPayload {
   evaluationId: string
   itemId: string
   value: string | number | boolean | Record<string, unknown> | null
+  criticalityCode?: string
   observation?: string
   comment?: string
 }

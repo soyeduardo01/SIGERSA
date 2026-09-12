@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { alerts } from '../../lib/alerts'
-import { login, verifyTwoFactor, type AuthSession } from '../../lib/api'
+import { login, verifySupabaseMfa, verifyTwoFactor, type AuthSession } from '../../lib/api'
+import { getSupabaseClient } from '../../lib/supabase'
 
 export function LoginPage({
   onAuthenticated,
@@ -16,6 +17,9 @@ export function LoginPage({
   const [showPassword, setShowPassword] = useState(false)
   const [rememberSession, setRememberSession] = useState(false)
   const [twoFactorRequired, setTwoFactorRequired] = useState(false)
+  const [twoFactorProvider, setTwoFactorProvider] = useState<'EMAIL_OTP' | 'SUPABASE_TOTP'>(
+    'EMAIL_OTP',
+  )
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -24,12 +28,35 @@ export function LoginPage({
     setLoading(true)
     try {
       if (twoFactorRequired) {
-        onAuthenticated(await verifyTwoFactor(email, otp, rememberSession))
+        if (twoFactorProvider === 'SUPABASE_TOTP') {
+          const supabase = getSupabaseClient()
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+          if (signInError) throw signInError
+          const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors()
+          if (factorsError) throw factorsError
+          const factor = factors.totp.find((candidate) => candidate.status === 'verified')
+          if (!factor) throw new Error('No se encontró el factor MFA activo.')
+          const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+            factorId: factor.id,
+            code: otp,
+          })
+          if (verifyError) throw verifyError
+          const { data: sessionData } = await supabase.auth.getSession()
+          const accessToken = sessionData.session?.access_token
+          if (!accessToken) throw new Error('Supabase no emitió el comprobante MFA.')
+          const session = await verifySupabaseMfa(email, accessToken, rememberSession)
+          await supabase.auth.signOut({ scope: 'local' })
+          onAuthenticated(session)
+        } else {
+          onAuthenticated(await verifyTwoFactor(email, otp, rememberSession))
+        }
       } else {
         const result = await login(email, password, rememberSession)
         if ('requiresTwoFactor' in result) {
+          const provider = result.provider ?? 'EMAIL_OTP'
+          setTwoFactorProvider(provider)
           setTwoFactorRequired(true)
-          setPassword('')
+          if (provider === 'EMAIL_OTP') setPassword('')
           return
         }
         onAuthenticated(result)
@@ -91,51 +118,57 @@ export function LoginPage({
             </div>
 
             <form className="space-y-4" onSubmit={submit}>
-              {!twoFactorRequired && <label className="block text-sm font-semibold text-[#153f34]">
-                Correo institucional
-                <span className="relative mt-2 block">
-                  <MailIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-[#125640]" />
-                  <input
-                    required
-                    type="email"
-                    autoComplete="username"
-                    inputMode="email"
-                    placeholder="usuario@digemaps.gob.do"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className="min-h-12 w-full rounded-xl border border-slate-300 bg-[#f8fafc] pr-4 pl-13 text-base font-normal text-slate-800 shadow-sm transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#16835f] focus:ring-4 focus:ring-[#16835f]/12 focus:outline-none xl:min-h-13"
-                  />
-                </span>
-              </label>}
+              {!twoFactorRequired && (
+                <label className="block text-sm font-semibold text-[#153f34]">
+                  Correo institucional
+                  <span className="relative mt-2 block">
+                    <MailIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-[#125640]" />
+                    <input
+                      required
+                      type="email"
+                      autoComplete="username"
+                      inputMode="email"
+                      placeholder="usuario@digemaps.gob.do"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className="min-h-12 w-full rounded-xl border border-slate-300 bg-[#f8fafc] pr-4 pl-13 text-base font-normal text-slate-800 shadow-sm transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#16835f] focus:ring-4 focus:ring-[#16835f]/12 focus:outline-none xl:min-h-13"
+                    />
+                  </span>
+                </label>
+              )}
 
-              {!twoFactorRequired ? <label className="block text-sm font-semibold text-[#153f34]">
-                Contraseña
-                <span className="relative mt-2 block">
-                  <LockIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-[#125640]" />
-                  <input
-                    required
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    placeholder="Ingresa tu contraseña"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="min-h-12 w-full rounded-xl border border-slate-300 bg-[#f8fafc] pr-13 pl-13 text-base font-normal text-slate-800 shadow-sm transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#16835f] focus:ring-4 focus:ring-[#16835f]/12 focus:outline-none xl:min-h-13"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((visible) => !visible)}
-                    className="absolute top-1/2 right-2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-lg text-slate-500 transition hover:bg-emerald-50 hover:text-[#125640]"
-                    aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                    aria-pressed={showPassword}
-                  >
-                    {showPassword ? <EyeIcon /> : <EyeOffIcon />}
-                  </button>
-                </span>
-              </label> : (
+              {!twoFactorRequired ? (
+                <label className="block text-sm font-semibold text-[#153f34]">
+                  Contraseña
+                  <span className="relative mt-2 block">
+                    <LockIcon className="pointer-events-none absolute top-1/2 left-4 h-6 w-6 -translate-y-1/2 text-[#125640]" />
+                    <input
+                      required
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      placeholder="Ingresa tu contraseña"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className="min-h-12 w-full rounded-xl border border-slate-300 bg-[#f8fafc] pr-13 pl-13 text-base font-normal text-slate-800 shadow-sm transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#16835f] focus:ring-4 focus:ring-[#16835f]/12 focus:outline-none xl:min-h-13"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((visible) => !visible)}
+                      className="absolute top-1/2 right-2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-lg text-slate-500 transition hover:bg-emerald-50 hover:text-[#125640]"
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                      aria-pressed={showPassword}
+                    >
+                      {showPassword ? <EyeIcon /> : <EyeOffIcon />}
+                    </button>
+                  </span>
+                </label>
+              ) : (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
                   <p className="text-sm font-semibold text-[#153f34]">Verificación en dos pasos</p>
                   <p className="mt-1 text-xs leading-5 text-slate-600">
-                    Enviamos un código de seis dígitos a {email}. Escríbelo para completar el acceso.
+                    {twoFactorProvider === 'SUPABASE_TOTP'
+                      ? 'Abra su aplicación autenticadora e ingrese el código de seis dígitos.'
+                      : `Enviamos un código de seis dígitos a ${email}. Escríbelo para completar el acceso.`}
                   </p>
                   <label className="mt-3 block text-sm font-semibold text-[#153f34]">
                     Código de verificación
@@ -146,7 +179,9 @@ export function LoginPage({
                       pattern="[0-9]{6}"
                       maxLength={6}
                       value={otp}
-                      onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onChange={(event) =>
+                        setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))
+                      }
                       className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-4 text-center text-xl font-bold tracking-[0.35em] text-slate-800 focus:border-[#16835f] focus:ring-4 focus:ring-[#16835f]/12 focus:outline-none"
                     />
                   </label>
@@ -154,6 +189,8 @@ export function LoginPage({
                     type="button"
                     onClick={() => {
                       setTwoFactorRequired(false)
+                      setTwoFactorProvider('EMAIL_OTP')
+                      setPassword('')
                       setOtp('')
                     }}
                     className="mt-3 text-xs font-bold text-[#087452] hover:underline"
@@ -163,31 +200,35 @@ export function LoginPage({
                 </div>
               )}
 
-              {!twoFactorRequired && <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
-                <label className="inline-flex min-h-9 cursor-pointer items-center gap-3 text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={rememberSession}
-                    onChange={(event) => setRememberSession(event.target.checked)}
-                    className="h-5 w-5 rounded border-slate-400 accent-[#125640]"
-                  />
-                  Mantener sesión iniciada
-                </label>
-                <button
-                  type="button"
-                  onClick={onRecover}
-                  className="min-h-9 self-start rounded-lg px-1 font-semibold text-[#087452] transition hover:text-[#125640] hover:underline sm:self-auto"
-                >
-                  ¿Olvidaste tu contraseña?
-                </button>
-              </div>}
+              {!twoFactorRequired && (
+                <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <label className="inline-flex min-h-9 cursor-pointer items-center gap-3 text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={rememberSession}
+                      onChange={(event) => setRememberSession(event.target.checked)}
+                      className="h-5 w-5 rounded border-slate-400 accent-[#125640]"
+                    />
+                    Mantener sesión iniciada
+                  </label>
+                  <button
+                    type="button"
+                    onClick={onRecover}
+                    className="min-h-9 self-start rounded-lg px-1 font-semibold text-[#087452] transition hover:text-[#125640] hover:underline sm:self-auto"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
+              )}
 
               <button
                 type="submit"
                 disabled={loading}
                 className="group flex min-h-12 w-full items-center justify-center gap-5 rounded-xl bg-[linear-gradient(90deg,#086a4c,#125640)] px-5 text-base font-bold text-white shadow-[0_12px_28px_rgba(18,86,64,0.22)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(18,86,64,0.3)] hover:brightness-110 disabled:cursor-wait disabled:opacity-65 disabled:hover:translate-y-0 xl:min-h-13"
               >
-                <span>{loading ? 'Validando…' : twoFactorRequired ? 'Verificar código' : 'Entrar'}</span>
+                <span>
+                  {loading ? 'Validando…' : twoFactorRequired ? 'Verificar código' : 'Entrar'}
+                </span>
                 <ArrowRightIcon className="h-6 w-6 transition-transform group-hover:translate-x-1" />
               </button>
             </form>
@@ -224,10 +265,22 @@ export function LoginPage({
 export function LoginVisualPanel() {
   return (
     <aside className="relative hidden overflow-hidden bg-[#064b38] lg:flex lg:flex-col lg:justify-end lg:p-10 xl:p-12">
-      <div className="absolute inset-0 bg-[url('/assets/login-background.png')] bg-cover bg-center opacity-100" aria-hidden="true" />
-      <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(3,70,51,0.8)_0%,rgba(5,86,62,0.68)_48%,rgba(4,61,47,0.5)_100%)]" aria-hidden="true" />
-      <div className="absolute -bottom-44 -left-48 h-[34rem] w-[46rem] rounded-[50%] bg-[#063e31]/65" aria-hidden="true" />
-      <div className="absolute top-0 -right-48 h-full w-[34rem] rotate-[-18deg] bg-[#a7d89b]/18" aria-hidden="true" />
+      <div
+        className="absolute inset-0 bg-[url('/assets/login-background.png')] bg-cover bg-center opacity-100"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute inset-0 bg-[linear-gradient(135deg,rgba(3,70,51,0.8)_0%,rgba(5,86,62,0.68)_48%,rgba(4,61,47,0.5)_100%)]"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute -bottom-44 -left-48 h-[34rem] w-[46rem] rounded-[50%] bg-[#063e31]/65"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute top-0 -right-48 h-full w-[34rem] rotate-[-18deg] bg-[#a7d89b]/18"
+        aria-hidden="true"
+      />
 
       <div className="relative max-w-[30rem] text-shadow-sm">
         <div className="h-1 w-16 rounded-full bg-[#8bd36d]" aria-hidden="true" />
@@ -236,8 +289,16 @@ export function LoginVisualPanel() {
         </p>
         <ul className="mt-8 space-y-4" aria-label="Beneficios de SIGERSA">
           <Benefit icon={<ShieldIcon />} title="Productos seguros" text="para una mejor vida" />
-          <Benefit icon={<LeafIcon />} title="Alimentos de calidad" text="para un país más fuerte" />
-          <Benefit icon={<PeopleIcon />} title="Un control más eficiente" text="al servicio de la ciudadanía" />
+          <Benefit
+            icon={<LeafIcon />}
+            title="Alimentos de calidad"
+            text="para un país más fuerte"
+          />
+          <Benefit
+            icon={<PeopleIcon />}
+            title="Un control más eficiente"
+            text="al servicio de la ciudadanía"
+          />
         </ul>
       </div>
 

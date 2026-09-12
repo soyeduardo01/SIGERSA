@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateAndHashEvidence } from './evidenceFile'
+import { MAX_EVIDENCE_SIZE_BYTES, validateAndHashEvidence } from './evidenceFile'
 
 describe('validateAndHashEvidence', () => {
   it('acepta un PNG con firma válida y calcula SHA-256', async () => {
@@ -18,5 +18,13 @@ describe('validateAndHashEvidence', () => {
     await expect(validateAndHashEvidence(invalidPdf, 'application/pdf')).rejects.toThrow(
       'La firma del archivo no coincide',
     )
+  })
+
+  it('rechaza evidencias mayores de 5 MB', async () => {
+    const oversized = new Blob([new Uint8Array(MAX_EVIDENCE_SIZE_BYTES + 1)], {
+      type: 'image/png',
+    })
+
+    await expect(validateAndHashEvidence(oversized, 'image/png')).rejects.toThrow('límite de 5 MB')
   })
 })

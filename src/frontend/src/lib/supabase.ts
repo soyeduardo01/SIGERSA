@@ -6,7 +6,8 @@ const supabasePublishableKey =
   import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey)
-export const evidenceBucket = import.meta.env.VITE_SUPABASE_EVIDENCE_BUCKET?.trim() || 'evidencias'
+export const evidenceBucket =
+  import.meta.env.VITE_SUPABASE_EVIDENCE_BUCKET?.trim() || 'SIGERSA_FILES'
 
 let client: SupabaseClient | undefined
 
@@ -20,8 +21,8 @@ export function getSupabaseClient(): SupabaseClient {
   client ??= createClient(supabaseUrl, supabasePublishableKey, {
     auth: {
       autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
+      persistSession: false,
+      detectSessionInUrl: false,
     },
   })
 

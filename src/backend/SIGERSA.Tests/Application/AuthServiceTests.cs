@@ -75,6 +75,38 @@ public sealed class AuthServiceTests
     }
 
     [Fact]
+    public async Task SupabaseMfaLoginShouldIssueSessionOnlyAfterAal2Token()
+    {
+        var passwords = new BcryptPasswordService();
+        var supabaseUserId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        var user = new AuthenticationUser
+        {
+            Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            NombreCompleto = "Usuario Prueba",
+            Correo = "user@example.com",
+            PasswordHash = passwords.Hash("Valid-Password-2026!"),
+            Estado = "ACTIVO",
+            Activo = true,
+            Roles = ["TECNICO_EVALUADOR"],
+            SupabaseAuthUserId = supabaseUserId,
+            MfaHabilitado = true
+        };
+        var repository = new FakeAuthenticationRepository { User = user };
+        var service = CreateService(repository, passwords, new FakeEmailSender());
+
+        var challenge = await service.LoginAsync(
+            new LoginCommand("user@example.com", "Valid-Password-2026!", "test", "ip"));
+        var session = await service.VerifySupabaseMfaAsync(
+            new VerifySupabaseMfaCommand("user@example.com", "aal2-token", "test", "ip"));
+
+        Assert.True(challenge.RequiresTwoFactor);
+        Assert.Equal("SUPABASE_TOTP", challenge.Provider);
+        Assert.Null(challenge.Session);
+        Assert.Equal("access-token", session.AccessToken);
+        Assert.True(repository.SuccessfulLoginRecorded);
+    }
+
+    [Fact]
     public async Task RecoveryShouldStoreOnlyAHashAndSendSixDigitOtp()
     {
         var passwords = new BcryptPasswordService();
@@ -158,6 +190,7 @@ public sealed class AuthServiceTests
             repository,
             passwords,
             new FakeTokenService(),
+            new FakeSupabaseMfaGateway(),
             email,
             Options.Create(new AuthFlowOptions { TwoFactorEnabled = twoFactorEnabled }),
             new FixedTimeProvider(Now),
@@ -208,6 +241,18 @@ public sealed class AuthServiceTests
             TwoFactorOtp = otp;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class FakeSupabaseMfaGateway : ISupabaseMfaGateway
+    {
+        public Task<Guid> EnsureUserAsync(Guid? supabaseUserId, string email, string password, string fullName, CancellationToken cancellationToken = default) =>
+            Task.FromResult(supabaseUserId ?? Guid.NewGuid());
+
+        public Task UpdateUserAsync(Guid supabaseUserId, string? email, string? password, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task<Guid> ValidateAal2TokenAsync(string accessToken, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"));
     }
 
     private sealed class FakeAuthenticationRepository : IAuthenticationRepository

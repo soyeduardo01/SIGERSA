@@ -71,7 +71,7 @@ public sealed class UsersController(
     [HttpPost("{id:guid}/authorization-letter")]
     [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA")]
     [Consumes("multipart/form-data")]
-    [RequestSizeLimit(10_485_760)]
+    [RequestSizeLimit(6_291_456)]
     public async Task<ActionResult<object>> UploadAuthorizationLetter(
         Guid id, IFormFile file, CancellationToken cancellationToken)
     {

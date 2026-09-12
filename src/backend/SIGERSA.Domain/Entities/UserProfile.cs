@@ -6,6 +6,11 @@ public sealed record UserProfileAccount(
     string Email,
     string? Phone,
     string PasswordHash,
+    string Status,
+    DateTimeOffset? LastAccessAt,
+    Guid? SupabaseAuthUserId,
+    bool MfaEnabled,
+    Guid? MfaFactorId,
     long RowVersion);
 
 public sealed record UserProfileDraft(

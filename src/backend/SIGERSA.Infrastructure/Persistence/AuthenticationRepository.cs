@@ -14,6 +14,8 @@ public sealed class AuthenticationRepository(IDbConnectionFactory connectionFact
             SELECT u.id AS Id, u.empresa_id AS EmpresaId, u.nombre_completo AS NombreCompleto,
                    u.correo AS Correo, u.password_hash AS PasswordHash, u.estado AS Estado,
                    u.activo AS Activo, u.fallos_acceso AS FallosAcceso, u.bloqueado_hasta AS BloqueadoHasta,
+                   u.supabase_auth_user_id AS SupabaseAuthUserId,
+                   u.mfa_habilitado AS MfaHabilitado,
                    COALESCE(array_agg(DISTINCT r.codigo) FILTER (
                        WHERE r.codigo IS NOT NULL AND ur.activo = true
                          AND ur.vigente_desde <= CURRENT_TIMESTAMP
@@ -294,6 +296,8 @@ public sealed class AuthenticationRepository(IDbConnectionFactory connectionFact
             SELECT u.id AS Id, u.empresa_id AS EmpresaId, u.nombre_completo AS NombreCompleto,
                    u.correo AS Correo, u.password_hash AS PasswordHash, u.estado AS Estado,
                    u.activo AS Activo, u.fallos_acceso AS FallosAcceso, u.bloqueado_hasta AS BloqueadoHasta,
+                   u.supabase_auth_user_id AS SupabaseAuthUserId,
+                   u.mfa_habilitado AS MfaHabilitado,
                    COALESCE(array_agg(DISTINCT r.codigo) FILTER (
                        WHERE r.codigo IS NOT NULL AND ur.activo = true
                          AND ur.vigente_desde <= CURRENT_TIMESTAMP
@@ -321,6 +325,8 @@ public sealed class AuthenticationRepository(IDbConnectionFactory connectionFact
         public bool Activo { get; init; }
         public int FallosAcceso { get; init; }
         public DateTime? BloqueadoHasta { get; init; }
+        public Guid? SupabaseAuthUserId { get; init; }
+        public bool MfaHabilitado { get; init; }
         public string[] Roles { get; init; } = [];
 
         public AuthenticationUser ToDomain() => new()
@@ -334,6 +340,8 @@ public sealed class AuthenticationRepository(IDbConnectionFactory connectionFact
             Activo = Activo,
             FallosAcceso = FallosAcceso,
             BloqueadoHasta = BloqueadoHasta is null ? null : Utc(BloqueadoHasta.Value),
+            SupabaseAuthUserId = SupabaseAuthUserId,
+            MfaHabilitado = MfaHabilitado,
             Roles = Roles
         };
     }

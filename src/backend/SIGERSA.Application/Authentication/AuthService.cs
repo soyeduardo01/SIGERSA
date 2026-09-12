@@ -12,6 +12,7 @@ public sealed class AuthService(
     IAuthenticationRepository repository,
     IPasswordService passwordService,
     ITokenService tokenService,
+    ISupabaseMfaGateway supabaseMfa,
     IEmailSender emailSender,
     IOptions<AuthFlowOptions> options,
     TimeProvider timeProvider,
@@ -53,6 +54,13 @@ public sealed class AuthService(
             throw new UnauthorizedAccessException(GenericAuthenticationError);
         }
 
+        if (user.MfaHabilitado)
+        {
+            if (user.SupabaseAuthUserId is null)
+                throw new InvalidOperationException("La configuración MFA del usuario está incompleta.");
+            return new LoginResult(true, now.AddMinutes(5), "SUPABASE_TOTP", null);
+        }
+
         if (_options.TwoFactorEnabled)
         {
             var expiresAt = now.AddMinutes(_options.OtpLifetimeMinutes);
@@ -71,12 +79,32 @@ public sealed class AuthService(
                     user.Id, timeProvider.GetUtcNow(), cancellationToken);
                 throw;
             }
-            return new LoginResult(true, expiresAt, null);
+            return new LoginResult(true, expiresAt, "EMAIL_OTP", null);
         }
 
         await repository.RecordSuccessfulLoginAsync(user.Id, now, cancellationToken);
-        return new LoginResult(false, null,
+        return new LoginResult(false, null, null,
             await IssueSessionAsync(user, command.Device, command.IpHash, now, cancellationToken));
+    }
+
+    public async Task<AuthTokensResponse> VerifySupabaseMfaAsync(
+        VerifySupabaseMfaCommand command,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(command.Email) ||
+            string.IsNullOrWhiteSpace(command.SupabaseAccessToken))
+            throw new ArgumentException("El correo y el comprobante MFA son obligatorios.");
+        var user = await repository.FindByEmailAsync(NormalizeEmail(command.Email), cancellationToken);
+        if (user is null || !user.Activo || user.Estado is not "ACTIVO" ||
+            !user.MfaHabilitado || user.SupabaseAuthUserId is null)
+            throw new UnauthorizedAccessException(GenericAuthenticationError);
+        var verifiedUserId = await supabaseMfa.ValidateAal2TokenAsync(
+            command.SupabaseAccessToken, cancellationToken);
+        if (verifiedUserId != user.SupabaseAuthUserId)
+            throw new UnauthorizedAccessException(GenericAuthenticationError);
+        var now = timeProvider.GetUtcNow();
+        await repository.RecordSuccessfulLoginAsync(user.Id, now, cancellationToken);
+        return await IssueSessionAsync(user, command.Device, command.IpHash, now, cancellationToken);
     }
 
     public async Task<AuthTokensResponse> VerifyTwoFactorAsync(

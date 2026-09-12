@@ -28,7 +28,8 @@ public static class DependencyInjection
         services.AddOptions<SupabaseOptions>()
             .Bind(configuration.GetSection(SupabaseOptions.SectionName))
             .Validate(options => Uri.TryCreate(options.Url, UriKind.Absolute, out _), "Supabase:Url debe ser una URL absoluta.")
-            .Validate(options => !string.IsNullOrWhiteSpace(options.Key), "Se requiere Supabase:Key.")
+            .Validate(options => SupabaseOptions.IsServerCredential(options.Key),
+                "Supabase:Key debe ser una clave secreta sb_secret_ válida o un JWT legacy con rol service_role; no use la clave publicable/anon del frontend.")
             .Validate(options => options.MaxFileSizeBytes > 0, "El tamaño máximo debe ser positivo.")
             .ValidateOnStart();
 
@@ -98,6 +99,7 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordService, BcryptPasswordService>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddHttpClient<ISupabaseMfaGateway, SupabaseMfaGateway>();
 
         return services;
     }

@@ -11,7 +11,7 @@ El sistema cuenta con frontend React y API .NET integrados, autenticación JWT c
 Funcionalidades disponibles:
 
 - Inicio y cierre de sesión, bloqueo por intentos y renovación del token.
-- Recuperación de contraseña mediante OTP y segundo factor configurable.
+- Recuperación de contraseña mediante OTP y MFA TOTP opcional con Supabase Auth.
 - Registro público de Administrador de Empresa y Usuario Delegado con carta de autorización.
 - Menú y rutas protegidas según rol; la API también valida empresa, asignación y propiedad.
 - Gestión de empresas, establecimientos, usuarios, parámetros y catálogos.
@@ -62,7 +62,7 @@ Los códigos canónicos son `ADMINISTRADOR`, `ADMINISTRADOR_EMPRESA`, `USUARIO_D
 - **Backend:** .NET 10 Web API, Clean Architecture, REST y Problem Details.
 - **Persistencia:** PostgreSQL 15+, Dapper y Npgsql.
 - **Archivos:** Supabase Storage privado; PostgreSQL conserva metadatos y referencias.
-- **Seguridad:** JWT, refresh tokens rotativos, hash de contraseñas y OTP, RBAC y ámbito.
+- **Seguridad:** JWT, refresh tokens rotativos, MFA TOTP con Supabase Auth, hash de contraseñas y OTP, RBAC y ámbito.
 - **Calidad:** xUnit, Vitest, Testing Library, ESLint, Prettier y OpenAPI/Swagger.
 
 La solución backend contiene:
@@ -74,6 +74,152 @@ La solución backend contiene:
 - `SIGERSA.Worker`: procesos en segundo plano.
 - `SIGERSA.Tests`: pruebas automatizadas.
 
+### Flujo de peticiones por módulo
+
+```mermaid
+flowchart LR
+    U[Usuario] --> PWA[PWA React]
+
+    subgraph Modulos["Módulos del frontend"]
+        AUTH[Acceso y perfil]
+        ADM[Empresas, usuarios y parámetros]
+        OPS[Solicitudes, casos y programación]
+        INS[Evaluaciones e inspecciones]
+        REP[Reportes y auditoría]
+    end
+
+    PWA --> AUTH
+    PWA --> ADM
+    PWA --> OPS
+    PWA --> INS
+    PWA --> REP
+
+    AUTH --> A1["/api/v1/auth · /profile"]
+    ADM --> A2["/api/v1/companies · /users · /parameters"]
+    OPS --> A3["/api/v1/requests · /cases · /schedules"]
+    INS --> A4["/api/v1/evaluations · /respuestas · /evidences"]
+    REP --> A5["/api/v1/reports · /audit"]
+
+    A1 --> API[ASP.NET Core API]
+    A2 --> API
+    A3 --> API
+    A4 --> API
+    A5 --> API
+    API --> APP[Casos de uso y validaciones]
+    APP --> REPO[Repositorios Dapper]
+    REPO --> PG[(PostgreSQL · esquema SIGERSA)]
+    APP --> STORAGE[Autorización de archivos]
+    STORAGE --> SB[(Supabase Storage privado)]
+    AUTH --> SBA[Supabase Auth · MFA TOTP]
+```
+
+### Persistencia de una evaluación y sus evidencias
+
+```mermaid
+sequenceDiagram
+    actor T as Técnico evaluador
+    participant F as PWA React
+    participant Q as IndexedDB
+    participant A as API SIGERSA
+    participant D as PostgreSQL
+    participant S as Supabase Storage
+
+    T->>F: Selecciona C, CP, IT o N/A
+    opt Respuesta IT
+        T->>F: Clasifica NC como C, M o Me
+    end
+    F->>Q: Encola respuesta idempotente
+    F->>A: POST /api/v1/respuestas
+    A->>D: UPSERT RESPUESTA_USUARIO
+    D-->>A: Versión persistida
+    A-->>F: Confirmación
+    F->>Q: Elimina operación sincronizada
+
+    opt Evidencia opcional de hasta 5 MB
+        F->>A: Solicita carga firmada
+        A->>D: Registra autorización
+        A-->>F: URL y token de carga
+        F->>S: Carga directa al bucket privado
+        F->>A: Confirma hash y metadatos
+        A->>S: Verifica el objeto
+        A->>D: Persiste EVIDENCIA
+    end
+
+    F->>A: PUT /evaluations/{id}/supplement
+    A->>D: Guarda datos de control, medidas y recomendaciones
+    F->>A: Calcula o finaliza
+    A->>D: Lee respuestas, origen, motivo e inspección anterior
+    A->>A: Aplica el alcance y los 7 criterios de calificación
+    A-->>F: Resultado, decisión y recomendaciones
+```
+
+### Alcance de la inspección y calificación
+
+```mermaid
+flowchart TD
+    I[Evaluación] --> O{Origen o motivo}
+    O -->|Solicitud, renovación o certificación BPM| FULL[Ficha completa]
+    O -->|Programada con permiso vigente| CUT[Desde 1.1.3]
+    O -->|Seguimiento o control| PRIOR[NC de la inspección anterior]
+    O -->|Denuncia| DISC[Alcance decidido por el inspector]
+    O -->|Otro caso o alerta| SAFE[Ficha completa]
+    FULL --> CALC[Calcular solo ítems aplicables]
+    CUT --> CALC
+    PRIOR --> CALC
+    DISC --> CALC
+    SAFE --> CALC
+    CALC --> SCORE{Puntuación y NC}
+    SCORE -->|Menos de 81 %| FIX[Notificar NC y fijar fechas]
+    SCORE -->|60 % o menos| CLOSE[Considerar cierre]
+    SCORE -->|NC crítica| STOP[Recomendar detener producción]
+    SCORE -->|Solicitud: 81 % o más, 0 críticas y menos de 3 mayores| APPROVE[Permitir aprobación]
+```
+
+### Inicio de sesión con MFA opcional
+
+```mermaid
+sequenceDiagram
+    actor U as Usuario
+    participant F as PWA React
+    participant A as API SIGERSA
+    participant D as PostgreSQL
+    participant S as Supabase Auth
+
+    U->>F: Correo y contraseña
+    F->>A: POST /auth/login
+    A->>D: Valida cuenta, hash y estado MFA
+    alt MFA no habilitado
+        A-->>F: JWT y refresh token SIGERSA
+    else MFA habilitado
+        A-->>F: Requiere SUPABASE_TOTP
+        F->>S: Inicio de sesión AAL1
+        U->>F: Código de aplicación autenticadora
+        F->>S: challengeAndVerify
+        S-->>F: Token AAL2
+        F->>A: POST /auth/login/verify-supabase-mfa
+        A->>S: Valida token e identidad
+        A->>D: Comprueba vínculo del usuario
+        A-->>F: JWT y refresh token SIGERSA
+    end
+```
+
+### Ciclo de vida de una evaluación
+
+```mermaid
+stateDiagram-v2
+    [*] --> ASIGNADA
+    ASIGNADA --> EN_EJECUCION: Iniciar
+    EN_EJECUCION --> FINALIZADA: Responder, sincronizar y calcular
+    FINALIZADA --> ENVIADA: Enviar
+    ENVIADA --> EN_REVISION: Revisar
+    ENVIADA --> APROBADA: Aprobar
+    EN_REVISION --> EN_CORRECCION: Solicitar correcciones
+    EN_CORRECCION --> FINALIZADA: Corregir y recalcular
+    EN_REVISION --> APROBADA: Aprobar
+    APROBADA --> CERRADA: Cerrar
+    CERRADA --> [*]
+```
+
 > **Regla obligatoria:** todos los objetos de negocio de PostgreSQL pertenecen al esquema `SIGERSA`. No se crean tablas de negocio en `public` ni tipos `ENUM`; los catálogos administrables residen en `SIGERSA.ParametersControl`.
 
 ## Requisitos locales
@@ -82,7 +228,7 @@ La solución backend contiene:
 - Node.js compatible con Vite 8.
 - pnpm 11.19 o compatible.
 - PostgreSQL 15 o superior.
-- Proyecto Supabase con bucket privado para probar archivos reales.
+- Proyecto Supabase con Auth TOTP habilitado y bucket privado para probar archivos reales.
 - Servidor SMTP para probar recuperación OTP y notificaciones.
 
 Puertos predeterminados:
@@ -100,7 +246,7 @@ Puertos predeterminados:
 CREATE DATABASE sigersa_db;
 ```
 
-Aplique, en orden alfabético, las migraciones de `src/backend/Database/Migrations`. Actualmente existen 17, desde `001_initial_schema_sigersa.sql` hasta `017_establishment_catalogs_and_generated_code.sql`. La API no las ejecuta automáticamente.
+Aplique, en orden alfabético, las migraciones de `src/backend/Database/Migrations`. Actualmente existen 20, desde `001_initial_schema_sigersa.sql` hasta `020_inspection_qualification_policy.sql`. La API no las ejecuta automáticamente.
 
 ### 2. Backend
 
@@ -111,7 +257,7 @@ $env:Database__ConnectionString = "Host=localhost;Port=5432;Database=sigersa_db;
 $env:Authentication__Jwt__SigningKey = "UNA_CLAVE_LOCAL_SEGURA_DE_AL_MENOS_32_CARACTERES"
 $env:Supabase__Url = "https://SU_PROYECTO.supabase.co"
 $env:Supabase__Key = "SU_CLAVE_SECRETA_COMPLETA_DEL_SERVIDOR"
-$env:Supabase__DefaultBucketName = "evidencias"
+$env:Supabase__DefaultBucketName = "SIGERSA_FILES"
 $env:Smtp__Enabled = "true"
 $env:Smtp__Host = "smtp.su-proveedor.com"
 $env:Smtp__Port = "587"
@@ -123,6 +269,8 @@ $env:Smtp__FromAddress = "no-reply@su-dominio.com"
 
 `Supabase__Key` es exclusiva del backend. Nunca exponga una clave de servicio en el navegador, Git, Swagger o los logs.
 
+Para MFA, habilite el proveedor de correo/contraseña y la verificación TOTP en **Authentication** de Supabase. El servidor provisiona o actualiza la identidad externa; el navegador recibe únicamente la clave publicable y el usuario debe completar un desafío que produzca un token `aal2` antes de que SIGERSA emita su sesión.
+
 ### 3. Frontend
 
 Copie `src/frontend/.env.example` como `src/frontend/.env.local` y complete únicamente valores públicos:
@@ -131,7 +279,7 @@ Copie `src/frontend/.env.example` como `src/frontend/.env.local` y complete úni
 VITE_API_BASE_URL=http://127.0.0.1:5000
 VITE_SUPABASE_URL=https://SU_PROYECTO.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=SU_CLAVE_PUBLICABLE_O_ANON
-VITE_SUPABASE_EVIDENCE_BUCKET=evidencias
+VITE_SUPABASE_EVIDENCE_BUCKET=SIGERSA_FILES
 ```
 
 La clave del frontend debe ser publicable o `anon`, nunca una clave secreta del servidor.
@@ -233,5 +381,7 @@ SIGERSA/
 - Mantenga `.env.local` fuera del control de versiones.
 - Use TLS en ambientes compartidos o productivos.
 - Mantenga privados los buckets de Supabase y autorice cada carga desde la API.
+- Mantenga el límite de cada evidencia en 5 MB tanto en el navegador como en la API.
+- Para cuentas con MFA activado, la API solo emite la sesión después de validar un token Supabase `aal2` vinculado al mismo usuario.
 - Use credenciales distintas por ambiente y rote cualquier secreto expuesto.
 - Los errores HTTP se devuelven como `application/problem+json` sin detalles internos.

@@ -43,6 +43,19 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
     public Task<IReadOnlyList<EvaluationFormItem>> GetForm(Guid evaluationId, CancellationToken cancellationToken) =>
         service.GetFormAsync(evaluationId, Actor(), cancellationToken);
 
+    [HttpGet("evaluations/{evaluationId:guid}/workspace")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR,TECNICO_EVALUADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO")]
+    public Task<EvaluationWorkspace> GetWorkspace(Guid evaluationId, CancellationToken cancellationToken) =>
+        service.GetWorkspaceAsync(evaluationId, Actor(), cancellationToken);
+
+    [HttpPut("evaluations/{evaluationId:guid}/supplement")]
+    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    public Task<EvaluationSupplement> SaveSupplement(
+        Guid evaluationId,
+        SaveEvaluationSupplementDraft request,
+        CancellationToken cancellationToken) =>
+        service.SaveSupplementAsync(evaluationId, request, ActorContext(), cancellationToken);
+
     [HttpPost("respuestas")]
     [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
     public Task<EvaluationAnswer> SaveAnswer(SaveAnswerRequest request, CancellationToken cancellationToken)
@@ -56,6 +69,7 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
             request.EvaluationId,
             sourceItem,
             request.Value,
+            request.CriticalityCode,
             request.Observation,
             request.Comment,
             idempotencyKey,
@@ -155,6 +169,7 @@ public sealed record SaveAnswerRequest(
     Guid EvaluationId,
     string ItemId,
     string Value,
+    string? CriticalityCode,
     string? Observation,
     string? Comment,
     Guid? IdempotencyKey,
