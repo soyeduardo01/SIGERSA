@@ -54,6 +54,18 @@ public sealed class SchedulingServiceTests
             new SchedulingActor(UserId, ["ADMINISTRADOR"]), CancellationToken.None));
     }
 
+    [Fact]
+    public void EndValidationComparesTheActualInstantAcrossTimeZones()
+    {
+        var validator = new ScheduleInputValidator();
+        var start = new DateTimeOffset(2026, 9, 15, 9, 0, 0, TimeSpan.FromHours(-4));
+        var sameInstant = new DateTimeOffset(2026, 9, 15, 13, 0, 0, TimeSpan.Zero);
+        var laterInstant = sameInstant.AddMinutes(1);
+
+        Assert.False(validator.Validate(ValidInput() with { StartsAt = start, EndsAt = sameInstant }).IsValid);
+        Assert.True(validator.Validate(ValidInput() with { StartsAt = start, EndsAt = laterInstant }).IsValid);
+    }
+
     private static SchedulingService CreateService(FakeRepository repository) =>
         new(repository, new ScheduleInputValidator());
 

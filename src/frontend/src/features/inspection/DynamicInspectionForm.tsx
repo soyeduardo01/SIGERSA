@@ -62,9 +62,11 @@ function emptySupplement(): EvaluationSupplement {
 export function DynamicInspectionForm({
   selectedEvaluationId,
   onFinalized,
+  readOnly = false,
 }: {
   selectedEvaluationId?: string
   onFinalized?: () => void
+  readOnly?: boolean
 }) {
   const [evaluationInput, setEvaluationInput] = useState(
     () =>
@@ -517,6 +519,13 @@ export function DynamicInspectionForm({
         </div>
       </div>
 
+      {readOnly && items.length > 0 && (
+        <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+          <strong>Ficha finalizada o sin permiso de edición:</strong> la información se muestra en
+          modo de solo lectura.
+        </div>
+      )}
+
       {loadingForm && (
         <div className="mt-6 rounded-card bg-white p-5 shadow-card">
           <FormSkeleton />
@@ -525,7 +534,7 @@ export function DynamicInspectionForm({
       {items.length > 0 && (
         <>
           {policy && <InspectionScope policy={policy} selectedItems={questions} />}
-          <ControlDataSection supplement={supplement} onChange={setSupplement} />
+          <ControlDataSection supplement={supplement} onChange={setSupplement} readOnly={readOnly} />
           <ScoringCriteria />
           <InspectionCriteria />
           <div
@@ -585,6 +594,17 @@ export function DynamicInspectionForm({
                 comment={comments[item.sourceItem] ?? ''}
                 answerStatus={answerStatus[item.sourceItem]}
                 evidenceStatus={evidenceStatus[item.sourceItem]}
+                readOnly={readOnly}
+                headingDepth={
+                  item.isEvaluable
+                    ? 0
+                    : item.level -
+                      Math.min(
+                        ...currentChapter.items
+                          .filter((chapterItem) => !chapterItem.isEvaluable)
+                          .map((chapterItem) => chapterItem.level),
+                      )
+                }
                 onRating={(rating) => void selectRating(item, rating)}
                 onCriticality={(criticality) => void selectCriticality(item, criticality)}
                 onObservation={(value) =>
@@ -618,7 +638,7 @@ export function DynamicInspectionForm({
             </button>
           </div>
           {formComplete ? (
-            <FollowUpSection supplement={supplement} onChange={setSupplement} />
+            <FollowUpSection supplement={supplement} onChange={setSupplement} readOnly={readOnly} />
           ) : (
             <div className="mt-6 rounded-xl border border-dashed border-slate-300 bg-white p-5 text-sm text-ink-muted">
               {policy?.blockingReason ??
@@ -632,6 +652,7 @@ export function DynamicInspectionForm({
               <label className="text-sm font-bold">
                 Riesgo del producto
                 <select
+                  disabled={readOnly}
                   value={productRisk ?? ''}
                   onChange={(event) =>
                     setProductRisk(event.target.value ? Number(event.target.value) : null)
@@ -651,7 +672,7 @@ export function DynamicInspectionForm({
               <button
                 type="button"
                 onClick={() => void saveSupplement()}
-                disabled={savingSupplement}
+                disabled={readOnly || savingSupplement}
                 className="min-h-11 rounded-xl border border-white/30 px-4 font-bold disabled:opacity-50"
               >
                 {savingSupplement ? 'Guardando…' : 'Guardar datos complementarios'}
@@ -659,7 +680,7 @@ export function DynamicInspectionForm({
               <button
                 type="button"
                 onClick={() => void calculate()}
-                disabled={productRisk === null || !formComplete}
+                disabled={readOnly || productRisk === null || !formComplete}
                 className="min-h-11 rounded-xl bg-brand-500 px-4 font-bold disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Sincronizar y calcular
@@ -667,7 +688,7 @@ export function DynamicInspectionForm({
               <button
                 type="button"
                 onClick={() => void finalize()}
-                disabled={productRisk === null || !formComplete}
+                disabled={readOnly || productRisk === null || !formComplete}
                 className="min-h-11 rounded-xl bg-white px-4 font-bold text-brand-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Finalizar evaluación
@@ -759,6 +780,8 @@ function EvaluationItemCard({
   comment,
   answerStatus,
   evidenceStatus,
+  readOnly,
+  headingDepth,
   onRating,
   onCriticality,
   onObservation,
@@ -773,6 +796,8 @@ function EvaluationItemCard({
   comment: string
   answerStatus?: string
   evidenceStatus?: string
+  readOnly: boolean
+  headingDepth: number
   onRating: (rating: string) => void
   onCriticality: (criticality: string) => void
   onObservation: (value: string) => void
@@ -780,15 +805,25 @@ function EvaluationItemCard({
   onBlur: () => void
   onEvidence: (file?: File) => void
 }) {
-  if (!item.isEvaluable)
+  if (!item.isEvaluable) {
+    const headingStyle =
+      headingDepth <= 0
+        ? 'border-brand-900 bg-brand-900 text-white shadow-card'
+        : headingDepth === 1
+          ? 'border-brand-600 bg-brand-600 text-white'
+          : 'border-brand-200 bg-brand-100 text-brand-900'
     return (
-      <div className="rounded-xl border-l-4 border-brand-500 bg-brand-50 p-4">
-        <h2 className="font-extrabold text-ink-strong">{item.title}</h2>
+      <div className={`rounded-xl border-l-[6px] p-4 ${headingStyle}`}>
+        <p className="text-[0.65rem] font-extrabold tracking-[0.14em] uppercase opacity-80">
+          {headingDepth <= 0 ? 'Capítulo' : headingDepth === 1 ? 'Sección' : 'Subsección'}
+        </p>
+        <h2 className="mt-1 font-extrabold">{item.title}</h2>
       </div>
     )
+  }
   return (
     <article className="rounded-xl bg-white p-4 shadow-card">
-      <fieldset>
+      <fieldset disabled={readOnly}>
         <legend className="text-sm leading-6 font-semibold text-ink-body">{item.title}</legend>
         <div className="mt-3 flex flex-wrap gap-2">
           {ratingOptions.map((option) => (
@@ -882,9 +917,11 @@ function EvaluationItemCard({
 function ControlDataSection({
   supplement,
   onChange,
+  readOnly,
 }: {
   supplement: EvaluationSupplement
   onChange: (value: EvaluationSupplement) => void
+  readOnly: boolean
 }) {
   const inputClass = 'mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal'
   const set = <K extends keyof EvaluationSupplement>(key: K, value: EvaluationSupplement[K]) =>
@@ -905,6 +942,7 @@ function ControlDataSection({
           Fecha de la última inspección{' '}
           <span className="font-normal text-ink-muted">(si aplica)</span>
           <input
+            disabled={readOnly}
             type="date"
             max={supplement.currentInspectionDate ?? undefined}
             value={supplement.previousInspectionDate ?? ''}
@@ -919,11 +957,13 @@ function ControlDataSection({
             value={supplement.previousQualification}
             onChange={(value) => set('previousQualification', value)}
             className={inputClass}
+            disabled={readOnly}
           />
         </div>
         <label className="text-sm font-bold">
           Fecha de la inspección actual
           <input
+            disabled={readOnly}
             type="date"
             value={supplement.currentInspectionDate ?? ''}
             onChange={(event) => set('currentInspectionDate', event.target.value || null)}
@@ -937,11 +977,13 @@ function ControlDataSection({
             value={supplement.currentQualification}
             onChange={(value) => set('currentQualification', value)}
             className={inputClass}
+            disabled={readOnly}
           />
         </div>
         <label className="text-sm font-bold">
           Oficial de Salud DPS/DAS 1
           <input
+            disabled={readOnly}
             maxLength={200}
             value={supplement.dpsDasOfficer1 ?? ''}
             onChange={(event) => set('dpsDasOfficer1', event.target.value || null)}
@@ -951,6 +993,7 @@ function ControlDataSection({
         <label className="text-sm font-bold">
           Oficial de Salud DPS/DAS 2 <span className="font-normal text-ink-muted">(opcional)</span>
           <input
+            disabled={readOnly}
             maxLength={200}
             value={supplement.dpsDasOfficer2 ?? ''}
             onChange={(event) => set('dpsDasOfficer2', event.target.value || null)}
@@ -960,6 +1003,7 @@ function ControlDataSection({
         <label className="text-sm font-bold">
           Técnico de DIGEMAPS 1
           <input
+            disabled={readOnly}
             maxLength={200}
             value={supplement.digemapsTechnician1 ?? ''}
             onChange={(event) => set('digemapsTechnician1', event.target.value || null)}
@@ -969,6 +1013,7 @@ function ControlDataSection({
         <label className="text-sm font-bold">
           Técnico de DIGEMAPS 2 <span className="font-normal text-ink-muted">(opcional)</span>
           <input
+            disabled={readOnly}
             maxLength={200}
             value={supplement.digemapsTechnician2 ?? ''}
             onChange={(event) => set('digemapsTechnician2', event.target.value || null)}
@@ -985,14 +1030,17 @@ function QualificationSelect({
   value,
   onChange,
   className,
+  disabled = false,
 }: {
   label: string
   value: string | null
   onChange: (value: string | null) => void
   className: string
+  disabled?: boolean
 }) {
   return (
     <select
+      disabled={disabled}
       aria-label={label}
       value={value ?? ''}
       onChange={(event) => onChange(event.target.value || null)}
@@ -1074,9 +1122,11 @@ function InspectionCriteria() {
 function FollowUpSection({
   supplement,
   onChange,
+  readOnly,
 }: {
   supplement: EvaluationSupplement
   onChange: (value: EvaluationSupplement) => void
+  readOnly: boolean
 }) {
   return (
     <section
@@ -1094,11 +1144,13 @@ function FollowUpSection({
         <FollowUpEditor
           title="Medidas correctivas"
           values={supplement.correctiveMeasures}
+          readOnly={readOnly}
           onChange={(correctiveMeasures) => onChange({ ...supplement, correctiveMeasures })}
         />
         <FollowUpEditor
           title="Recomendaciones"
           values={supplement.recommendations}
+          readOnly={readOnly}
           onChange={(recommendations) => onChange({ ...supplement, recommendations })}
         />
       </div>
@@ -1110,10 +1162,12 @@ function FollowUpEditor({
   title,
   values,
   onChange,
+  readOnly,
 }: {
   title: string
   values: EvaluationFollowUpItem[]
   onChange: (values: EvaluationFollowUpItem[]) => void
+  readOnly: boolean
 }) {
   function add() {
     if (values.length < 10) onChange([...values, { detail: '', dueDate: null }])
@@ -1131,7 +1185,7 @@ function FollowUpEditor({
         <button
           type="button"
           onClick={add}
-          disabled={values.length >= 10}
+          disabled={readOnly || values.length >= 10}
           className="text-brand-800 rounded-lg border border-brand-200 px-3 py-2 text-sm font-bold disabled:opacity-40"
         >
           + Agregar
@@ -1149,6 +1203,7 @@ function FollowUpEditor({
               <span className="text-xs font-bold text-brand-700">No. {index + 1}</span>
               <button
                 type="button"
+                disabled={readOnly}
                 onClick={() => remove(index)}
                 className="text-xs font-bold text-red-700"
               >
@@ -1156,6 +1211,7 @@ function FollowUpEditor({
               </button>
             </div>
             <textarea
+              disabled={readOnly}
               maxLength={2000}
               rows={3}
               value={value.detail}
@@ -1166,6 +1222,7 @@ function FollowUpEditor({
             <label className="mt-2 block text-xs font-bold text-ink-muted">
               Fecha de cumplimiento <span className="font-normal">(opcional)</span>
               <input
+                disabled={readOnly}
                 type="date"
                 value={value.dueDate ?? ''}
                 onChange={(event) => update(index, { dueDate: event.target.value || null })}

@@ -11,6 +11,14 @@ export function formatPhone(value: string) {
   return [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6, 10)].filter(Boolean).join('-')
 }
 
+export function formatProfilePhone(value: string) {
+  const digits = digitsOnly(value, 10)
+  if (digits.length === 0) return ''
+  if (digits.length <= 3) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
 export function formatCedula(value: string) {
   const digits = digitsOnly(value, 11)
   if (digits.length <= 3) return digits

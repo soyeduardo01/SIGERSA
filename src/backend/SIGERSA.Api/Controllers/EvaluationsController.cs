@@ -58,15 +58,27 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
 
     [HttpPost("respuestas")]
     [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
-    public Task<EvaluationAnswer> SaveAnswer(SaveAnswerRequest request, CancellationToken cancellationToken)
+    public Task<EvaluationAnswer> SaveAnswer(SaveAnswerRequest request, CancellationToken cancellationToken) =>
+        SaveAnswerCore(request.EvaluationId, request, cancellationToken);
+
+    [HttpPost("evaluations/{evaluationId:guid}/answers")]
+    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    public Task<EvaluationAnswer> SaveEvaluationAnswer(
+        Guid evaluationId, SaveAnswerRequest request, CancellationToken cancellationToken) =>
+        SaveAnswerCore(evaluationId, request, cancellationToken);
+
+    private Task<EvaluationAnswer> SaveAnswerCore(
+        Guid evaluationId, SaveAnswerRequest request, CancellationToken cancellationToken)
     {
+        if (request.EvaluationId != Guid.Empty && request.EvaluationId != evaluationId)
+            throw new ArgumentException("La evaluación de la ruta no coincide con la respuesta enviada.");
         if (!int.TryParse(request.ItemId, out var sourceItem))
         {
             throw new ArgumentException("ItemId debe ser el identificador numérico de AllItems.");
         }
         var idempotencyKey = request.IdempotencyKey ?? HeaderIdempotencyKey();
         return service.SaveAnswerAsync(new SaveEvaluationAnswerDraft(
-            request.EvaluationId,
+            evaluationId,
             sourceItem,
             request.Value,
             request.CriticalityCode,

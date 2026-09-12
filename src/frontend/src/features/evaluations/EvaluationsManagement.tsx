@@ -16,14 +16,11 @@ import { formatStatusLabel } from '../../lib/formatters'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 import { DynamicInspectionForm } from '../inspection/DynamicInspectionForm'
 import { useAuth } from '../../contexts/useAuth'
+import { canEditInspection, inspectionActionLabel } from './evaluationActions'
 
 const emptyPage: EvaluationsPage = { items: [], page: 1, pageSize: 20, total: 0 }
 
-export function EvaluationsManagement({
-  mode = 'management',
-}: {
-  mode?: 'management' | 'inspection'
-}) {
+export function EvaluationsManagement() {
   const [result, setResult] = useState(emptyPage)
   const [options, setOptions] = useState<EvaluationCreateOptions | null>(null)
   const [status, setStatus] = useState('')
@@ -32,7 +29,6 @@ export function EvaluationsManagement({
   const [creating, setCreating] = useState(false)
   const [selected, setSelected] = useState<EvaluationSummary | null>(null)
   const evaluationStates = useParameterOptions('ESTADO_EVALUACION')
-  const inspectionMode = mode === 'inspection'
   const { roles } = useAuth()
   const canExecute = roles.some((role) => role === 'ADMINISTRADOR' || role === 'TECNICO_EVALUADOR')
   const canReview = roles.some((role) => role === 'ADMINISTRADOR' || role === 'COORDINADOR')
@@ -56,6 +52,9 @@ export function EvaluationsManagement({
         if (!active) return
         setResult(page)
         setOptions(choices)
+        const requestedId = new URLSearchParams(window.location.search).get('evaluation')
+        const requested = page.items.find((item) => item.id === requestedId)
+        if (requested) setSelected(requested)
         setError('')
       })
       .catch((caught) => {
@@ -117,18 +116,17 @@ export function EvaluationsManagement({
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
           <p className="text-xs font-bold tracking-[0.14em] text-brand-700 uppercase">
-            {inspectionMode ? 'Ejecución de campo' : 'Inspección BPM'}
+            Inspección BPM
           </p>
           <h1 id="evaluations-title" className="mt-2 text-2xl font-extrabold">
-            {inspectionMode ? 'Inspecciones' : 'Evaluaciones'}
+            Evaluaciones e inspecciones
           </h1>
           <p className="mt-2 text-sm text-ink-muted">
-            {inspectionMode
-              ? 'Seleccione una evaluación asignada y comience la inspección del establecimiento.'
-              : 'Consulte sus asignaciones y abra la ficha inmutable autorizada.'}
+            Cree y supervise evaluaciones. Mientras estén en ejecución podrá realizar la inspección;
+            después de finalizarlas, la ficha quedará disponible únicamente para consulta.
           </p>
         </div>
-        {!inspectionMode && options?.canCreate && (
+        {options?.canCreate && (
           <button
             type="button"
             onClick={() => setCreating(true)}
@@ -247,9 +245,13 @@ export function EvaluationsManagement({
                       <button
                         type="button"
                         onClick={() => setSelected(item)}
-                        className="rounded-lg border px-3 py-2 font-bold"
+                        className={`rounded-lg px-3 py-2 font-bold ${
+                          canEditInspection(item.status, canExecute)
+                            ? 'bg-brand-700 text-white'
+                            : 'border border-slate-300 text-ink-body'
+                        }`}
                       >
-                        Abrir ficha
+                        {inspectionActionLabel(item.status, canExecute)}
                       </button>
                     </div>
                   </td>
@@ -270,7 +272,15 @@ export function EvaluationsManagement({
         <div className="mt-8 border-t border-slate-200 pt-8">
           <DynamicInspectionForm
             selectedEvaluationId={selected.id}
-            onFinalized={() => void load()}
+            onFinalized={() => {
+              setSelected((current) =>
+                current ? { ...current, status: 'FINALIZADA' } : current,
+              )
+              void load()
+            }}
+            readOnly={
+              !canEditInspection(selected.status, canExecute)
+            }
           />
         </div>
       )}

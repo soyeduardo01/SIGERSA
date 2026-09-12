@@ -60,6 +60,30 @@ public sealed class SigersaSqlGuardTests
     }
 
     [Fact]
+    public void EnsureQualifiedShouldAcceptTableValuedFunction()
+    {
+        const string sql = "SELECT value FROM unnest(@Ids::uuid[]) AS selected(value);";
+
+        Assert.Equal(sql, SigersaSqlGuard.EnsureQualified(sql));
+    }
+
+    [Fact]
+    public void EnsureQualifiedShouldAcceptParenthesizedSubquery()
+    {
+        const string sql = "SELECT EXISTS (SELECT 1 FROM \"SIGERSA\".\"USUARIO\");";
+
+        Assert.Equal(sql, SigersaSqlGuard.EnsureQualified(sql));
+    }
+
+    [Fact]
+    public void EnsureQualifiedShouldStillRejectUnqualifiedTableAfterParenthesizedExpression()
+    {
+        const string sql = "SELECT EXISTS (SELECT 1 FROM USUARIO);";
+
+        Assert.Throws<InvalidOperationException>(() => SigersaSqlGuard.EnsureQualified(sql));
+    }
+
+    [Fact]
     public void EnsureAuditedConcurrencyUpdateShouldRejectMissingRowVersionPredicate()
     {
         const string sql = """

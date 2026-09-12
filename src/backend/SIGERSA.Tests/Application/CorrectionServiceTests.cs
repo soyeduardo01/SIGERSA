@@ -54,6 +54,18 @@ public sealed class CorrectionServiceTests
             new CorrectionActor(UserId, ["COORDINADOR"], null), CancellationToken.None));
     }
 
+    [Fact]
+    public void DueDateUsesUtcInstantAndRequiresTheMinimumResolutionTime()
+    {
+        var validator = new CorrectionInputValidator();
+
+        var tooSoon = ValidInput() with { DueAt = DateTimeOffset.Now.AddMinutes(5) };
+        var valid = ValidInput() with { DueAt = DateTimeOffset.Now.AddHours(1) };
+
+        Assert.False(validator.Validate(tooSoon).IsValid);
+        Assert.True(validator.Validate(valid).IsValid);
+    }
+
     private static CorrectionService CreateService(FakeRepository repository) =>
         new(repository, new CorrectionInputValidator());
 

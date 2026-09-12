@@ -1680,7 +1680,7 @@ function refreshSessionOnce(refreshToken: string) {
   return refreshInFlight
 }
 
-async function apiError(response: Response) {
+export async function apiError(response: Response) {
   const fallback =
     response.status === 429
       ? 'Se alcanzó el límite temporal de intentos. Espere unos minutos antes de continuar.'

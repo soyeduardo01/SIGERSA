@@ -45,4 +45,13 @@ describe('ProfileManagement', () => {
     expect(screen.getByLabelText('Nueva contraseña')).toBeVisible()
     expect(screen.getByLabelText('Confirmar nueva contraseña')).toBeVisible()
   })
+
+  it('aplica la máscara dominicana al teléfono', async () => {
+    render(<ProfileManagement />)
+
+    const phone = await screen.findByLabelText('Teléfono')
+    fireEvent.change(phone, { target: { value: '8095550123 texto' } })
+
+    expect(phone).toHaveValue('(809) 555-0123')
+  })
 })

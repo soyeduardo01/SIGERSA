@@ -13,6 +13,7 @@ import {
   type UserProfile,
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
+import { formatProfilePhone } from '../../lib/formatters'
 import { getSupabaseClient, isSupabaseConfigured } from '../../lib/supabase'
 
 type MfaMode = 'enable' | 'disable'
@@ -62,7 +63,7 @@ export function ProfileManagement() {
     setProfile(value)
     setFullName(value.fullName)
     setEmail(value.email)
-    setPhone(value.phone ?? '')
+    setPhone(formatProfilePhone(value.phone ?? ''))
   }
 
   async function saveProfile(event: FormEvent) {
@@ -282,9 +283,9 @@ export function ProfileManagement() {
                 <Field label="Teléfono">
                   <input
                     type="tel"
-                    maxLength={40}
+                    maxLength={14}
                     value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
+                    onChange={(event) => setPhone(formatProfilePhone(event.target.value))}
                     placeholder="(809) 555-0123"
                     className={inputClass}
                   />
@@ -296,7 +297,7 @@ export function ProfileManagement() {
                   onClick={() => {
                     setFullName(profile.fullName)
                     setEmail(profile.email)
-                    setPhone(profile.phone ?? '')
+                    setPhone(formatProfilePhone(profile.phone ?? ''))
                   }}
                   className="min-h-11 rounded-xl border border-slate-300 px-5 font-bold"
                 >

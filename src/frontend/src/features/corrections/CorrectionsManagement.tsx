@@ -16,6 +16,11 @@ import {
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
+import {
+  correctionMinimumLeadMinutes,
+  futureLocalDateTime,
+  toUtcIsoFromLocalInput,
+} from '../../lib/dateTime'
 import { queueCorrection } from '../../offline/syncQueue'
 
 const emptyPage: CorrectionsPage = { items: [], page: 1, pageSize: 50, total: 0 }
@@ -253,7 +258,7 @@ function CorrectionForm({
   const [responsibleType, setResponsibleType] = useState<'' | 'TECNICO' | 'EMPRESA'>('')
   const [assignedToId, setAssignedToId] = useState('')
   const [observation, setObservation] = useState('')
-  const [dueAt, setDueAt] = useState('')
+  const [dueAt, setDueAt] = useState(() => futureLocalDateTime(24 * 60))
   const [saving, setSaving] = useState(false)
   const [evaluationItems, setEvaluationItems] = useState<EvaluationFormItem[]>([])
   const [fieldReasons, setFieldReasons] = useState<Record<number, string>>({})
@@ -273,7 +278,7 @@ function CorrectionForm({
         responsibleType: responsibleType as 'TECNICO' | 'EMPRESA',
         assignedToId: responsibleType === 'TECNICO' ? assignedToId : null,
         coordinatorObservation: observation,
-        dueAt: new Date(dueAt).toISOString(),
+        dueAt: toUtcIsoFromLocalInput(dueAt),
         idempotencyKey: crypto.randomUUID(),
         fields: Object.entries(fieldReasons)
           .filter(([, reason]) => reason.trim())
@@ -370,6 +375,7 @@ function CorrectionForm({
             <input
               required
               type="datetime-local"
+              min={futureLocalDateTime(correctionMinimumLeadMinutes)}
               value={dueAt}
               onChange={(e) => setDueAt(e.target.value)}
               className={field}

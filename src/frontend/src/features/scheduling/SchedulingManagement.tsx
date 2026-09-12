@@ -14,6 +14,7 @@ import {
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
+import { futureLocalDateTime, toLocalDateTimeInput, toUtcIsoFromLocalInput } from '../../lib/dateTime'
 import { queueSchedule } from '../../offline/syncQueue'
 
 const emptyPage: SchedulesPage = { items: [], page: 1, pageSize: 100, total: 0 }
@@ -286,12 +287,6 @@ function calendarBounds(anchor: string, view: CalendarView) {
   return { start, end }
 }
 
-function localDateTime(value: string) {
-  const date = new Date(value)
-  const offset = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
-}
-
 function ScheduleForm({
   item,
   options,
@@ -304,8 +299,12 @@ function ScheduleForm({
   onSave: (draft: ScheduleDraft) => Promise<void>
 }) {
   const [caseId, setCaseId] = useState(item?.caseId ?? '')
-  const [startsAt, setStartsAt] = useState(item ? localDateTime(item.startsAt) : '')
-  const [endsAt, setEndsAt] = useState(item ? localDateTime(item.endsAt) : '')
+  const [startsAt, setStartsAt] = useState(
+    item ? toLocalDateTimeInput(item.startsAt) : futureLocalDateTime(60),
+  )
+  const [endsAt, setEndsAt] = useState(
+    item ? toLocalDateTimeInput(item.endsAt) : futureLocalDateTime(120),
+  )
   const [priority, setPriority] = useState(item?.priority ?? 3)
   const [evaluatorIds, setEvaluatorIds] = useState(item?.evaluatorIds ?? [])
   const [observations, setObservations] = useState(item?.observations ?? '')
@@ -317,8 +316,8 @@ function ScheduleForm({
     try {
       await onSave({
         caseId,
-        startsAt: new Date(startsAt).toISOString(),
-        endsAt: new Date(endsAt).toISOString(),
+        startsAt: toUtcIsoFromLocalInput(startsAt),
+        endsAt: toUtcIsoFromLocalInput(endsAt),
         priority,
         evaluatorIds,
         observations,
@@ -374,7 +373,14 @@ function ScheduleForm({
               required
               type="datetime-local"
               value={startsAt}
-              onChange={(e) => setStartsAt(e.target.value)}
+              min={item ? undefined : futureLocalDateTime(0)}
+              onChange={(e) => {
+                const nextStart = e.target.value
+                setStartsAt(nextStart)
+                if (endsAt && new Date(endsAt) <= new Date(nextStart)) {
+                  setEndsAt(toLocalDateTimeInput(new Date(nextStart).getTime() + 60 * 60_000))
+                }
+              }}
               className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
             />
           </label>
@@ -383,6 +389,7 @@ function ScheduleForm({
             <input
               required
               type="datetime-local"
+              min={startsAt}
               value={endsAt}
               onChange={(e) => setEndsAt(e.target.value)}
               className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"

@@ -15,7 +15,7 @@ Funcionalidades disponibles:
 - Registro público de Administrador de Empresa y Usuario Delegado con carta de autorización.
 - Menú y rutas protegidas según rol; la API también valida empresa, asignación y propiedad.
 - Gestión de empresas, establecimientos, usuarios, parámetros y catálogos.
-- Solicitudes, casos, programación, evaluaciones, inspecciones, hallazgos, evidencias y correcciones conectados a la API.
+- Solicitudes, casos, programación, evaluaciones con inspección integrada, hallazgos, evidencias y correcciones conectados a la API.
 - Fichas BPM dinámicas, jerárquicas y versionadas.
 - Riesgo, informes, auditoría, perfil y notificaciones.
 - Cola offline idempotente para sincronizar respuestas y evidencias al recuperar conectividad.
@@ -34,8 +34,7 @@ Los módulos públicos son **Inicio de sesión**, **Registro** y **Recuperación
 | Alertas y denuncias |  |  |  | ✓ |  |
 | Casos |  |  |  | ✓ |  |
 | Programación |  |  |  | ✓ | ✓* |
-| Evaluaciones |  |  |  | ✓ | ✓* |
-| Inspecciones |  |  |  | ✓ | ✓* |
+| Evaluaciones e inspecciones |  |  |  | ✓ | ✓* |
 | Establecimientos | ✓ |  |  |  |  |
 | Hallazgos |  | ✓ | ✓ | ✓ | ✓* |
 | Evidencias |  | ✓ | ✓ | ✓ | ✓* |
@@ -54,6 +53,19 @@ Los módulos públicos son **Inicio de sesión**, **Registro** y **Recuperación
 \** El Administrador de Empresa solo administra usuarios de su propia empresa y no puede asignar roles internos o globales.
 
 Los códigos canónicos son `ADMINISTRADOR`, `ADMINISTRADOR_EMPRESA`, `USUARIO_DELEGADO`, `COORDINADOR` y `TECNICO_EVALUADOR`.
+
+### Evaluaciones e inspecciones: un solo módulo
+
+El módulo **Evaluaciones** concentra el ciclo completo: creación, inicio, ejecución de la inspección, supervisión, revisión, aprobación y cierre. Una evaluación en estado `EN_EJECUCION` o `EN_CORRECCION` muestra **Realizar inspección** al técnico autorizado; después de finalizarse, el mismo acceso cambia a **Ver ficha** y queda en solo lectura. La antigua dirección del módulo Inspecciones se conserva como acceso compatible y conduce a Evaluaciones.
+
+```mermaid
+flowchart LR
+    E[Evaluaciones<br/>planificar y controlar] -->|Iniciar| I[Realizar inspección<br/>en la misma ficha]
+    I -->|Finalizar y bloquear edición| R[Ver ficha y revisión técnica]
+    R -->|Aprobar| H[Informe, hallazgos<br/>y seguimiento]
+    R -. consulta .-> F[(Ficha en solo lectura)]
+    I -->|respuestas y evidencias| DB[(PostgreSQL + Supabase)]
+```
 
 ## Arquitectura y tecnologías
 

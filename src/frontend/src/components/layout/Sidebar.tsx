@@ -41,12 +41,6 @@ const navigation: NavigationItem[] = [
     icon: 'M7 3h10v4h4v14H3V7h4V3Zm2 2v4h6V5H9Zm-2 8h10M7 17h7',
   },
   {
-    module: 'inspecciones',
-    to: '/inspecciones',
-    label: 'Inspecciones',
-    icon: 'M4 5h16v14H4V5Zm4 4h8M8 13h5m5 3 2 2 4-5',
-  },
-  {
     module: 'programacion',
     to: '/programacion',
     label: 'Programación',

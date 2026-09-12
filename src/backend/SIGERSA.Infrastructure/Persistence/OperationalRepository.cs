@@ -432,7 +432,7 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             SELECT id AS Id, nombre AS Name, NULL::uuid AS CompanyId
               FROM "SIGERSA"."NIVEL_CRITICIDAD"
              WHERE activo = true
-             ORDER BY orden, nombre;
+             ORDER BY prioridad, nombre;
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)

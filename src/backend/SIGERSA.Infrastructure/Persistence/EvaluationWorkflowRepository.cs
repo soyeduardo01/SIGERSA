@@ -599,17 +599,33 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         await using (connection)
         await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
-            var contextSql = $"""
-                SELECT item.id AS ItemId
-                FROM "SIGERSA"."EVALUACION" evaluation
-                JOIN "SIGERSA"."ITEM_FICHA" item ON item.ficha_inspeccion_id = evaluation.ficha_inspeccion_id
-                WHERE evaluation.id = @EvaluationId AND item.source_allitems_item = @SourceItem
-                  AND item.es_evaluable = true AND {AccessPredicate}
-                  AND evaluation.estado IN ('EN_EJECUCION', 'EN_CORRECCION')
-                FOR UPDATE;
+            var evaluationSql = $"""
+                SELECT evaluation.estado
+                  FROM "SIGERSA"."EVALUACION" evaluation
+                 WHERE evaluation.id = @EvaluationId AND {AccessPredicate}
+                 FOR UPDATE;
                 """;
-            var itemId = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(Sql(contextSql), new { draft.EvaluationId, draft.SourceItem, ActorId = actorId }, transaction, cancellationToken: cancellationToken));
-            if (itemId is null) throw new KeyNotFoundException("La evaluación o el ítem evaluable no existe, o el usuario no tiene acceso.");
+            var evaluationStatus = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+                Sql(evaluationSql), new { draft.EvaluationId, ActorId = actorId }, transaction,
+                cancellationToken: cancellationToken));
+            if (evaluationStatus is null)
+                throw new KeyNotFoundException("La evaluación no existe o el usuario no tiene acceso.");
+            if (evaluationStatus is not ("EN_EJECUCION" or "EN_CORRECCION"))
+                throw new InvalidOperationException(
+                    "La ficha solo admite respuestas cuando la evaluación está en ejecución o en corrección.");
+
+            var itemId = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(Sql("""
+                SELECT item.id
+                  FROM "SIGERSA"."EVALUACION" evaluation
+                  JOIN "SIGERSA"."ITEM_FICHA" item
+                    ON item.ficha_inspeccion_id = evaluation.ficha_inspeccion_id
+                 WHERE evaluation.id = @EvaluationId
+                   AND item.source_allitems_item = @SourceItem
+                   AND item.es_evaluable = true AND item.activo = true;
+                """), new { draft.EvaluationId, draft.SourceItem }, transaction,
+                cancellationToken: cancellationToken));
+            if (itemId is null)
+                throw new ArgumentException("El ítem no pertenece a la ficha evaluable seleccionada.");
 
             var payload = JsonSerializer.Serialize(new
             {

@@ -10,6 +10,7 @@ export function moduleHref(module: AppModule) {
 
 export function readModuleFromLocation(): AppModule | null {
   const requested = new URLSearchParams(window.location.search).get('module')
+  if (requested === 'inspecciones') return 'evaluaciones'
   return requested && isAppModule(requested) ? requested : null
 }
 
@@ -18,7 +19,6 @@ export function isAppModule(value: string): value is AppModule {
     'resumen',
     'empresas',
     'evaluaciones',
-    'inspecciones',
     'programacion',
     'establecimientos',
     'parametros',

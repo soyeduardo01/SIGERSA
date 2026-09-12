@@ -19,8 +19,11 @@ public static partial class SigersaSqlGuard
         foreach (Match match in DataObjectRegex().Matches(sql))
         {
             var objectName = match.Groups[1].Value;
+            var remainder = sql.AsSpan(match.Groups[1].Index + match.Groups[1].Length).TrimStart();
+            var isTableValuedExpression = remainder.StartsWith("(", StringComparison.Ordinal);
             if (!objectName.StartsWith($"{Schema}.\"", StringComparison.Ordinal)
-                && !commonTableExpressions.Contains(objectName.Trim('"')))
+                && !commonTableExpressions.Contains(objectName.Trim('"'))
+                && !isTableValuedExpression)
             {
                 throw new InvalidOperationException(
                     $"Toda sentencia Dapper debe calificar el objeto '{objectName}' con el esquema {Schema}.");
@@ -53,7 +56,7 @@ public static partial class SigersaSqlGuard
     }
 
     [GeneratedRegex(
-        @"(?<!@)\b(?:FROM|JOIN|(?<!DO\s)UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+([^\s;(]+)",
+        @"(?<!@)\b(?:FROM|JOIN|(?<!DO\s)UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+(?:ONLY\s+)?((?:""[^""]+""\.)?""[^""]+""|[A-Za-z_][A-Za-z0-9_$]*)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DataObjectRegex();
 

@@ -1,5 +1,11 @@
 import { getSupabaseClient } from '../lib/supabase'
-import { apiFetch, confirmEvidenceUpload, requestEvidenceUploadAuthorization } from '../lib/api'
+import {
+  ApiError,
+  apiError,
+  apiFetch,
+  confirmEvidenceUpload,
+  requestEvidenceUploadAuthorization,
+} from '../lib/api'
 import {
   offlineDb,
   type AnswerPayload,
@@ -63,6 +69,22 @@ export function flushSyncQueue() {
   return activeFlush
 }
 
+export async function discardSyncMutation(idempotencyKey: string) {
+  await offlineDb.syncQueue.delete(idempotencyKey)
+  notifyQueueChanged()
+}
+
+export async function retrySyncMutation(idempotencyKey: string) {
+  await offlineDb.syncQueue.update(idempotencyKey, {
+    status: 'pending',
+    attempts: 0,
+    nextAttemptAt: new Date().toISOString(),
+    lastError: undefined,
+  })
+  notifyQueueChanged()
+  await flushSyncQueue()
+}
+
 async function processSyncQueue() {
   const now = new Date().toISOString()
   await offlineDb.syncQueue.where('status').equals('processing').modify({
@@ -115,7 +137,12 @@ async function processQueueItem(item: SyncQueueItem) {
 
   try {
     if (item.kind === 'answer') {
-      await postJson('/api/v1/respuestas', item.payload, item.idempotencyKey)
+      const answer = item.payload as AnswerPayload
+      await postJson(
+        `/api/v1/evaluations/${answer.evaluationId}/answers`,
+        answer,
+        item.idempotencyKey,
+      )
     } else if (item.kind === 'evidence') {
       const evidence = item.payload as EvidencePayload
       if (!item.storageUploaded) {
@@ -173,7 +200,8 @@ async function processQueueItem(item: SyncQueueItem) {
 
     await offlineDb.syncQueue.delete(item.idempotencyKey)
   } catch (error) {
-    const attempts = item.attempts + 1
+    const permanent = error instanceof ApiError && [400, 403, 404, 409].includes(error.status ?? 0)
+    const attempts = permanent ? maxAttempts : item.attempts + 1
     const retryDelaySeconds = Math.min(2 ** attempts * 15, 15 * 60)
     await offlineDb.syncQueue.update(item.idempotencyKey, {
       status: 'failed',
@@ -203,7 +231,7 @@ async function postJson(path: string, body: unknown, idempotencyKey: string) {
   })
 
   if (!response.ok) {
-    throw new Error(`La API respondió con estado ${response.status}.`)
+    throw await apiError(response)
   }
 }
 

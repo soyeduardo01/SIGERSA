@@ -3,7 +3,12 @@ import { useAuth } from '../../contexts/useAuth'
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
 import { offlineDb, type SyncQueueItem } from '../../offline/database'
-import { flushSyncQueue, subscribeToSyncQueue } from '../../offline/syncQueue'
+import {
+  discardSyncMutation,
+  flushSyncQueue,
+  retrySyncMutation,
+  subscribeToSyncQueue,
+} from '../../offline/syncQueue'
 import { AllItemsAdmin } from '../admin/AllItemsAdmin'
 import { ParametersManagement } from '../admin/ParametersManagement'
 import { CasesManagement } from '../cases/CasesManagement'
@@ -73,10 +78,6 @@ export function EvaluationsPage() {
   return <EvaluationsManagement />
 }
 
-export function InspectionsPage() {
-  return <EvaluationsManagement mode="inspection" />
-}
-
 export function FichasPage() {
   const canEdit = useRole('ADMINISTRADOR')
   return <AllItemsAdmin readOnly={!canEdit} />
@@ -109,6 +110,27 @@ export function NotificationsPage() {
       }
     } catch (error) {
       await alerts.error(error, 'No se pudo sincronizar')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  async function discard(item: SyncQueueItem) {
+    const confirmed = await alerts.confirm({
+      title: 'Descartar cambio local',
+      text: 'Este cambio no se enviará al servidor. Esta acción no se puede deshacer.',
+      confirmText: 'Descartar',
+    })
+    if (!confirmed) return
+    await discardSyncMutation(item.idempotencyKey)
+    await loadQueue()
+  }
+
+  async function retry(item: SyncQueueItem) {
+    setSyncing(true)
+    try {
+      await retrySyncMutation(item.idempotencyKey)
+      await loadQueue()
     } finally {
       setSyncing(false)
     }
@@ -149,7 +171,9 @@ export function NotificationsPage() {
           <ul className="divide-y divide-slate-100">
             {items.map((item) => (
               <li key={item.idempotencyKey} className="flex flex-wrap gap-3 px-5 py-4 text-sm">
-                <span className="font-bold text-ink-strong">{item.kind}</span>
+                <span className="font-bold text-ink-strong">
+                  {formatStatusLabel(item.kind === 'answer' ? 'respuesta' : item.kind)}
+                </span>
                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-ink-muted">
                   {formatStatusLabel(item.status)}
                 </span>
@@ -157,6 +181,25 @@ export function NotificationsPage() {
                   {item.attempts} intento{item.attempts === 1 ? '' : 's'}
                 </span>
                 {item.lastError && <p className="w-full text-red-700">{item.lastError}</p>}
+                {item.status === 'failed' && (
+                  <div className="flex w-full justify-end gap-2">
+                    <button
+                      type="button"
+                      disabled={syncing || !navigator.onLine}
+                      onClick={() => void retry(item)}
+                      className="rounded-lg border border-brand-700 px-3 py-2 font-bold text-brand-800 disabled:opacity-50"
+                    >
+                      Reintentar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void discard(item)}
+                      className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
