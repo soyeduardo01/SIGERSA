@@ -196,6 +196,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
     var currentEvaluationId = Guid.NewGuid();
     var previousResponseId = Guid.NewGuid();
     var answerIdempotencyKey = Guid.NewGuid();
+    var correctionIdempotencyKey = Guid.NewGuid();
     var marker = Guid.NewGuid().ToString("N")[..10].ToUpperInvariant();
 
     await using var connection = await dataSource.OpenConnectionAsync();
@@ -297,6 +298,24 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             workspace.Policy.ExcludedSourceItems.Count == 0)
             throw new InvalidOperationException("El alcance de seguimiento no redujo la ficha a la no conformidad anterior.");
 
+        var supplement = await repository.SaveSupplementAsync(currentEvaluationId,
+            new SaveEvaluationSupplementDraft(
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)), "75%",
+                DateOnly.FromDateTime(DateTime.UtcNow), "En proceso",
+                "Oficial de prueba", null, "Técnico de prueba", null,
+                [new EvaluationFollowUpItem("Medida temporal", DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)))],
+                [], 0), seed.EvaluatorId, CancellationToken.None);
+        supplement = await repository.SaveSupplementAsync(currentEvaluationId,
+            new SaveEvaluationSupplementDraft(
+                supplement.PreviousInspectionDate, supplement.PreviousQualification,
+                supplement.CurrentInspectionDate, "Actualizada",
+                supplement.DpsDasOfficer1, supplement.DpsDasOfficer2,
+                supplement.DigemapsTechnician1, supplement.DigemapsTechnician2,
+                supplement.CorrectiveMeasures, supplement.Recommendations,
+                supplement.RowVersion), seed.EvaluatorId, CancellationToken.None);
+        if (supplement.CurrentQualification != "Actualizada" || supplement.RowVersion < 2)
+            throw new InvalidOperationException("Los datos complementarios no se insertaron y actualizaron correctamente.");
+
         await service.SaveAnswerAsync(new SaveEvaluationAnswerDraft(
             currentEvaluationId,
             seed.SourceItem,
@@ -329,18 +348,78 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             persisted.ApplicableItems != "1")
             throw new InvalidOperationException("La respuesta focalizada no quedó persistida o el cálculo incluyó ítems ocultos.");
 
+        var correctionRepository = new CorrectionRepository(new DbConnectionFactory(dataSource));
+        var correctionId = await correctionRepository.CreateAsync(new CorrectionDraft(
+            correctionIdempotencyKey, currentEvaluationId, "TECNICO", seed.EvaluatorId,
+            "Validar el flujo escalonado de corrección.", DateTimeOffset.UtcNow.AddDays(1), []),
+            seed.EvaluatorId, CancellationToken.None);
+        var correctionVersion = await connection.ExecuteScalarAsync<long>("""
+            SELECT version_fila FROM "SIGERSA"."CORRECCION" WHERE id = @CorrectionId;
+            """, new { CorrectionId = correctionId });
+        if (!await correctionRepository.ResolveAsync(correctionId, correctionVersion, "ACEPTADA",
+                seed.EvaluatorId, true, CancellationToken.None))
+            throw new InvalidOperationException("El coordinador no pudo enviar la corrección al administrador.");
+        var coordinatorResult = await connection.QuerySingleAsync<CorrectionFlowResult>("""
+            SELECT correction.estado AS CorrectionStatus, evaluation.estado AS EvaluationStatus,
+                   correction.version_fila AS RowVersion
+              FROM "SIGERSA"."CORRECCION" correction
+              JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = correction.evaluacion_id
+             WHERE correction.id = @CorrectionId;
+            """, new { CorrectionId = correctionId });
+        if (coordinatorResult.CorrectionStatus != "EN_PROCESO" || coordinatorResult.EvaluationStatus != "EN_CORRECCION")
+            throw new InvalidOperationException("La aprobación del coordinador no mantuvo bloqueada la evaluación para el administrador.");
+        if (!await correctionRepository.ResolveAsync(correctionId, coordinatorResult.RowVersion, "ACEPTADA",
+                seed.EvaluatorId, false, CancellationToken.None))
+            throw new InvalidOperationException("El administrador no pudo resolver la corrección.");
+        var administratorResult = await connection.QuerySingleAsync<CorrectionFlowResult>("""
+            SELECT correction.estado AS CorrectionStatus, evaluation.estado AS EvaluationStatus
+              FROM "SIGERSA"."CORRECCION" correction
+              JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = correction.evaluacion_id
+             WHERE correction.id = @CorrectionId;
+            """, new { CorrectionId = correctionId });
+        if (administratorResult.CorrectionStatus != "ACEPTADA" || administratorResult.EvaluationStatus != "EN_EJECUCION")
+            throw new InvalidOperationException("La decisión final del administrador no reanudó la evaluación.");
+
+        await connection.ExecuteAsync("""
+            UPDATE "SIGERSA"."EVALUACION"
+               SET estado = 'EN_CORRECCION', modificado_en = CURRENT_TIMESTAMP,
+                   modificado_por = @EvaluatorId, version_fila = version_fila + 1
+             WHERE id = @CurrentEvaluationId;
+            """, new { CurrentEvaluationId = currentEvaluationId, seed.EvaluatorId });
+        var canUploadWhileCorrection = await new EvidenceRepository(new DbConnectionFactory(dataSource))
+            .CanUploadAsync(seed.EvaluatorId, currentEvaluationId, CancellationToken.None);
+        if (canUploadWhileCorrection)
+            throw new InvalidOperationException("La evaluación en corrección permitió adjuntar evidencia.");
+        try
+        {
+            await repository.SaveSupplementAsync(currentEvaluationId,
+                new SaveEvaluationSupplementDraft(null, null, null, null, null, null, null, null, [], [],
+                    supplement.RowVersion), seed.EvaluatorId, CancellationToken.None);
+            throw new InvalidOperationException("La evaluación en corrección permitió modificar datos complementarios.");
+        }
+        catch (KeyNotFoundException)
+        {
+            // Estado esperado: el repositorio bloquea toda escritura mientras el coordinador revisa.
+        }
+
         Console.WriteLine(
-            "Focused evaluation write OK: visible=1, hidden={0}, saved={1}, calculated={2}, compliance={3}%",
+            "Focused evaluation write OK: visible=1, hidden={0}, saved={1}, calculated={2}, compliance={3}%, supplementVersion={4}, correctionReadOnly=true, correctionFlow=technician-coordinator-administrator",
             workspace.Policy.ExcludedSourceItems.Count,
             persisted.SavedAnswers,
             calculation.Decision.ApplicableItems,
-            persisted.CompliancePercentage);
+            persisted.CompliancePercentage,
+            supplement.RowVersion);
     }
     finally
     {
         const string cleanupSql = @"
             DELETE FROM ""SIGERSA"".""OPERACION_SINCRONIZACION""
-             WHERE idempotency_key = @AnswerIdempotencyKey;
+             WHERE idempotency_key IN (@AnswerIdempotencyKey, @CorrectionIdempotencyKey);
+            DELETE FROM ""SIGERSA"".""CORRECCION_CAMPO""
+             WHERE correccion_id IN (SELECT id FROM ""SIGERSA"".""CORRECCION""
+                                      WHERE evaluacion_id = @CurrentEvaluationId);
+            DELETE FROM ""SIGERSA"".""CORRECCION""
+             WHERE evaluacion_id = @CurrentEvaluationId;
             DELETE FROM ""SIGERSA"".""RESPUESTA_USUARIO""
              WHERE evaluacion_id IN (@PreviousEvaluationId, @CurrentEvaluationId);
             DELETE FROM ""SIGERSA"".""EVALUACION_COMPLEMENTO""
@@ -352,6 +431,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
         await connection.ExecuteAsync(cleanupSql, new
         {
             AnswerIdempotencyKey = answerIdempotencyKey,
+            CorrectionIdempotencyKey = correctionIdempotencyKey,
             PreviousEvaluationId = previousEvaluationId,
             CurrentEvaluationId = currentEvaluationId,
             PreviousCaseId = previousCaseId,
@@ -380,4 +460,11 @@ sealed class FocusedEvaluationResult
     public string Rating { get; init; } = string.Empty;
     public decimal? CompliancePercentage { get; init; }
     public string? ApplicableItems { get; init; }
+}
+
+sealed class CorrectionFlowResult
+{
+    public string CorrectionStatus { get; init; } = string.Empty;
+    public string EvaluationStatus { get; init; } = string.Empty;
+    public long RowVersion { get; init; }
 }

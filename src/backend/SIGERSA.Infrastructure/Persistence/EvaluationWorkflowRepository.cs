@@ -523,7 +523,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 SELECT evaluation.id
                   FROM "SIGERSA"."EVALUACION" evaluation
                  WHERE evaluation.id = @EvaluationId
-                   AND evaluation.estado IN ('EN_EJECUCION', 'EN_CORRECCION')
+                   AND evaluation.estado = 'EN_EJECUCION'
                    AND {AccessPredicate}
                  FOR UPDATE;
                 """;
@@ -558,7 +558,8 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                        medidas_correctivas = EXCLUDED.medidas_correctivas,
                        recomendaciones = EXCLUDED.recomendaciones,
                        modificado_en = CURRENT_TIMESTAMP,
-                       modificado_por = @ActorId
+                       modificado_por = @ActorId,
+                       version_fila = complement.version_fila + 1
                  WHERE @RowVersion > 0 AND complement.version_fila = @RowVersion
                 RETURNING fecha_ultima_inspeccion AS PreviousInspectionDate,
                           calificacion_ultima_inspeccion AS PreviousQualification,
@@ -574,9 +575,9 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 """), new
                 {
                     EvaluationId = evaluationId,
-                    draft.PreviousInspectionDate,
+                    PreviousInspectionDate = draft.PreviousInspectionDate?.ToDateTime(TimeOnly.MinValue),
                     draft.PreviousQualification,
-                    draft.CurrentInspectionDate,
+                    CurrentInspectionDate = draft.CurrentInspectionDate?.ToDateTime(TimeOnly.MinValue),
                     draft.CurrentQualification,
                     draft.DpsDasOfficer1,
                     draft.DpsDasOfficer2,
@@ -610,9 +611,9 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 cancellationToken: cancellationToken));
             if (evaluationStatus is null)
                 throw new KeyNotFoundException("La evaluación no existe o el usuario no tiene acceso.");
-            if (evaluationStatus is not ("EN_EJECUCION" or "EN_CORRECCION"))
+            if (evaluationStatus is not "EN_EJECUCION")
                 throw new InvalidOperationException(
-                    "La ficha solo admite respuestas cuando la evaluación está en ejecución o en corrección.");
+                    "La ficha solo admite respuestas cuando la evaluación está en ejecución.");
 
             var itemId = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(Sql("""
                 SELECT item.id
@@ -894,9 +895,9 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                  WHERE evaluation.id = @EvaluationId AND evaluation.version_fila = @RowVersion
                    AND (
                        (@Action = 'START' AND evaluation.estado = 'ASIGNADA')
-                       OR (@Action = 'FINALIZE' AND evaluation.estado IN ('EN_EJECUCION', 'EN_CORRECCION')
+                       OR (@Action = 'FINALIZE' AND evaluation.estado = 'EN_EJECUCION'
                            AND evaluation.riesgo_total IS NOT NULL)
-                       OR (@Action = 'SUBMIT' AND evaluation.estado IN ('FINALIZADA', 'EN_CORRECCION'))
+                       OR (@Action = 'SUBMIT' AND evaluation.estado = 'FINALIZADA')
                        OR (@Action = 'REVIEW' AND evaluation.estado = 'ENVIADA')
                        OR (@Action = 'APPROVE' AND evaluation.estado IN ('ENVIADA', 'EN_REVISION')
                            AND evaluation.evaluador_principal_id <> @ActorId)

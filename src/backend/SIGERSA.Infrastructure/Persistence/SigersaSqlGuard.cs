@@ -18,6 +18,13 @@ public static partial class SigersaSqlGuard
 
         foreach (Match match in DataObjectRegex().Matches(sql))
         {
+            var prefix = sql.AsSpan(0, match.Index).TrimEnd();
+            if (match.Value.TrimStart().StartsWith("UPDATE", StringComparison.OrdinalIgnoreCase)
+                && prefix.EndsWith("DO", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             var objectName = match.Groups[1].Value;
             var remainder = sql.AsSpan(match.Groups[1].Index + match.Groups[1].Length).TrimStart();
             var isTableValuedExpression = remainder.StartsWith("(", StringComparison.Ordinal);
@@ -56,7 +63,7 @@ public static partial class SigersaSqlGuard
     }
 
     [GeneratedRegex(
-        @"(?<!@)\b(?:FROM|JOIN|(?<!DO\s)UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+(?:ONLY\s+)?((?:""[^""]+""\.)?""[^""]+""|[A-Za-z_][A-Za-z0-9_$]*)",
+        @"(?<!@)\b(?:FROM|JOIN|UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+(?:ONLY\s+)?((?:""[^""]+""\.)?""[^""]+""|[A-Za-z_][A-Za-z0-9_$]*)",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex DataObjectRegex();
 

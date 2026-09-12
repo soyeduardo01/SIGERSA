@@ -16,6 +16,7 @@ import {
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
+import { moduleHref } from '../../lib/navigation'
 import {
   correctionMinimumLeadMinutes,
   futureLocalDateTime,
@@ -28,12 +29,8 @@ const emptyPage: CorrectionsPage = { items: [], page: 1, pageSize: 50, total: 0 
 export function CorrectionsManagement() {
   const correctionStates = useParameterOptions('ESTADO_CORRECCION')
   const { roles } = useAuth()
-  const reviewer = roles.some((role) => role === 'ADMINISTRADOR' || role === 'COORDINADOR')
-  const canSubmit = roles.some((role) =>
-    ['ADMINISTRADOR', 'ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO', 'TECNICO_EVALUADOR'].includes(
-      role,
-    ),
-  )
+  const administrator = roles.includes('ADMINISTRADOR')
+  const coordinator = roles.includes('COORDINADOR')
   const [result, setResult] = useState(emptyPage)
   const [options, setOptions] = useState<CorrectionOptions | null>(null)
   const [status, setStatus] = useState('')
@@ -77,15 +74,28 @@ export function CorrectionsManagement() {
   }
 
   async function transition(item: Correction, action: 'submit' | 'accept' | 'reject') {
+    const coordinatorStage = item.status === 'ENVIADA'
     const accepted = await alerts.confirm({
       title:
         action === 'submit'
-          ? 'Enviar corrección'
+          ? 'Enviar al coordinador'
           : action === 'accept'
-            ? 'Aceptar corrección'
-            : 'Rechazar corrección',
-      text: 'La transición quedará registrada y no sobrescribirá cambios concurrentes.',
-      confirmText: 'Continuar',
+            ? coordinatorStage
+              ? 'Aprobar y enviar al administrador'
+              : 'Confirmar corrección'
+            : coordinatorStage
+              ? 'Rechazar solicitud'
+              : 'Rechazar corrección',
+      text:
+        action === 'accept'
+          ? coordinatorStage
+            ? 'La solicitud pasará al administrador. La evaluación continuará bloqueada hasta su decisión final.'
+            : 'La corrección quedará aprobada y la evaluación volverá a ejecución.'
+          : action === 'reject'
+            ? 'La solicitud se rechazará y la evaluación volverá a ejecución para continuar.'
+            : 'La solicitud quedará disponible para revisión del coordinador.',
+      confirmText:
+        action === 'accept' && coordinatorStage ? 'Enviar al administrador' : 'Confirmar',
     })
     if (!accepted) return
     try {
@@ -196,30 +206,54 @@ export function CorrectionsManagement() {
                   <td className="px-3 py-4">{formatStatusLabel(item.status)}</td>
                   <td className="px-3 py-4 text-right">
                     <div className="flex justify-end gap-2">
-                      {canSubmit && ['PENDIENTE', 'EN_PROCESO'].includes(item.status) && (
+                      {roles.includes('TECNICO_EVALUADOR') && item.status === 'PENDIENTE' && (
                         <button
                           type="button"
                           onClick={() => void transition(item, 'submit')}
                           className="rounded-lg border px-3 py-2 font-bold"
                         >
-                          Enviar
+                          Enviar al coordinador
                         </button>
                       )}
-                      {reviewer && item.status === 'ENVIADA' && (
+                      {coordinator && item.status === 'ENVIADA' && (
                         <>
                           <button
                             type="button"
                             onClick={() => void transition(item, 'accept')}
                             className="rounded-lg border border-green-300 px-3 py-2 font-bold text-green-700"
                           >
-                            Aceptar
+                            Aprobar y enviar al administrador
                           </button>
                           <button
                             type="button"
                             onClick={() => void transition(item, 'reject')}
                             className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
                           >
-                            Rechazar
+                            Rechazar solicitud
+                          </button>
+                        </>
+                      )}
+                      {administrator && item.status === 'EN_PROCESO' && (
+                        <>
+                          <a
+                            href={moduleHref('fichas-bpm')}
+                            className="rounded-lg border border-slate-300 px-3 py-2 font-bold text-slate-700"
+                          >
+                            Modificar ficha BPM
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => void transition(item, 'accept')}
+                            className="rounded-lg border border-green-300 px-3 py-2 font-bold text-green-700"
+                          >
+                            Confirmar corrección
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void transition(item, 'reject')}
+                            className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
+                          >
+                            Rechazar corrección
                           </button>
                         </>
                       )}
@@ -253,10 +287,7 @@ function CorrectionForm({
   onClose: () => void
   onSave: (draft: CorrectionDraft) => Promise<void>
 }) {
-  const responsibleTypes = useParameterOptions('TIPO_RESPONSABLE_CORRECCION')
   const [evaluationId, setEvaluationId] = useState('')
-  const [responsibleType, setResponsibleType] = useState<'' | 'TECNICO' | 'EMPRESA'>('')
-  const [assignedToId, setAssignedToId] = useState('')
   const [observation, setObservation] = useState('')
   const [dueAt, setDueAt] = useState(() => futureLocalDateTime(24 * 60))
   const [saving, setSaving] = useState(false)
@@ -275,14 +306,17 @@ function CorrectionForm({
     try {
       await onSave({
         evaluationId,
-        responsibleType: responsibleType as 'TECNICO' | 'EMPRESA',
-        assignedToId: responsibleType === 'TECNICO' ? assignedToId : null,
+        responsibleType: 'TECNICO',
+        assignedToId: null,
         coordinatorObservation: observation,
         dueAt: toUtcIsoFromLocalInput(dueAt),
         idempotencyKey: crypto.randomUUID(),
         fields: Object.entries(fieldReasons)
           .filter(([, reason]) => reason.trim())
-          .map(([sourceItem, reason]) => ({ sourceItem: Number(sourceItem), reason: reason.trim() })),
+          .map(([sourceItem, reason]) => ({
+            sourceItem: Number(sourceItem),
+            reason: reason.trim(),
+          })),
       })
     } finally {
       setSaving(false)
@@ -309,6 +343,10 @@ function CorrectionForm({
           </button>
         </div>
         <form onSubmit={(event) => void submit(event)} className="mt-6 grid gap-4">
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            Al solicitar la corrección, la ficha quedará en modo de solo lectura. El coordinador
+            deberá habilitar la evaluación para que puedas continuar.
+          </p>
           <label className="text-sm font-bold">
             Evaluación
             <select
@@ -329,47 +367,6 @@ function CorrectionForm({
               ))}
             </select>
           </label>
-          <label className="text-sm font-bold">
-            Responsable
-            <select
-              value={responsibleType}
-              onChange={(e) => {
-                setResponsibleType(e.target.value as 'TECNICO' | 'EMPRESA')
-                setAssignedToId('')
-              }}
-              className={field}
-            >
-              <option value="">Seleccione</option>
-              {responsibleTypes.options.map((value) => (
-                <option key={value.parametersId} value={value.stringData ?? ''}>
-                  {formatStatusLabel(value.stringData ?? '')}
-                </option>
-              ))}
-            </select>
-            {!responsibleTypes.loading && responsibleTypes.options.length === 0 && (
-              <span className="mt-1 block text-xs font-normal text-amber-700">
-                El catálogo TIPO_RESPONSABLE_CORRECCION no tiene valores activos.
-              </span>
-            )}
-          </label>
-          {responsibleType === 'TECNICO' && (
-            <label className="text-sm font-bold">
-              Técnico
-              <select
-                required
-                value={assignedToId}
-                onChange={(e) => setAssignedToId(e.target.value)}
-                className={field}
-              >
-                <option value="">Seleccione</option>
-                {options.technicians.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           <label className="text-sm font-bold">
             Fecha límite
             <input
@@ -449,7 +446,7 @@ function CorrectionForm({
               Volver
             </button>
             <button
-              disabled={saving || (responsibleType === 'TECNICO' && !assignedToId)}
+              disabled={saving}
               className="rounded-xl bg-brand-700 px-5 py-2.5 font-bold text-white disabled:opacity-50"
             >
               {saving ? 'Guardando…' : 'Solicitar'}

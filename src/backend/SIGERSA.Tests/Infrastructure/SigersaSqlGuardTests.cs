@@ -30,6 +30,18 @@ public sealed class SigersaSqlGuardTests
     }
 
     [Fact]
+    public void EnsureQualifiedShouldIgnoreMultilineOnConflictUpdateClause()
+    {
+        const string sql = """
+            INSERT INTO "SIGERSA"."USUARIO" (id) VALUES (@Id)
+            ON CONFLICT (id) DO
+                UPDATE SET modificado_en = EXCLUDED.modificado_en;
+            """;
+
+        Assert.Equal(sql, SigersaSqlGuard.EnsureQualified(sql));
+    }
+
+    [Fact]
     public void EnsureQualifiedShouldAcceptLocalCommonTableExpression()
     {
         const string sql = """

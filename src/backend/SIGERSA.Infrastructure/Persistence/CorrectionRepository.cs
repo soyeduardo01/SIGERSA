@@ -83,27 +83,27 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
         }
     }
 
-    public async Task<CorrectionOptions> GetOptionsAsync(bool canCreate, CancellationToken cancellationToken = default)
+    public async Task<CorrectionOptions> GetOptionsAsync(Guid actorId, bool canCreate, CancellationToken cancellationToken = default)
     {
         const string sql = """
             SELECT evaluation.id AS Id, evaluation.numero || ' · ' || establishment.nombre AS Name
               FROM "SIGERSA"."EVALUACION" evaluation
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
-             WHERE evaluation.estado NOT IN ('CERRADA', 'CANCELADA') AND @CanCreate = true
+             WHERE evaluation.estado = 'EN_EJECUCION'
+               AND evaluation.evaluador_principal_id = @ActorId
+               AND @CanCreate = true
              ORDER BY evaluation.creado_en DESC;
 
-            SELECT DISTINCT user_account.id AS Id, user_account.nombre_completo AS Name
+            SELECT user_account.id AS Id, user_account.nombre_completo AS Name
               FROM "SIGERSA"."USUARIO" user_account
-              JOIN "SIGERSA"."USUARIO_ROL" user_role ON user_role.usuario_id = user_account.id AND user_role.activo = true
-              JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
              WHERE user_account.activo = true AND user_account.estado = 'ACTIVO'
-               AND role.codigo = 'TECNICO_EVALUADOR' AND @CanCreate = true
+               AND user_account.id = @ActorId AND @CanCreate = true
              ORDER BY user_account.nombre_completo;
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
         {
-            using var result = await connection.QueryMultipleAsync(new CommandDefinition(Sql(sql), new { CanCreate = canCreate }, cancellationToken: cancellationToken));
+            using var result = await connection.QueryMultipleAsync(new CommandDefinition(Sql(sql), new { ActorId = actorId, CanCreate = canCreate }, cancellationToken: cancellationToken));
             var evaluations = (await result.ReadAsync<CorrectionOption>()).AsList();
             var technicians = (await result.ReadAsync<CorrectionOption>()).AsList();
             return new CorrectionOptions(evaluations, technicians, canCreate);
@@ -143,7 +143,8 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
             var evaluationExists = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(Sql("""
                 SELECT EXISTS (
                     SELECT 1 FROM "SIGERSA"."EVALUACION" evaluation
-                     WHERE evaluation.id = @EvaluationId AND evaluation.estado NOT IN ('CERRADA', 'CANCELADA')
+                     WHERE evaluation.id = @EvaluationId
+                       AND evaluation.estado = 'EN_EJECUCION'
                        AND (@ResponsibleType = 'EMPRESA'
                             OR (@ResponsibleType = 'TECNICO' AND @AssignedToId IS NOT NULL AND (
                                 evaluation.evaluador_principal_id = @AssignedToId
@@ -162,9 +163,9 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
             await connection.ExecuteAsync(new CommandDefinition(Sql("""
                 INSERT INTO "SIGERSA"."CORRECCION"
                     (id, evaluacion_id, numero_revision, tipo_responsable, asignada_a_id,
-                     observacion_coordinador, estado, fecha_limite, solicitada_por, creado_por)
+                     observacion_coordinador, estado, fecha_limite, solicitada_por, enviada_en, creado_por)
                 VALUES (@Id, @EvaluationId, @Revision, @ResponsibleType, @AssignedToId,
-                        @CoordinatorObservation, 'PENDIENTE', @DueAt, @ActorId, @ActorId);
+                        @CoordinatorObservation, 'ENVIADA', @DueAt, @ActorId, CURRENT_TIMESTAMP, @ActorId);
                 UPDATE "SIGERSA"."EVALUACION" SET estado = 'EN_CORRECCION',
                        modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
                        version_fila = version_fila + 1
@@ -236,7 +237,8 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
                 RETURNING field.id
             ), updated_evaluation AS (
                 UPDATE "SIGERSA"."EVALUACION" evaluation
-                   SET estado = 'ENVIADA', modificado_por = @ActorId
+                   SET estado = 'EN_CORRECCION', modificado_en = CURRENT_TIMESTAMP,
+                       modificado_por = @ActorId, version_fila = version_fila + 1
                  WHERE evaluation.id IN (SELECT evaluacion_id FROM submitted)
                 RETURNING evaluation.id
             )
@@ -249,27 +251,43 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
         }
     }
 
-    public async Task<bool> ResolveAsync(Guid id, long rowVersion, string targetStatus, Guid actorId, CancellationToken cancellationToken = default)
+    public async Task<bool> ResolveAsync(Guid id, long rowVersion, string targetStatus, Guid actorId,
+        bool coordinatorReview, CancellationToken cancellationToken = default)
     {
         const string sql = """
             WITH resolved AS (
                 UPDATE "SIGERSA"."CORRECCION"
-                   SET estado = @TargetStatus, resuelta_en = CURRENT_TIMESTAMP,
+                   SET estado = CASE
+                           WHEN @CoordinatorReview = true AND @TargetStatus = 'ACEPTADA' THEN 'EN_PROCESO'
+                           ELSE @TargetStatus
+                       END,
+                       resuelta_en = CASE
+                           WHEN @CoordinatorReview = true AND @TargetStatus = 'ACEPTADA' THEN NULL
+                           ELSE CURRENT_TIMESTAMP
+                       END,
                        modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
                        version_fila = version_fila + 1
-                 WHERE id = @Id AND version_fila = @RowVersion AND estado = 'ENVIADA'
+                 WHERE id = @Id AND version_fila = @RowVersion
+                   AND ((@CoordinatorReview = true AND estado = 'ENVIADA')
+                        OR (@CoordinatorReview = false AND estado = 'EN_PROCESO'))
                 RETURNING id, evaluacion_id
             ), updated_fields AS (
                 UPDATE "SIGERSA"."CORRECCION_CAMPO" field
                    SET estado = CASE WHEN @TargetStatus = 'ACEPTADA' THEN 'ACEPTADO' ELSE 'RECHAZADO' END,
                        modificado_por = @ActorId
                  WHERE field.correccion_id IN (SELECT id FROM resolved)
+                   AND NOT (@CoordinatorReview = true AND @TargetStatus = 'ACEPTADA')
                 RETURNING field.id
             ), updated_evaluation AS (
                 UPDATE "SIGERSA"."EVALUACION" evaluation
-                   SET estado = CASE WHEN @TargetStatus = 'ACEPTADA' THEN 'EN_REVISION' ELSE 'EN_CORRECCION' END,
-                       modificado_por = @ActorId
+                   SET estado = CASE
+                           WHEN @CoordinatorReview = true AND @TargetStatus = 'ACEPTADA' THEN 'EN_CORRECCION'
+                           ELSE 'EN_EJECUCION'
+                       END,
+                       modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
+                       version_fila = version_fila + 1
                  WHERE evaluation.id IN (SELECT evaluacion_id FROM resolved)
+                   AND evaluation.estado = 'EN_CORRECCION'
                 RETURNING evaluation.id
             )
             SELECT COUNT(*) FROM resolved;
@@ -277,7 +295,11 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
         {
-            return await connection.ExecuteScalarAsync<int>(new CommandDefinition(Sql(sql), new { Id = id, RowVersion = rowVersion, TargetStatus = targetStatus, ActorId = actorId }, cancellationToken: cancellationToken)) == 1;
+            return await connection.ExecuteScalarAsync<int>(new CommandDefinition(Sql(sql), new
+            {
+                Id = id, RowVersion = rowVersion, TargetStatus = targetStatus,
+                ActorId = actorId, CoordinatorReview = coordinatorReview
+            }, cancellationToken: cancellationToken)) == 1;
         }
     }
 

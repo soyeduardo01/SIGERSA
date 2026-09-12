@@ -13,6 +13,8 @@ const expectedByRole: Record<(typeof canonicalRoles)[number], AppModule[]> = {
     'fichas-bpm',
     'reportes',
     'establecimientos',
+    'evaluaciones',
+    'correcciones',
   ],
   ADMINISTRADOR_EMPRESA: [
     'resumen',
@@ -23,7 +25,6 @@ const expectedByRole: Record<(typeof canonicalRoles)[number], AppModule[]> = {
     'solicitudes',
     'hallazgos',
     'evidencias',
-    'correcciones',
   ],
   USUARIO_DELEGADO: [
     'resumen',
@@ -33,7 +34,6 @@ const expectedByRole: Record<(typeof canonicalRoles)[number], AppModule[]> = {
     'solicitudes',
     'hallazgos',
     'evidencias',
-    'correcciones',
   ],
   COORDINADOR: [
     'resumen',

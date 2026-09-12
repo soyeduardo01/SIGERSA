@@ -98,7 +98,8 @@ export function DynamicInspectionForm({
   const productRiskOptions = useParameterOptions('NIVEL_RIESGO_ALIMENTO')
   const [message, setMessage] = useState('Indique una evaluación asignada para cargar su ficha.')
   const [loadingForm, setLoadingForm] = useState(() => {
-    const candidate = selectedEvaluationId ?? localStorage.getItem('sigersa.active-evaluation') ?? ''
+    const candidate =
+      selectedEvaluationId ?? localStorage.getItem('sigersa.active-evaluation') ?? ''
     return isValidEvaluationId(candidate)
   })
 
@@ -120,8 +121,7 @@ export function DynamicInspectionForm({
       const cached = await offlineDb.inspectionTemplates.get(cacheKey)
       if (cached) {
         const cachedDefinition = cached.definition as
-          | EvaluationFormItem[]
-          | { items: EvaluationFormItem[]; policy: EvaluationInspectionPolicy }
+          EvaluationFormItem[] | { items: EvaluationFormItem[]; policy: EvaluationInspectionPolicy }
         if (Array.isArray(cachedDefinition)) {
           setItems(cachedDefinition)
           setPolicy(null)
@@ -206,7 +206,8 @@ export function DynamicInspectionForm({
 
   const visibleItems = useMemo(() => itemsForInspectionPolicy(items, policy), [items, policy])
   const requiredSources = useMemo(() => {
-    if (!policy) return new Set(items.filter((item) => item.isEvaluable).map((item) => item.sourceItem))
+    if (!policy)
+      return new Set(items.filter((item) => item.isEvaluable).map((item) => item.sourceItem))
     if (policy.mode === 'DENUNCIA_DISCRECIONAL')
       return new Set(
         items
@@ -225,7 +226,8 @@ export function DynamicInspectionForm({
   const questions = requiredSources.size
   const chapters = useMemo(() => groupItemsByChapter(visibleItems), [visibleItems])
   const currentChapter = chapters[Math.min(activeChapter, Math.max(chapters.length - 1, 0))]
-  const policyReady = policy?.mode === 'DENUNCIA_DISCRECIONAL' ? questions > 0 : (policy?.isReady ?? true)
+  const policyReady =
+    policy?.mode === 'DENUNCIA_DISCRECIONAL' ? questions > 0 : (policy?.isReady ?? true)
   const formComplete = policyReady && questions > 0 && answered === questions
 
   function activateEvaluation(event: FormEvent) {
@@ -520,9 +522,9 @@ export function DynamicInspectionForm({
       </div>
 
       {readOnly && items.length > 0 && (
-        <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-          <strong>Ficha finalizada o sin permiso de edición:</strong> la información se muestra en
-          modo de solo lectura.
+        <div className="mt-5 rounded-xl border border-slate-300 bg-slate-100 p-4 text-sm text-slate-700">
+          <strong>Ficha en modo de solo lectura:</strong> los campos agrisados no se pueden
+          modificar en el estado actual.
         </div>
       )}
 
@@ -534,7 +536,11 @@ export function DynamicInspectionForm({
       {items.length > 0 && (
         <>
           {policy && <InspectionScope policy={policy} selectedItems={questions} />}
-          <ControlDataSection supplement={supplement} onChange={setSupplement} readOnly={readOnly} />
+          <ControlDataSection
+            supplement={supplement}
+            onChange={setSupplement}
+            readOnly={readOnly}
+          />
           <ScoringCriteria />
           <InspectionCriteria />
           <div
@@ -657,7 +663,7 @@ export function DynamicInspectionForm({
                   onChange={(event) =>
                     setProductRisk(event.target.value ? Number(event.target.value) : null)
                   }
-                  className="mt-1.5 block min-h-11 rounded-lg bg-white px-3 text-ink-strong"
+                  className="mt-1.5 block min-h-11 rounded-lg bg-white px-3 text-ink-strong disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
                 >
                   <option value="">Seleccione</option>
                   {productRiskOptions.options
@@ -673,7 +679,7 @@ export function DynamicInspectionForm({
                 type="button"
                 onClick={() => void saveSupplement()}
                 disabled={readOnly || savingSupplement}
-                className="min-h-11 rounded-xl border border-white/30 px-4 font-bold disabled:opacity-50"
+                className="min-h-11 rounded-xl border border-white/30 px-4 font-bold disabled:cursor-not-allowed disabled:border-slate-500 disabled:bg-slate-700 disabled:text-slate-400"
               >
                 {savingSupplement ? 'Guardando…' : 'Guardar datos complementarios'}
               </button>
@@ -822,12 +828,12 @@ function EvaluationItemCard({
     )
   }
   return (
-    <article className="rounded-xl bg-white p-4 shadow-card">
-      <fieldset disabled={readOnly}>
+    <article className={`rounded-xl p-4 shadow-card ${readOnly ? 'bg-slate-100' : 'bg-white'}`}>
+      <fieldset disabled={readOnly} className={readOnly ? 'text-slate-500' : undefined}>
         <legend className="text-sm leading-6 font-semibold text-ink-body">{item.title}</legend>
         <div className="mt-3 flex flex-wrap gap-2">
           {ratingOptions.map((option) => (
-            <label key={option.code} className="cursor-pointer">
+            <label key={option.code} className={readOnly ? 'cursor-not-allowed' : 'cursor-pointer'}>
               <input
                 className="peer sr-only"
                 type="radio"
@@ -836,7 +842,9 @@ function EvaluationItemCard({
                 checked={rating === option.code}
                 onChange={() => onRating(option.code)}
               />
-              <span className="inline-flex min-h-10 items-center rounded-lg border border-slate-300 px-3 text-sm font-bold peer-checked:border-brand-700 peer-checked:bg-brand-100 peer-checked:text-brand-900">
+              <span
+                className={`inline-flex min-h-10 items-center rounded-lg border px-3 text-sm font-bold ${readOnly ? 'border-slate-300 bg-slate-200 text-slate-600 peer-checked:border-slate-500 peer-checked:bg-slate-300 peer-checked:text-slate-800' : 'border-slate-300 peer-checked:border-brand-700 peer-checked:bg-brand-100 peer-checked:text-brand-900'}`}
+              >
                 {option.short} · {option.label} · {option.score}
               </span>
             </label>
@@ -849,7 +857,10 @@ function EvaluationItemCard({
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {criticalityOptions.map((option) => (
-                <label key={option.code} className="cursor-pointer">
+                <label
+                  key={option.code}
+                  className={readOnly ? 'cursor-not-allowed' : 'cursor-pointer'}
+                >
                   <input
                     className="peer sr-only"
                     type="radio"
@@ -858,7 +869,9 @@ function EvaluationItemCard({
                     checked={criticality === option.code}
                     onChange={() => onCriticality(option.code)}
                   />
-                  <span className="inline-flex min-h-10 items-center rounded-lg border border-amber-300 bg-white px-3 text-sm font-bold peer-checked:border-red-700 peer-checked:bg-red-50 peer-checked:text-red-800">
+                  <span
+                    className={`inline-flex min-h-10 items-center rounded-lg border px-3 text-sm font-bold ${readOnly ? 'border-slate-300 bg-slate-200 text-slate-600 peer-checked:border-slate-500 peer-checked:bg-slate-300 peer-checked:text-slate-800' : 'border-amber-300 bg-white peer-checked:border-red-700 peer-checked:bg-red-50 peer-checked:text-red-800'}`}
+                  >
                     {option.short ?? option.code} · {option.label}
                   </span>
                 </label>
@@ -874,7 +887,7 @@ function EvaluationItemCard({
               value={observation}
               onChange={(event) => onObservation(event.target.value)}
               onBlur={onBlur}
-              className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm font-normal text-ink-body"
+              className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm font-normal text-ink-body disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-600"
               placeholder="Detalle verificable observado durante la inspección"
             />
           </label>
@@ -885,13 +898,15 @@ function EvaluationItemCard({
               value={comment}
               onChange={(event) => onComment(event.target.value)}
               onBlur={onBlur}
-              className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm font-normal text-ink-body"
+              className="mt-1 w-full rounded-lg border border-slate-300 p-2 text-sm font-normal text-ink-body disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-600"
               placeholder="Comentario complementario o recomendación"
             />
           </label>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-3">
-          <label className="text-brand-800 inline-flex min-h-10 cursor-pointer items-center rounded-lg border border-brand-200 px-3 text-sm font-bold hover:bg-brand-50">
+          <label
+            className={`inline-flex min-h-10 items-center rounded-lg border px-3 text-sm font-bold ${readOnly ? 'cursor-not-allowed border-slate-300 bg-slate-200 text-slate-500' : 'text-brand-800 cursor-pointer border-brand-200 hover:bg-brand-50'}`}
+          >
             Adjuntar evidencia <span className="ml-1 font-normal">(opcional, máx. 5 MB)</span>
             <input
               type="file"
@@ -923,12 +938,13 @@ function ControlDataSection({
   onChange: (value: EvaluationSupplement) => void
   readOnly: boolean
 }) {
-  const inputClass = 'mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal'
+  const inputClass =
+    'mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-600'
   const set = <K extends keyof EvaluationSupplement>(key: K, value: EvaluationSupplement[K]) =>
     onChange({ ...supplement, [key]: value })
   return (
     <section
-      className="mt-6 rounded-card bg-white p-5 shadow-card"
+      className={`mt-6 rounded-card p-5 shadow-card ${readOnly ? 'bg-slate-100' : 'bg-white'}`}
       aria-labelledby="control-data-title"
     >
       <p className="text-xs font-bold tracking-[0.12em] text-brand-700 uppercase">
@@ -1130,7 +1146,7 @@ function FollowUpSection({
 }) {
   return (
     <section
-      className="mt-6 rounded-card bg-white p-5 shadow-card"
+      className={`mt-6 rounded-card p-5 shadow-card ${readOnly ? 'bg-slate-100' : 'bg-white'}`}
       aria-labelledby="follow-up-title"
     >
       <p className="text-xs font-bold tracking-[0.12em] text-brand-700 uppercase">Paso opcional</p>
@@ -1186,7 +1202,7 @@ function FollowUpEditor({
           type="button"
           onClick={add}
           disabled={readOnly || values.length >= 10}
-          className="text-brand-800 rounded-lg border border-brand-200 px-3 py-2 text-sm font-bold disabled:opacity-40"
+          className="text-brand-800 rounded-lg border border-brand-200 px-3 py-2 text-sm font-bold disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500"
         >
           + Agregar
         </button>
@@ -1217,7 +1233,7 @@ function FollowUpEditor({
               value={value.detail}
               onChange={(event) => update(index, { detail: event.target.value })}
               placeholder="Detalle"
-              className="mt-2 w-full rounded-lg border border-slate-300 p-2 text-sm"
+              className="mt-2 w-full rounded-lg border border-slate-300 p-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-600"
             />
             <label className="mt-2 block text-xs font-bold text-ink-muted">
               Fecha de cumplimiento <span className="font-normal">(opcional)</span>
@@ -1226,7 +1242,7 @@ function FollowUpEditor({
                 type="date"
                 value={value.dueDate ?? ''}
                 onChange={(event) => update(index, { dueDate: event.target.value || null })}
-                className="mt-1 min-h-10 w-full rounded-lg border border-slate-300 px-2 font-normal"
+                className="mt-1 min-h-10 w-full rounded-lg border border-slate-300 px-2 font-normal disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-600"
               />
             </label>
           </div>

@@ -8,7 +8,7 @@ namespace SIGERSA.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/corrections")]
-[Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
+[Authorize(Roles = "ADMINISTRADOR,COORDINADOR,TECNICO_EVALUADOR")]
 public sealed class CorrectionsController(CorrectionService service) : ControllerBase
 {
     [HttpGet]
@@ -21,7 +21,7 @@ public sealed class CorrectionsController(CorrectionService service) : Controlle
         service.GetOptionsAsync(Actor(), cancellationToken);
 
     [HttpPost]
-    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     public async Task<ActionResult<object>> Create(
         CorrectionInput input, [FromHeader(Name = "Idempotency-Key")] Guid? headerKey,
         CancellationToken cancellationToken)

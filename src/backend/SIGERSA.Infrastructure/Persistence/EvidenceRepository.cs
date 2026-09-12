@@ -108,7 +108,7 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
                 SELECT 1
                 FROM "SIGERSA"."EVALUACION" AS evaluation
                 WHERE evaluation.id = @EvaluationId
-                  AND evaluation.estado IN ('ASIGNADA', 'EN_EJECUCION', 'PAUSADA', 'EN_CORRECCION')
+                  AND evaluation.estado = 'EN_EJECUCION'
                   AND (
                       evaluation.evaluador_principal_id = @UserId
                       OR EXISTS (
