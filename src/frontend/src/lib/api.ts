@@ -782,7 +782,14 @@ export interface Correction {
   requestedAt: string
   submittedAt: string | null
   resolvedAt: string | null
-  fields: Array<{ sourceItem: number; itemTitle: string; reason: string; status: string }>
+  fields: Array<{
+    sourceItem: number
+    itemTitle: string
+    reason: string
+    status: string
+    previousSnapshotJson: string | null
+    newSnapshotJson: string | null
+  }>
   rowVersion: number
 }
 export interface CorrectionsPage {

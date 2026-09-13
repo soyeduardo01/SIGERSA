@@ -37,6 +37,7 @@ export function CorrectionsManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [open, setOpen] = useState(false)
+  const [selectedCorrection, setSelectedCorrection] = useState<Correction | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -206,6 +207,15 @@ export function CorrectionsManagement() {
                   <td className="px-3 py-4">{formatStatusLabel(item.status)}</td>
                   <td className="px-3 py-4 text-right">
                     <div className="flex justify-end gap-2">
+                      {(coordinator || administrator) && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCorrection(item)}
+                          className="rounded-lg border border-slate-300 px-3 py-2 font-bold text-slate-700"
+                        >
+                          Ver detalle
+                        </button>
+                      )}
                       {roles.includes('TECNICO_EVALUADOR') && item.status === 'PENDIENTE' && (
                         <button
                           type="button"
@@ -274,7 +284,140 @@ export function CorrectionsManagement() {
       {open && options && (
         <CorrectionForm options={options} onClose={() => setOpen(false)} onSave={save} />
       )}
+      {selectedCorrection && (
+        <CorrectionDetail
+          correction={selectedCorrection}
+          onClose={() => setSelectedCorrection(null)}
+        />
+      )}
     </section>
+  )
+}
+
+function CorrectionDetail({
+  correction,
+  onClose,
+}: {
+  correction: Correction
+  onClose: () => void
+}) {
+  return (
+    <div className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="correction-detail-title"
+        className="sigersa-modal-panel max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold tracking-[0.12em] text-brand-700 uppercase">
+              Evaluación {correction.evaluationNumber} · Revisión #{correction.revisionNumber}
+            </p>
+            <h2 id="correction-detail-title" className="mt-1 text-2xl font-extrabold">
+              Detalle de la corrección
+            </h2>
+            <p className="mt-1 text-sm text-ink-muted">{correction.establishmentName}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar detalle">
+            ✕
+          </button>
+        </div>
+
+        <dl className="mt-6 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
+          <DetailTerm label="Estado" value={formatStatusLabel(correction.status)} />
+          <DetailTerm
+            label="Técnico solicitante"
+            value={correction.assignedToName ?? 'No identificado'}
+          />
+          <DetailTerm label="Solicitada" value={formatDateTime(correction.requestedAt)} />
+          <DetailTerm label="Fecha límite" value={formatDateTime(correction.dueAt)} />
+        </dl>
+
+        <div className="mt-5">
+          <h3 className="font-extrabold">Justificación e instrucciones</h3>
+          <p className="mt-2 rounded-xl border border-slate-200 p-4 text-sm leading-6 whitespace-pre-wrap">
+            {correction.coordinatorObservation}
+          </p>
+        </div>
+
+        <div className="mt-5">
+          <h3 className="font-extrabold">Criterios incluidos</h3>
+          {correction.fields.length === 0 ? (
+            <p className="mt-2 rounded-xl bg-slate-50 p-4 text-sm text-ink-muted">
+              La solicitud aplica de forma general y no seleccionó criterios específicos.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              {correction.fields.map((field) => (
+                <article key={field.sourceItem} className="rounded-xl border border-slate-200 p-4">
+                  <div className="flex flex-wrap justify-between gap-2">
+                    <strong>{field.itemTitle}</strong>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">
+                      {formatStatusLabel(field.status)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm">
+                    <strong>Motivo:</strong> {field.reason}
+                  </p>
+                  <Snapshot label="Respuesta al solicitar" json={field.previousSnapshotJson} />
+                  {field.newSnapshotJson && (
+                    <Snapshot label="Respuesta corregida" json={field.newSnapshotJson} />
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 flex justify-end border-t pt-5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl bg-brand-700 px-5 py-2.5 font-bold text-white"
+          >
+            Cerrar
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function DetailTerm({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-bold text-ink-muted uppercase">{label}</dt>
+      <dd className="mt-1 font-semibold">{value}</dd>
+    </div>
+  )
+}
+
+function Snapshot({ label, json }: { label: string; json: string | null }) {
+  const snapshot = parseSnapshot(json)
+  if (!snapshot) return null
+  return (
+    <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs leading-5 text-slate-700">
+      <strong className="block text-slate-900">{label}</strong>
+      <span>Respuesta: {formatStatusLabel(snapshot.rating ?? 'Sin respuesta')}</span>
+      {snapshot.observation && <span className="block">Observación: {snapshot.observation}</span>}
+      {snapshot.comment && <span className="block">Comentario: {snapshot.comment}</span>}
+    </div>
+  )
+}
+
+function parseSnapshot(json: string | null) {
+  if (!json) return null
+  try {
+    return JSON.parse(json) as { rating?: string; observation?: string; comment?: string }
+  } catch {
+    return null
+  }
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium', timeStyle: 'short' }).format(
+    new Date(value),
   )
 }
 

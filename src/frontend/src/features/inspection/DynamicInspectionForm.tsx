@@ -13,7 +13,12 @@ import {
   type EvaluationSupplement,
 } from '../../lib/api'
 import { offlineDb } from '../../offline/database'
-import { flushSyncQueue, queueAnswer, queueEvidence } from '../../offline/syncQueue'
+import {
+  flushSyncQueue,
+  queueAnswer,
+  queueEvidence,
+  retryEvaluationMutations,
+} from '../../offline/syncQueue'
 import { alerts } from '../../lib/alerts'
 import { getOptionalLocation } from '../../lib/geolocation'
 import { formatStatusLabel } from '../../lib/formatters'
@@ -333,6 +338,7 @@ export function DynamicInspectionForm({
   }
 
   async function ensureEvaluationSynced() {
+    if (evaluationId) await retryEvaluationMutations(evaluationId)
     await flushSyncQueue()
     const pending = (await offlineDb.syncQueue.toArray()).find((item) => {
       if (item.kind !== 'answer' && item.kind !== 'evidence') return false

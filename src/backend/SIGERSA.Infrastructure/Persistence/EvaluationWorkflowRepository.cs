@@ -762,7 +762,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 hash_calculo = @Hash, modificado_por = @ActorId,
                 modificado_en = CURRENT_TIMESTAMP, version_fila = version_fila + 1
             WHERE id = @EvaluationId AND version_fila = @ExpectedVersion
-              AND estado IN ('EN_EJECUCION', 'EN_CORRECCION')
+              AND estado = 'EN_EJECUCION'
             RETURNING version_fila;
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);

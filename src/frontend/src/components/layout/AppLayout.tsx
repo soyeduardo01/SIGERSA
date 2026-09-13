@@ -88,10 +88,7 @@ export function AppLayout({
           onOpenMenu={() => setMobileMenuOpen(true)}
           onLogout={() => void handleLogout()}
         />
-        <main
-          id="main-content"
-          className="flex-1 bg-[radial-gradient(circle_at_top_right,rgba(209,250,229,.7),transparent_34%)] px-4 py-6 md:px-6 lg:px-7"
-        >
+        <main id="main-content" className="flex-1 bg-surface-canvas px-4 py-6 md:px-6 lg:px-7">
           <div className="mx-auto max-w-[1540px]">{children}</div>
         </main>
       </div>

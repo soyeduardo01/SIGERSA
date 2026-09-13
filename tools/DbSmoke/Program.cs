@@ -198,6 +198,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
     var answerIdempotencyKey = Guid.NewGuid();
     var correctionIdempotencyKey = Guid.NewGuid();
     var rejectedCorrectionIdempotencyKey = Guid.NewGuid();
+    var evidenceIdempotencyKey = Guid.NewGuid();
     var marker = Guid.NewGuid().ToString("N")[..10].ToUpperInvariant();
 
     await using var connection = await dataSource.OpenConnectionAsync();
@@ -316,6 +317,17 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
                 supplement.RowVersion), seed.EvaluatorId, CancellationToken.None);
         if (supplement.CurrentQualification != "Actualizada" || supplement.RowVersion < 2)
             throw new InvalidOperationException("Los datos complementarios no se insertaron y actualizaron correctamente.");
+
+        var evidenceRepository = new EvidenceRepository(new DbConnectionFactory(dataSource));
+        var evidence = new EvidenceRecord(
+            Guid.NewGuid(), currentEvaluationId, seed.EvaluatorId, "SIGERSA_FILES",
+            $"diagnostics/{evidenceIdempotencyKey:N}.png", "evidencia-smoke.png",
+            $"{evidenceIdempotencyKey:N}.png", 8, "image/png", new string('a', 64),
+            "FOTOGRAFIA", null, evidenceIdempotencyKey);
+        var firstEvidenceId = await evidenceRepository.CreateAsync(evidence, CancellationToken.None);
+        var repeatedEvidenceId = await evidenceRepository.CreateAsync(evidence, CancellationToken.None);
+        if (firstEvidenceId != evidence.Id || repeatedEvidenceId != evidence.Id)
+            throw new InvalidOperationException("La evidencia no se persistió de forma idempotente.");
 
         await service.SaveAnswerAsync(new SaveEvaluationAnswerDraft(
             currentEvaluationId,
@@ -438,7 +450,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
         }
 
         Console.WriteLine(
-            "Focused evaluation write OK: visible=1, hidden={0}, saved={1}, calculated={2}, compliance={3}%, supplementVersion={4}, correctionReadOnly=true, correctionFlow=technician-coordinator-administrator",
+            "Focused evaluation write OK: visible=1, hidden={0}, saved={1}, calculated={2}, compliance={3}%, supplementVersion={4}, evidenceIdempotent=true, correctionReadOnly=true, correctionFlow=technician-coordinator-administrator",
             workspace.Policy.ExcludedSourceItems.Count,
             persisted.SavedAnswers,
             calculation.Decision.ApplicableItems,
@@ -458,6 +470,8 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
              WHERE evaluacion_id = @CurrentEvaluationId;
             DELETE FROM ""SIGERSA"".""RESPUESTA_USUARIO""
              WHERE evaluacion_id IN (@PreviousEvaluationId, @CurrentEvaluationId);
+            DELETE FROM ""SIGERSA"".""EVIDENCIA""
+             WHERE evaluacion_id = @CurrentEvaluationId;
             DELETE FROM ""SIGERSA"".""EVALUACION_COMPLEMENTO""
              WHERE evaluacion_id IN (@PreviousEvaluationId, @CurrentEvaluationId);
             DELETE FROM ""SIGERSA"".""EVALUACION""

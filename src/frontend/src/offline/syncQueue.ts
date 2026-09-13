@@ -85,6 +85,21 @@ export async function retrySyncMutation(idempotencyKey: string) {
   await flushSyncQueue()
 }
 
+export async function retryEvaluationMutations(evaluationId: string) {
+  const now = new Date().toISOString()
+  await offlineDb.syncQueue
+    .where('status')
+    .equals('failed')
+    .filter(
+      (item) =>
+        (item.kind === 'answer' || item.kind === 'evidence') &&
+        'evaluationId' in item.payload &&
+        item.payload.evaluationId === evaluationId,
+    )
+    .modify({ status: 'pending', attempts: 0, nextAttemptAt: now, lastError: undefined })
+  notifyQueueChanged()
+}
+
 async function processSyncQueue() {
   const now = new Date().toISOString()
   await offlineDb.syncQueue.where('status').equals('processing').modify({

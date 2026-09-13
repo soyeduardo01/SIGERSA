@@ -24,7 +24,9 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
                    correction.resuelta_en AS ResolvedAt,
                    COALESCE((SELECT jsonb_agg(jsonb_build_object(
                        'SourceItem', item.source_allitems_item, 'ItemTitle', item.titulo,
-                       'Reason', field.motivo, 'Status', field.estado) ORDER BY item.orden)::text
+                       'Reason', field.motivo, 'Status', field.estado,
+                       'PreviousSnapshotJson', field.valor_anterior_snapshot::text,
+                       'NewSnapshotJson', field.valor_nuevo_snapshot::text) ORDER BY item.orden)::text
                      FROM "SIGERSA"."CORRECCION_CAMPO" field
                      JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = field.item_ficha_id
                     WHERE field.correccion_id = correction.id), '[]') AS FieldsJson,

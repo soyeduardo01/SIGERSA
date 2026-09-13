@@ -26,6 +26,11 @@ public static partial class SigersaSqlGuard
             }
 
             var objectName = match.Groups[1].Value;
+            if (objectName.Equals("EXCLUDED", StringComparison.OrdinalIgnoreCase)
+                && prefix.Contains("ON CONFLICT", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
             var remainder = sql.AsSpan(match.Groups[1].Index + match.Groups[1].Length).TrimStart();
             var isTableValuedExpression = remainder.StartsWith("(", StringComparison.Ordinal);
             if (!objectName.StartsWith($"{Schema}.\"", StringComparison.Ordinal)

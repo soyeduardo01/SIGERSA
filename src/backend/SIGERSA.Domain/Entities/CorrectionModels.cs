@@ -7,7 +7,9 @@ public sealed record CorrectionRecord(
     DateTimeOffset RequestedAt, DateTimeOffset? SubmittedAt, DateTimeOffset? ResolvedAt,
     IReadOnlyList<CorrectionField> Fields,
     long RowVersion);
-public sealed record CorrectionField(int SourceItem, string ItemTitle, string Reason, string Status);
+public sealed record CorrectionField(
+    int SourceItem, string ItemTitle, string Reason, string Status,
+    string? PreviousSnapshotJson = null, string? NewSnapshotJson = null);
 public sealed record CorrectionsPage(IReadOnlyList<CorrectionRecord> Items, int Page, int PageSize, int Total);
 public sealed record CorrectionSearch(
     string? Search, string? Status, int Page, int PageSize, Guid ActorId,

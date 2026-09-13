@@ -42,6 +42,18 @@ public sealed class SigersaSqlGuardTests
     }
 
     [Fact]
+    public void EnsureQualifiedShouldAcceptExcludedInsideIsNotDistinctFromExpression()
+    {
+        const string sql = """
+            INSERT INTO "SIGERSA"."EVIDENCIA" (id, latitud) VALUES (@Id, @Latitude)
+            ON CONFLICT (id) DO UPDATE SET latitud = "SIGERSA"."EVIDENCIA".latitud
+            WHERE "SIGERSA"."EVIDENCIA".latitud IS NOT DISTINCT FROM EXCLUDED.latitud;
+            """;
+
+        Assert.Equal(sql, SigersaSqlGuard.EnsureQualified(sql));
+    }
+
+    [Fact]
     public void EnsureQualifiedShouldAcceptLocalCommonTableExpression()
     {
         const string sql = """
