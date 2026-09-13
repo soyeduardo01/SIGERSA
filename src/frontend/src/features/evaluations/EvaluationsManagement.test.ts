@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { canEditInspection, inspectionActionLabel } from './evaluationActions'
+import {
+  canEditInspection,
+  canFinalizeReview,
+  canSubmitForReview,
+  inspectionActionLabel,
+} from './evaluationActions'
 
 describe('flujo unificado de evaluaciones e inspecciones', () => {
   it('habilita la inspección durante la ejecución', () => {
@@ -24,5 +29,17 @@ describe('flujo unificado de evaluaciones e inspecciones', () => {
   it('mantiene la ficha en lectura sin permiso de ejecución', () => {
     expect(canEditInspection('EN_EJECUCION', false)).toBe(false)
     expect(inspectionActionLabel('EN_EJECUCION', false)).toBe('Ver ficha')
+  })
+
+  it('solo permite al técnico enviar una evaluación finalizada a revisión', () => {
+    expect(canSubmitForReview('FINALIZADA', ['TECNICO_EVALUADOR'])).toBe(true)
+    expect(canSubmitForReview('FINALIZADA', ['ADMINISTRADOR'])).toBe(false)
+    expect(canSubmitForReview('FINALIZADA', ['COORDINADOR'])).toBe(false)
+  })
+
+  it('solo permite al coordinador finalizar una evaluación enviada', () => {
+    expect(canFinalizeReview('ENVIADA', ['COORDINADOR'])).toBe(true)
+    expect(canFinalizeReview('ENVIADA', ['ADMINISTRADOR'])).toBe(false)
+    expect(canFinalizeReview('ENVIADA', ['TECNICO_EVALUADOR'])).toBe(false)
   })
 })

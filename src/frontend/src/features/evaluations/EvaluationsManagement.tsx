@@ -16,7 +16,12 @@ import { formatStatusLabel } from '../../lib/formatters'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 import { DynamicInspectionForm } from '../inspection/DynamicInspectionForm'
 import { useAuth } from '../../contexts/useAuth'
-import { canEditInspection, inspectionActionLabel } from './evaluationActions'
+import {
+  canEditInspection,
+  canFinalizeReview,
+  canSubmitForReview,
+  inspectionActionLabel,
+} from './evaluationActions'
 
 const emptyPage: EvaluationsPage = { items: [], page: 1, pageSize: 20, total: 0 }
 
@@ -30,8 +35,7 @@ export function EvaluationsManagement() {
   const [selected, setSelected] = useState<EvaluationSummary | null>(null)
   const evaluationStates = useParameterOptions('ESTADO_EVALUACION')
   const { roles } = useAuth()
-  const canExecute = roles.some((role) => role === 'ADMINISTRADOR' || role === 'TECNICO_EVALUADOR')
-  const canReview = roles.some((role) => role === 'ADMINISTRADOR' || role === 'COORDINADOR')
+  const canExecute = roles.includes('TECNICO_EVALUADOR')
 
   async function load() {
     setLoading(true)
@@ -89,7 +93,7 @@ export function EvaluationsManagement() {
       start: 'Iniciar evaluación',
       submit: 'Enviar a revisión',
       review: 'Comenzar revisión',
-      approve: 'Aprobar evaluación',
+      approve: 'Finalizar revisión',
       close: 'Cerrar expediente',
     }
     const confirmed = await alerts.confirm({
@@ -206,40 +210,22 @@ export function EvaluationsManagement() {
                           Iniciar
                         </button>
                       )}
-                      {item.status === 'FINALIZADA' && canExecute && (
+                      {canSubmitForReview(item.status, roles) && (
                         <button
                           type="button"
                           onClick={() => void runTransition(item, 'submit')}
                           className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white"
                         >
-                          Enviar
+                          Enviar a revisión
                         </button>
                       )}
-                      {item.status === 'ENVIADA' && canReview && (
-                        <button
-                          type="button"
-                          onClick={() => void runTransition(item, 'review')}
-                          className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white"
-                        >
-                          Revisar
-                        </button>
-                      )}
-                      {item.status === 'EN_REVISION' && canReview && (
+                      {canFinalizeReview(item.status, roles) && (
                         <button
                           type="button"
                           onClick={() => void runTransition(item, 'approve')}
                           className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white"
                         >
-                          Aprobar
-                        </button>
-                      )}
-                      {item.status === 'APROBADA' && canReview && (
-                        <button
-                          type="button"
-                          onClick={() => void runTransition(item, 'close')}
-                          className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
-                        >
-                          Cerrar
+                          Finalizar
                         </button>
                       )}
                       <button

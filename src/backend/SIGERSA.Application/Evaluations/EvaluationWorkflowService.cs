@@ -87,7 +87,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
-        if (!HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "TECNICO_EVALUADOR"))
+        if (!HasRole(actor, "TECNICO_EVALUADOR"))
             throw new ForbiddenException("Solo el técnico asignado puede completar los datos de la evaluación.");
         if (draft.RowVersion < 0)
             throw new ArgumentException("La versión de los datos complementarios no es válida.");
@@ -244,7 +244,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
-        if (!HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "TECNICO_EVALUADOR"))
+        if (!HasRole(actor, "TECNICO_EVALUADOR"))
             throw new ForbiddenException("Solo el técnico asignado puede iniciar la evaluación.");
         ValidateCoordinates(transition);
         return await TransitionAsync(evaluationId, transition with { Action = "START" }, actor, cancellationToken);
@@ -256,7 +256,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
-        if (!HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "TECNICO_EVALUADOR"))
+        if (!HasRole(actor, "TECNICO_EVALUADOR"))
             throw new ForbiddenException("Solo el técnico asignado puede finalizar la evaluación.");
         var calculation = await CalculateAsync(evaluationId, productRisk, actor.UserId, cancellationToken);
         if (calculation.TotalRisk is null)
@@ -277,9 +277,9 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         var technicianAction = action is "START" or "FINALIZE" or "SUBMIT";
         var reviewerAction = action is "REVIEW" or "APPROVE" or "CLOSE";
         if (!technicianAction && !reviewerAction) throw new ArgumentException("La transición solicitada no es válida.");
-        if (technicianAction && !HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "TECNICO_EVALUADOR"))
+        if (technicianAction && !HasRole(actor, "TECNICO_EVALUADOR"))
             throw new ForbiddenException("La transición corresponde al técnico evaluador asignado.");
-        if (reviewerAction && !HasRole(actor, "ADMINISTRADOR") && !HasRole(actor, "COORDINADOR"))
+        if (reviewerAction && !HasRole(actor, "COORDINADOR"))
             throw new ForbiddenException("La transición corresponde al coordinador revisor.");
         if (action == "APPROVE")
             await EnsureApprovalCriteriaAsync(evaluationId, actor.UserId, cancellationToken);

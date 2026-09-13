@@ -221,15 +221,10 @@ sequenceDiagram
 stateDiagram-v2
     [*] --> ASIGNADA
     ASIGNADA --> EN_EJECUCION: Iniciar
-    EN_EJECUCION --> FINALIZADA: Responder, sincronizar y calcular
-    FINALIZADA --> ENVIADA: Enviar
-    ENVIADA --> EN_REVISION: Revisar
-    ENVIADA --> APROBADA: Aprobar
-    EN_REVISION --> EN_CORRECCION: Solicitar correcciones
-    EN_CORRECCION --> FINALIZADA: Corregir y recalcular
-    EN_REVISION --> APROBADA: Aprobar
-    APROBADA --> CERRADA: Cerrar
-    CERRADA --> [*]
+    EN_EJECUCION --> FINALIZADA: El técnico completa la ficha
+    FINALIZADA --> ENVIADA: El técnico envía a revisión
+    ENVIADA --> APROBADA: El coordinador finaliza la revisión
+    APROBADA --> [*]
 ```
 
 > **Regla obligatoria:** todos los objetos de negocio de PostgreSQL pertenecen al esquema `SIGERSA`. No se crean tablas de negocio en `public` ni tipos `ENUM`; los catálogos administrables residen en `SIGERSA.ParametersControl`.

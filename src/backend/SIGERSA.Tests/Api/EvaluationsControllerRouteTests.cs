@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SIGERSA.Api.Controllers;
 
@@ -24,5 +25,19 @@ public sealed class EvaluationsControllerRouteTests
             Assert.Equal(template, route.Template);
             Assert.DoesNotContain("{action", route.Template, StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    [Theory]
+    [InlineData(nameof(EvaluationsController.Start), "TECNICO_EVALUADOR")]
+    [InlineData(nameof(EvaluationsController.Finalize), "TECNICO_EVALUADOR")]
+    [InlineData(nameof(EvaluationsController.Submit), "TECNICO_EVALUADOR")]
+    [InlineData(nameof(EvaluationsController.Approve), "COORDINADOR")]
+    public void WorkflowTransitionsEnforceTheResponsibleRole(string methodName, string roles)
+    {
+        var method = typeof(EvaluationsController).GetMethod(methodName);
+        var authorization = Assert.Single(method!.GetCustomAttributes(typeof(AuthorizeAttribute), false)
+            .Cast<AuthorizeAttribute>());
+
+        Assert.Equal(roles, authorization.Roles);
     }
 }

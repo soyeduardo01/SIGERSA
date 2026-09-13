@@ -28,7 +28,7 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
     }
 
     [HttpPost("upload-authorization")]
-    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     public Task<Domain.Storage.StorageUploadAuthorization> AuthorizeUpload(
         EvidenceUploadAuthorizationRequest request,
         CancellationToken cancellationToken) =>
@@ -43,7 +43,7 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
             cancellationToken);
 
     [HttpPost("confirm")]
-    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     public async Task<ActionResult<EvidenceRecord>> ConfirmUpload(
         ConfirmEvidenceUploadRequest request,
         CancellationToken cancellationToken)
@@ -68,7 +68,7 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
     }
 
     [HttpPost]
-    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(6_291_456)]
     public async Task<ActionResult<EvidenceRecord>> Upload(

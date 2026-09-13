@@ -909,16 +909,12 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                    )
                    AND (
                        (@Action IN ('START', 'FINALIZE', 'SUBMIT')
-                        AND (evaluation.evaluador_principal_id = @ActorId OR EXISTS (
-                            SELECT 1 FROM "SIGERSA"."USUARIO_ROL" user_role
-                            JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
-                            WHERE user_role.usuario_id = @ActorId AND user_role.activo = true
-                              AND role.codigo = 'ADMINISTRADOR')))
+                        AND evaluation.evaluador_principal_id = @ActorId)
                        OR (@Action IN ('REVIEW', 'APPROVE', 'CLOSE') AND EXISTS (
                             SELECT 1 FROM "SIGERSA"."USUARIO_ROL" user_role
                             JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
                             WHERE user_role.usuario_id = @ActorId AND user_role.activo = true
-                              AND role.codigo IN ('ADMINISTRADOR', 'COORDINADOR')))
+                              AND role.codigo = 'COORDINADOR'))
                    )
                 RETURNING evaluation.version_fila AS RowVersion, evaluation.caso_id AS CaseId
             ), closed_case AS (

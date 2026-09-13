@@ -2,6 +2,7 @@ using Dapper;
 using Npgsql;
 using SIGERSA.Application.Evaluations;
 using SIGERSA.Domain.Entities;
+using SIGERSA.Domain.Exceptions;
 using SIGERSA.Infrastructure.Persistence;
 
 var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
@@ -209,6 +210,16 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
                    inspection_case.empresa_id AS CompanyId,
                    evaluation.ficha_inspeccion_id AS InspectionTemplateId,
                    evaluation.evaluador_principal_id AS EvaluatorId,
+                   (SELECT user_role.usuario_id
+                      FROM "SIGERSA"."USUARIO_ROL" user_role
+                      JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                     WHERE user_role.activo = true AND role.codigo = 'COORDINADOR'
+                     LIMIT 1) AS CoordinatorId,
+                   (SELECT user_role.usuario_id
+                      FROM "SIGERSA"."USUARIO_ROL" user_role
+                      JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                     WHERE user_role.activo = true AND role.codigo = 'ADMINISTRADOR'
+                     LIMIT 1) AS AdministratorId,
                    evaluation.version_regla_riesgo_id AS RiskRuleVersionId,
                    item.id AS ItemId,
                    item.source_allitems_item AS SourceItem,
@@ -231,8 +242,9 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             """);
         if (seed.TotalEvaluableItems <= 1)
             throw new InvalidOperationException("La ficha disponible no tiene suficientes ítems para probar un alcance focalizado.");
-        if (seed.ReasonId == Guid.Empty || seed.MajorCriticalityId == Guid.Empty)
-            throw new InvalidOperationException("Faltan los catálogos de seguimiento o criticidad mayor.");
+        if (seed.ReasonId == Guid.Empty || seed.MajorCriticalityId == Guid.Empty
+            || seed.CoordinatorId == Guid.Empty || seed.AdministratorId == Guid.Empty)
+            throw new InvalidOperationException("Faltan los catálogos o usuarios necesarios para validar el flujo.");
 
         await connection.ExecuteAsync("""
             INSERT INTO "SIGERSA"."CASO"
@@ -449,8 +461,39 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             // Estado esperado: el repositorio bloquea toda escritura mientras el coordinador revisa.
         }
 
+        await connection.ExecuteAsync("""
+            UPDATE "SIGERSA"."EVALUACION"
+               SET estado = 'EN_EJECUCION', modificado_en = CURRENT_TIMESTAMP,
+                   modificado_por = @EvaluatorId, version_fila = version_fila + 1
+             WHERE id = @CurrentEvaluationId;
+            """, new { CurrentEvaluationId = currentEvaluationId, seed.EvaluatorId });
+        var finalized = await service.FinalizeAsync(currentEvaluationId, 1m,
+            new EvaluationActor(seed.EvaluatorId, ["TECNICO_EVALUADOR"], null), CancellationToken.None);
+        try
+        {
+            await service.TransitionAsync(currentEvaluationId,
+                new EvaluationTransitionDraft("SUBMIT", finalized.RowVersion),
+                new EvaluationActor(seed.AdministratorId, ["ADMINISTRADOR"], null), CancellationToken.None);
+            throw new InvalidOperationException("El administrador pudo enviar una evaluación del técnico.");
+        }
+        catch (ForbiddenException)
+        {
+            // Estado esperado: enviar a revisión pertenece exclusivamente al técnico.
+        }
+        var submittedVersion = await service.TransitionAsync(currentEvaluationId,
+            new EvaluationTransitionDraft("SUBMIT", finalized.RowVersion),
+            new EvaluationActor(seed.EvaluatorId, ["TECNICO_EVALUADOR"], null), CancellationToken.None);
+        await service.TransitionAsync(currentEvaluationId,
+            new EvaluationTransitionDraft("APPROVE", submittedVersion),
+            new EvaluationActor(seed.CoordinatorId, ["COORDINADOR"], null), CancellationToken.None);
+        var finalEvaluationStatus = await connection.ExecuteScalarAsync<string>("""
+            SELECT estado FROM "SIGERSA"."EVALUACION" WHERE id = @CurrentEvaluationId;
+            """, new { CurrentEvaluationId = currentEvaluationId });
+        if (finalEvaluationStatus != "APROBADA")
+            throw new InvalidOperationException("El coordinador no pudo finalizar la evaluación enviada.");
+
         Console.WriteLine(
-            "Focused evaluation write OK: visible=1, hidden={0}, saved={1}, calculated={2}, compliance={3}%, supplementVersion={4}, evidenceIdempotent=true, correctionReadOnly=true, correctionFlow=technician-coordinator-administrator",
+            "Focused evaluation write OK: visible=1, hidden={0}, saved={1}, calculated={2}, compliance={3}%, supplementVersion={4}, evidenceIdempotent=true, correctionReadOnly=true, evaluationFlow=technician-coordinator-final, correctionFlow=technician-coordinator-administrator",
             workspace.Policy.ExcludedSourceItems.Count,
             persisted.SavedAnswers,
             calculation.Decision.ApplicableItems,
@@ -497,6 +540,8 @@ sealed class FocusedEvaluationSeed
     public Guid CompanyId { get; init; }
     public Guid InspectionTemplateId { get; init; }
     public Guid EvaluatorId { get; init; }
+    public Guid CoordinatorId { get; init; }
+    public Guid AdministratorId { get; init; }
     public Guid RiskRuleVersionId { get; init; }
     public Guid ItemId { get; init; }
     public int SourceItem { get; init; }

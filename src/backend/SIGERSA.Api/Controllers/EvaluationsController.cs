@@ -49,7 +49,7 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
         service.GetWorkspaceAsync(evaluationId, Actor(), cancellationToken);
 
     [HttpPut("evaluations/{evaluationId:guid}/supplement")]
-    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     public Task<EvaluationSupplement> SaveSupplement(
         Guid evaluationId,
         SaveEvaluationSupplementDraft request,
@@ -57,12 +57,12 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
         service.SaveSupplementAsync(evaluationId, request, ActorContext(), cancellationToken);
 
     [HttpPost("respuestas")]
-    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     public Task<EvaluationAnswer> SaveAnswer(SaveAnswerRequest request, CancellationToken cancellationToken) =>
         SaveAnswerCore(request.EvaluationId, request, cancellationToken);
 
     [HttpPost("evaluations/{evaluationId:guid}/answers")]
-    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     public Task<EvaluationAnswer> SaveEvaluationAnswer(
         Guid evaluationId, SaveAnswerRequest request, CancellationToken cancellationToken) =>
         SaveAnswerCore(evaluationId, request, cancellationToken);
@@ -92,7 +92,7 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
     }
 
     [HttpPost("evaluations/{evaluationId:guid}/calculate")]
-    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     public Task<EvaluationCalculation> Calculate(
         Guid evaluationId,
         CalculateEvaluationRequest request,
@@ -100,7 +100,7 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
         service.CalculateAsync(evaluationId, request.ProductRisk, Actor(), cancellationToken);
 
     [HttpPost("evaluations/{evaluationId:guid}/start")]
-    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     public Task<long> Start(
         Guid evaluationId, StartEvaluationRequest request, CancellationToken cancellationToken) =>
         service.StartAsync(evaluationId,
@@ -108,13 +108,13 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
             ActorContext(), cancellationToken);
 
     [HttpPost("evaluations/{evaluationId:guid}/finalize")]
-    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     public Task<EvaluationCalculation> Finalize(
         Guid evaluationId, FinalizeEvaluationRequest request, CancellationToken cancellationToken) =>
         service.FinalizeAsync(evaluationId, request.ProductRisk, ActorContext(), cancellationToken);
 
     [HttpPost("evaluations/{evaluationId:guid}/submit")]
-    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "TECNICO_EVALUADOR")]
     public Task<long> Submit(
         Guid evaluationId, EvaluationTransitionRequest request,
         CancellationToken cancellationToken) =>
@@ -123,7 +123,7 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
             ActorContext(), cancellationToken);
 
     [HttpPost("evaluations/{evaluationId:guid}/review")]
-    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    [Authorize(Roles = "COORDINADOR")]
     public Task<long> Review(
         Guid evaluationId, EvaluationTransitionRequest request,
         CancellationToken cancellationToken) =>
@@ -132,7 +132,7 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
             ActorContext(), cancellationToken);
 
     [HttpPost("evaluations/{evaluationId:guid}/approve")]
-    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    [Authorize(Roles = "COORDINADOR")]
     public Task<long> Approve(
         Guid evaluationId, EvaluationTransitionRequest request,
         CancellationToken cancellationToken) =>
@@ -141,7 +141,7 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
             ActorContext(), cancellationToken);
 
     [HttpPost("evaluations/{evaluationId:guid}/close")]
-    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    [Authorize(Roles = "COORDINADOR")]
     public Task<long> Close(
         Guid evaluationId, EvaluationTransitionRequest request,
         CancellationToken cancellationToken) =>

@@ -5,3 +5,11 @@ export function canEditInspection(status: string, canExecute: boolean) {
 export function inspectionActionLabel(status: string, canExecute: boolean) {
   return canEditInspection(status, canExecute) ? 'Realizar inspección' : 'Ver ficha'
 }
+
+export function canSubmitForReview(status: string, roles: string[]) {
+  return status === 'FINALIZADA' && roles.includes('TECNICO_EVALUADOR')
+}
+
+export function canFinalizeReview(status: string, roles: string[]) {
+  return ['ENVIADA', 'EN_REVISION'].includes(status) && roles.includes('COORDINADOR')
+}
