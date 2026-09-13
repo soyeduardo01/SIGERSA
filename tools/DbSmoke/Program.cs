@@ -197,6 +197,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
     var previousResponseId = Guid.NewGuid();
     var answerIdempotencyKey = Guid.NewGuid();
     var correctionIdempotencyKey = Guid.NewGuid();
+    var rejectedCorrectionIdempotencyKey = Guid.NewGuid();
     var marker = Guid.NewGuid().ToString("N")[..10].ToUpperInvariant();
 
     await using var connection = await dataSource.OpenConnectionAsync();
@@ -353,6 +354,15 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             correctionIdempotencyKey, currentEvaluationId, "TECNICO", seed.EvaluatorId,
             "Validar el flujo escalonado de corrección.", DateTimeOffset.UtcNow.AddDays(1), []),
             seed.EvaluatorId, CancellationToken.None);
+        var administratorBeforeApproval = await correctionRepository.SearchAsync(new CorrectionSearch(
+            marker.ToLowerInvariant(), null, 1, 10, seed.EvaluatorId, null, true, false,
+            "ADMINISTRADOR"), CancellationToken.None);
+        var coordinatorBeforeApproval = await correctionRepository.SearchAsync(new CorrectionSearch(
+            marker.ToLowerInvariant(), null, 1, 10, seed.EvaluatorId, null, true, false,
+            "COORDINADOR"), CancellationToken.None);
+        if (administratorBeforeApproval.Items.Any(item => item.Id == correctionId)
+            || coordinatorBeforeApproval.Items.All(item => item.Id != correctionId))
+            throw new InvalidOperationException("La solicitud inicial no quedó visible exclusivamente para el coordinador.");
         var correctionVersion = await connection.ExecuteScalarAsync<long>("""
             SELECT version_fila FROM "SIGERSA"."CORRECCION" WHERE id = @CorrectionId;
             """, new { CorrectionId = correctionId });
@@ -368,6 +378,15 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             """, new { CorrectionId = correctionId });
         if (coordinatorResult.CorrectionStatus != "EN_PROCESO" || coordinatorResult.EvaluationStatus != "EN_CORRECCION")
             throw new InvalidOperationException("La aprobación del coordinador no mantuvo bloqueada la evaluación para el administrador.");
+        var administratorAfterApproval = await correctionRepository.SearchAsync(new CorrectionSearch(
+            marker.ToLowerInvariant(), null, 1, 10, seed.EvaluatorId, null, true, false,
+            "ADMINISTRADOR"), CancellationToken.None);
+        var coordinatorAfterApproval = await correctionRepository.SearchAsync(new CorrectionSearch(
+            marker.ToLowerInvariant(), null, 1, 10, seed.EvaluatorId, null, true, false,
+            "COORDINADOR"), CancellationToken.None);
+        if (administratorAfterApproval.Items.All(item => item.Id != correctionId)
+            || coordinatorAfterApproval.Items.Any(item => item.Id == correctionId))
+            throw new InvalidOperationException("La solicitud aprobada por el coordinador no pasó exclusivamente al administrador.");
         if (!await correctionRepository.ResolveAsync(correctionId, coordinatorResult.RowVersion, "ACEPTADA",
                 seed.EvaluatorId, false, CancellationToken.None))
             throw new InvalidOperationException("El administrador no pudo resolver la corrección.");
@@ -379,6 +398,22 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             """, new { CorrectionId = correctionId });
         if (administratorResult.CorrectionStatus != "ACEPTADA" || administratorResult.EvaluationStatus != "EN_EJECUCION")
             throw new InvalidOperationException("La decisión final del administrador no reanudó la evaluación.");
+
+        var rejectedCorrectionId = await correctionRepository.CreateAsync(new CorrectionDraft(
+            rejectedCorrectionIdempotencyKey, currentEvaluationId, "TECNICO", seed.EvaluatorId,
+            "Validar el rechazo del coordinador.", DateTimeOffset.UtcNow.AddDays(1), []),
+            seed.EvaluatorId, CancellationToken.None);
+        var rejectedCorrectionVersion = await connection.ExecuteScalarAsync<long>("""
+            SELECT version_fila FROM "SIGERSA"."CORRECCION" WHERE id = @CorrectionId;
+            """, new { CorrectionId = rejectedCorrectionId });
+        if (!await correctionRepository.ResolveAsync(rejectedCorrectionId, rejectedCorrectionVersion,
+                "RECHAZADA", seed.EvaluatorId, true, CancellationToken.None))
+            throw new InvalidOperationException("El coordinador no pudo rechazar la corrección.");
+        var statusAfterCoordinatorRejection = await connection.ExecuteScalarAsync<string>("""
+            SELECT estado FROM "SIGERSA"."EVALUACION" WHERE id = @CurrentEvaluationId;
+            """, new { CurrentEvaluationId = currentEvaluationId });
+        if (statusAfterCoordinatorRejection != "EN_EJECUCION")
+            throw new InvalidOperationException("El rechazo del coordinador no desbloqueó la evaluación para el técnico.");
 
         await connection.ExecuteAsync("""
             UPDATE "SIGERSA"."EVALUACION"
@@ -414,7 +449,8 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
     {
         const string cleanupSql = @"
             DELETE FROM ""SIGERSA"".""OPERACION_SINCRONIZACION""
-             WHERE idempotency_key IN (@AnswerIdempotencyKey, @CorrectionIdempotencyKey);
+             WHERE idempotency_key IN (@AnswerIdempotencyKey, @CorrectionIdempotencyKey,
+                                       @RejectedCorrectionIdempotencyKey);
             DELETE FROM ""SIGERSA"".""CORRECCION_CAMPO""
              WHERE correccion_id IN (SELECT id FROM ""SIGERSA"".""CORRECCION""
                                       WHERE evaluacion_id = @CurrentEvaluationId);
@@ -432,6 +468,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
         {
             AnswerIdempotencyKey = answerIdempotencyKey,
             CorrectionIdempotencyKey = correctionIdempotencyKey,
+            RejectedCorrectionIdempotencyKey = rejectedCorrectionIdempotencyKey,
             PreviousEvaluationId = previousEvaluationId,
             CurrentEvaluationId = currentEvaluationId,
             PreviousCaseId = previousCaseId,

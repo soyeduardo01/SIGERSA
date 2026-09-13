@@ -74,7 +74,7 @@ export function CorrectionsManagement() {
   }
 
   async function transition(item: Correction, action: 'submit' | 'accept' | 'reject') {
-    const coordinatorStage = item.status === 'ENVIADA'
+    const coordinatorStage = item.status === 'PENDIENTE' || item.status === 'ENVIADA'
     const accepted = await alerts.confirm({
       title:
         action === 'submit'
@@ -215,7 +215,7 @@ export function CorrectionsManagement() {
                           Enviar al coordinador
                         </button>
                       )}
-                      {coordinator && item.status === 'ENVIADA' && (
+                      {coordinator && ['PENDIENTE', 'ENVIADA'].includes(item.status) && (
                         <>
                           <button
                             type="button"

@@ -15,10 +15,13 @@ public sealed class CorrectionService(ICorrectionRepository repository, IValidat
         var assigned = HasRole(actor, "TECNICO_EVALUADOR") && !global;
         var company = global || assigned ? (Guid?)null : actor.CompanyId
             ?? throw new ForbiddenException("El usuario no tiene un ámbito empresarial válido.");
+        var reviewScope = HasRole(actor, "ADMINISTRADOR")
+            ? "ADMINISTRADOR"
+            : HasRole(actor, "COORDINADOR") ? "COORDINADOR" : null;
         return repository.SearchAsync(new CorrectionSearch(
             Normalize(search)?.ToLowerInvariant(), Normalize(status)?.ToUpperInvariant(),
             Math.Max(page, 1), Math.Clamp(pageSize, 5, 100), actor.UserId,
-            company, global, assigned), cancellationToken);
+            company, global, assigned, reviewScope), cancellationToken);
     }
 
     public Task<CorrectionOptions> GetOptionsAsync(CorrectionActor actor, CancellationToken cancellationToken)

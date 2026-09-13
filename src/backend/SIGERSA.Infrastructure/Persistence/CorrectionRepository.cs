@@ -34,6 +34,9 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
               LEFT JOIN "SIGERSA"."USUARIO" assigned_user ON assigned_user.id = correction.asignada_a_id
              WHERE (@Status IS NULL OR correction.estado = @Status)
+               AND (@ReviewScope IS NULL
+                    OR (@ReviewScope = 'COORDINADOR' AND correction.estado IN ('PENDIENTE', 'ENVIADA'))
+                    OR (@ReviewScope = 'ADMINISTRADOR' AND correction.estado IN ('EN_PROCESO', 'ACEPTADA')))
                AND (@Search IS NULL OR lower(evaluation.numero) LIKE '%' || @Search || '%'
                     OR lower(establishment.nombre) LIKE '%' || @Search || '%'
                     OR lower(correction.observacion_coordinador) LIKE '%' || @Search || '%')
@@ -54,6 +57,9 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
               JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = correction.evaluacion_id
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
              WHERE (@Status IS NULL OR correction.estado = @Status)
+               AND (@ReviewScope IS NULL
+                    OR (@ReviewScope = 'COORDINADOR' AND correction.estado IN ('PENDIENTE', 'ENVIADA'))
+                    OR (@ReviewScope = 'ADMINISTRADOR' AND correction.estado IN ('EN_PROCESO', 'ACEPTADA')))
                AND (@Search IS NULL OR lower(evaluation.numero) LIKE '%' || @Search || '%'
                     OR lower(establishment.nombre) LIKE '%' || @Search || '%'
                     OR lower(correction.observacion_coordinador) LIKE '%' || @Search || '%')
@@ -70,7 +76,7 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
         var parameters = new
         {
             query.Search, query.Status, query.ActorId, query.CompanyScope,
-            query.GlobalScope, query.AssignedOnly,
+            query.GlobalScope, query.AssignedOnly, query.ReviewScope,
             Offset = (query.Page - 1) * query.PageSize, query.PageSize
         };
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
@@ -90,7 +96,12 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
               FROM "SIGERSA"."EVALUACION" evaluation
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
              WHERE evaluation.estado = 'EN_EJECUCION'
-               AND evaluation.evaluador_principal_id = @ActorId
+               AND (evaluation.evaluador_principal_id = @ActorId
+                    OR EXISTS (
+                        SELECT 1 FROM "SIGERSA"."ASIGNACION" assignment
+                         WHERE assignment.programacion_id = evaluation.programacion_id
+                           AND assignment.evaluador_id = @ActorId
+                           AND assignment.estado = 'ACTIVA'))
                AND @CanCreate = true
              ORDER BY evaluation.creado_en DESC;
 
@@ -268,7 +279,7 @@ public sealed class CorrectionRepository(IDbConnectionFactory connectionFactory)
                        modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
                        version_fila = version_fila + 1
                  WHERE id = @Id AND version_fila = @RowVersion
-                   AND ((@CoordinatorReview = true AND estado = 'ENVIADA')
+                   AND ((@CoordinatorReview = true AND estado IN ('PENDIENTE', 'ENVIADA'))
                         OR (@CoordinatorReview = false AND estado = 'EN_PROCESO'))
                 RETURNING id, evaluacion_id
             ), updated_fields AS (

@@ -29,6 +29,21 @@ public sealed class CorrectionServiceTests
             new CorrectionActor(UserId, ["TECNICO_EVALUADOR"], null), CancellationToken.None);
 
         Assert.True(repository.LastSearch!.AssignedOnly);
+        Assert.Null(repository.LastSearch.ReviewScope);
+    }
+
+    [Theory]
+    [InlineData("COORDINADOR", "COORDINADOR")]
+    [InlineData("ADMINISTRADOR", "ADMINISTRADOR")]
+    public async Task ReviewerOnlyReceivesItsWorkflowStage(string role, string expectedScope)
+    {
+        var repository = new FakeRepository();
+        var service = CreateService(repository);
+
+        await service.SearchAsync(null, null, 1, 10,
+            new CorrectionActor(UserId, [role], null), CancellationToken.None);
+
+        Assert.Equal(expectedScope, repository.LastSearch?.ReviewScope);
     }
 
     [Fact]
