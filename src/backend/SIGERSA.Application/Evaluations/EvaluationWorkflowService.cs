@@ -41,7 +41,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
     public Task<EvaluationCreateOptions> GetOptionsAsync(EvaluationActor actor, CancellationToken cancellationToken)
     {
         EnsureReader(actor);
-        return repository.GetOptionsAsync(HasRole(actor, "ADMINISTRADOR") || HasRole(actor, "COORDINADOR"), cancellationToken);
+        return repository.GetOptionsAsync(HasRole(actor, "COORDINADOR"), cancellationToken);
     }
 
     public Task<PublishedInspectionTemplate> PublishAllItemsAsync(Guid actorId, CancellationToken cancellationToken) =>

@@ -461,6 +461,13 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             // Estado esperado: el repositorio bloquea toda escritura mientras el coordinador revisa.
         }
 
+        var administratorActor = new EvaluationActor(seed.AdministratorId, ["ADMINISTRADOR"], null);
+        var administratorBeforeFinal = await service.SearchAsync(marker.ToLowerInvariant(), null, 1, 10,
+            administratorActor, CancellationToken.None);
+        if (administratorBeforeFinal.Items.All(item => item.Id != currentEvaluationId))
+            throw new InvalidOperationException("El administrador no pudo consultar la evaluación pendiente de revisión.");
+        await service.GetWorkspaceAsync(currentEvaluationId, seed.AdministratorId, CancellationToken.None);
+
         await connection.ExecuteAsync("""
             UPDATE "SIGERSA"."EVALUACION"
                SET estado = 'EN_EJECUCION', modificado_en = CURRENT_TIMESTAMP,
@@ -473,7 +480,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
         {
             await service.TransitionAsync(currentEvaluationId,
                 new EvaluationTransitionDraft("SUBMIT", finalized.RowVersion),
-                new EvaluationActor(seed.AdministratorId, ["ADMINISTRADOR"], null), CancellationToken.None);
+                administratorActor, CancellationToken.None);
             throw new InvalidOperationException("El administrador pudo enviar una evaluación del técnico.");
         }
         catch (ForbiddenException)
@@ -491,9 +498,14 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             """, new { CurrentEvaluationId = currentEvaluationId });
         if (finalEvaluationStatus != "APROBADA")
             throw new InvalidOperationException("El coordinador no pudo finalizar la evaluación enviada.");
+        var administratorAfterFinal = await service.SearchAsync(marker.ToLowerInvariant(), null, 1, 10,
+            administratorActor, CancellationToken.None);
+        if (administratorAfterFinal.Items.All(item => item.Id != currentEvaluationId))
+            throw new InvalidOperationException("El administrador no recibió el resultado final de la evaluación.");
+        await service.GetWorkspaceAsync(currentEvaluationId, seed.AdministratorId, CancellationToken.None);
 
         Console.WriteLine(
-            "Focused evaluation write OK: visible=1, hidden={0}, saved={1}, calculated={2}, compliance={3}%, supplementVersion={4}, evidenceIdempotent=true, correctionReadOnly=true, evaluationFlow=technician-coordinator-final, correctionFlow=technician-coordinator-administrator",
+            "Focused evaluation write OK: visible=1, hidden={0}, saved={1}, calculated={2}, compliance={3}%, supplementVersion={4}, evidenceIdempotent=true, correctionReadOnly=true, evaluationFlow=technician-coordinator-final-admin-readonly-throughout, correctionFlow=technician-coordinator-administrator",
             workspace.Policy.ExcludedSourceItems.Count,
             persisted.SavedAnswers,
             calculation.Decision.ApplicableItems,

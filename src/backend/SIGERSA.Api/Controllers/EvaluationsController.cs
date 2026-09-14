@@ -29,7 +29,7 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
         service.PublishAllItemsAsync(Actor(), cancellationToken);
 
     [HttpPost("evaluations")]
-    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    [Authorize(Roles = "COORDINADOR")]
     public async Task<ActionResult<EvaluationSession>> Create(
         CreateEvaluationDraft request,
         CancellationToken cancellationToken)
