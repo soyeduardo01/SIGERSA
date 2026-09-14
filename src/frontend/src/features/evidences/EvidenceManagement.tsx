@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
 import { useAuth } from '../../contexts/useAuth'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
@@ -17,6 +17,12 @@ import { offlineDb } from '../../offline/database'
 import { flushSyncQueue, queueEvidence } from '../../offline/syncQueue'
 
 const emptyPage: EvidencesPage = { items: [], page: 1, pageSize: 20, total: 0 }
+type EvidencePreviewState = {
+  item: EvidenceSummary
+  url?: string
+  loading: boolean
+  error?: string
+}
 
 export function EvidenceManagement() {
   const { roles } = useAuth()
@@ -26,6 +32,8 @@ export function EvidenceManagement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [open, setOpen] = useState(false)
+  const [preview, setPreview] = useState<EvidencePreviewState | null>(null)
+  const previewRequest = useRef(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -61,6 +69,43 @@ export function EvidenceManagement() {
       await alerts.error(caught, 'No se pudo descargar la evidencia')
     }
   }
+
+  async function showPreview(item: EvidenceSummary) {
+    const requestId = ++previewRequest.current
+    setPreview({ item, loading: true })
+    try {
+      const blob = await downloadEvidence(item.id)
+      const url = URL.createObjectURL(blob)
+      if (requestId !== previewRequest.current) {
+        URL.revokeObjectURL(url)
+        return
+      }
+      setPreview({ item, url, loading: false })
+    } catch (caught) {
+      if (requestId !== previewRequest.current) return
+      setPreview({
+        item,
+        loading: false,
+        error: caught instanceof Error ? caught.message : 'No se pudo cargar la vista previa.',
+      })
+    }
+  }
+
+  function closePreview() {
+    previewRequest.current += 1
+    setPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url)
+      return null
+    })
+  }
+
+  useEffect(
+    () => () => {
+      previewRequest.current += 1
+      if (preview?.url) URL.revokeObjectURL(preview.url)
+    },
+    [preview?.url],
+  )
 
   async function save(evaluationId: string, evidenceType: string, file: File) {
     try {
@@ -152,13 +197,22 @@ export function EvidenceManagement() {
                   <td className="px-3 py-4">{item.uploadedByName}</td>
                   <td className="px-3 py-4">{formatStatusLabel(item.synchronizationStatus)}</td>
                   <td className="px-3 py-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => void download(item)}
-                      className="rounded-lg border px-3 py-2 font-bold"
-                    >
-                      Descargar
-                    </button>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void showPreview(item)}
+                        className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white"
+                      >
+                        Ver
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void download(item)}
+                        className="rounded-lg border px-3 py-2 font-bold"
+                      >
+                        Descargar
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -175,7 +229,106 @@ export function EvidenceManagement() {
       {open && (
         <EvidenceForm evaluations={evaluations} onClose={() => setOpen(false)} onSave={save} />
       )}
+      {preview && (
+        <EvidencePreview preview={preview} onClose={closePreview} onDownload={download} />
+      )}
     </section>
+  )
+}
+
+function EvidencePreview({
+  preview,
+  onClose,
+  onDownload,
+}: {
+  preview: EvidencePreviewState
+  onClose: () => void
+  onDownload: (item: EvidenceSummary) => Promise<void>
+}) {
+  const { item, url, loading, error } = preview
+  const isImage = item.mimeType.startsWith('image/')
+  const isPdf = item.mimeType === 'application/pdf'
+  const isVideo = item.mimeType.startsWith('video/')
+
+  return (
+    <div className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="evidence-preview-title"
+        className="sigersa-modal-panel flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden"
+      >
+        <header className="flex items-start justify-between gap-4 border-b px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-xs font-bold tracking-[0.12em] text-brand-700 uppercase">
+              Vista previa de evidencia
+            </p>
+            <h2 id="evidence-preview-title" className="mt-1 truncate text-xl font-extrabold">
+              {item.originalName}
+            </h2>
+            <p className="mt-1 text-xs text-ink-muted">
+              {(item.fileSize / 1024).toFixed(1)} KB · {item.mimeType}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Cerrar vista previa">
+            ✕
+          </button>
+        </header>
+
+        <div className="grid min-h-[22rem] flex-1 place-items-center overflow-auto bg-slate-100 p-4 sm:min-h-[34rem]">
+          {loading && <p className="font-semibold text-ink-muted">Cargando archivo…</p>}
+          {error && <p className="rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}
+          {!loading && !error && url && isImage && (
+            <img
+              src={url}
+              alt={`Evidencia ${item.originalName}`}
+              className="max-h-[65vh] max-w-full rounded-lg object-contain shadow-sm"
+            />
+          )}
+          {!loading && !error && url && isPdf && (
+            <iframe
+              src={url}
+              title={`Vista previa de ${item.originalName}`}
+              className="h-[65vh] w-full rounded-lg bg-white"
+            />
+          )}
+          {!loading && !error && url && isVideo && (
+            <video src={url} controls className="max-h-[65vh] max-w-full rounded-lg bg-black">
+              <track
+                kind="captions"
+                src="data:text/vtt,WEBVTT"
+                srcLang="es"
+                label="Sin subtítulos disponibles"
+              />
+              Su navegador no puede reproducir este archivo.
+            </video>
+          )}
+          {!loading && !error && url && !isImage && !isPdf && !isVideo && (
+            <p className="max-w-md rounded-xl bg-white p-6 text-center text-sm text-ink-muted">
+              Este formato no admite vista previa en el navegador. Puede descargarlo para abrirlo
+              con una aplicación compatible.
+            </p>
+          )}
+        </div>
+
+        <footer className="flex justify-end gap-3 border-t px-5 py-4">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border px-4 py-2.5 font-bold"
+          >
+            Cerrar
+          </button>
+          <button
+            type="button"
+            onClick={() => void onDownload(item)}
+            className="rounded-xl bg-brand-700 px-5 py-2.5 font-bold text-white"
+          >
+            Descargar
+          </button>
+        </footer>
+      </section>
+    </div>
   )
 }
 
