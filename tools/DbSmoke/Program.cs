@@ -96,7 +96,8 @@ if (args.Contains("--migrate-latest", StringComparer.Ordinal))
         "017_establishment_catalogs_and_generated_code.sql",
         "018_seed_establishment_types.sql",
         "019_evaluation_workspace.sql",
-        "020_inspection_qualification_policy.sql"
+        "020_inspection_qualification_policy.sql",
+        "021_align_evaluation_status_catalog.sql"
     })
     {
         var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations", fileName);
@@ -126,6 +127,12 @@ var evaluationRepository = new EvaluationWorkflowRepository(factory);
 var evaluations = await evaluationRepository.SearchAsync(
     new EvaluationSearch(null, null, 1, 5, actorId, null, true, false));
 var evaluationOptions = await evaluationRepository.GetOptionsAsync(true);
+var evaluationStates = await new ParametersControlRepository(factory)
+    .GetActiveAsync("ESTADO_EVALUACION", null);
+AssertCatalog(
+    evaluationStates.Select(value => value.StringData ?? string.Empty),
+    ["ASIGNADA", "EN_EJECUCION", "FINALIZADA", "ENVIADA", "EN_CORRECCION", "APROBADA"],
+    "estados de evaluación");
 EvaluationInspectionContext? inspectionContext = null;
 if (evaluations.Items.Count > 0)
 {
@@ -180,7 +187,7 @@ var history = await operations.SearchHistoryAsync(
     new HistoricalEvaluationSearch(null, null, null, null, 1, 5, operationalScope));
 var audit = await operations.SearchAuditAsync(new AuditEventSearch(null, null, null, null, 1, 5));
 
-Console.WriteLine($"SQL smoke OK: requests={requests.Total}, cases={cases.Total}, schedules={schedules.Total}, evaluations={evaluations.Total}, evaluationOrigin={inspectionContext?.Origin ?? "none"}, evaluationOptions={evaluationOptions.Cases.Count + evaluationOptions.Establishments.Count + evaluationOptions.Templates.Count + evaluationOptions.RiskRules.Count + evaluationOptions.Evaluators.Count}, establishmentTypes={requestOptions.EstablishmentTypes.Count}, establishmentCatalogs={establishmentOptions.Markets.Count + establishmentOptions.Commercializations.Count + establishmentOptions.HaccpLevels.Count + establishmentOptions.SamplingApplications.Count + establishmentOptions.InabieDistributions.Count}, evidences={evidences.Total}, corrections={corrections.Total}, companies={companies.Total}, dashboard={dashboard.ActiveCases}, surveillance={surveillance.Total}, findings={findings.Total}, findingOptions={findingOptions.Evaluations.Count + findingOptions.Criticalities.Count}, history={history.Total}, audit={audit.Total}, activation={canActivateUser}, userDocument={canAttachUserDocument}, requestDocument={canAttachRequestDocument}");
+Console.WriteLine($"SQL smoke OK: requests={requests.Total}, cases={cases.Total}, schedules={schedules.Total}, evaluations={evaluations.Total}, evaluationStates={evaluationStates.Count}, evaluationOrigin={inspectionContext?.Origin ?? "none"}, evaluationOptions={evaluationOptions.Cases.Count + evaluationOptions.Establishments.Count + evaluationOptions.Templates.Count + evaluationOptions.RiskRules.Count + evaluationOptions.Evaluators.Count}, establishmentTypes={requestOptions.EstablishmentTypes.Count}, establishmentCatalogs={establishmentOptions.Markets.Count + establishmentOptions.Commercializations.Count + establishmentOptions.HaccpLevels.Count + establishmentOptions.SamplingApplications.Count + establishmentOptions.InabieDistributions.Count}, evidences={evidences.Total}, corrections={corrections.Total}, companies={companies.Total}, dashboard={dashboard.ActiveCases}, surveillance={surveillance.Total}, findings={findings.Total}, findingOptions={findingOptions.Evaluations.Count + findingOptions.Criticalities.Count}, history={history.Total}, audit={audit.Total}, activation={canActivateUser}, userDocument={canAttachUserDocument}, requestDocument={canAttachRequestDocument}");
 
 static void AssertCatalog(IEnumerable<string> actual, string[] expected, string name)
 {
