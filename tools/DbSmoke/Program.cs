@@ -334,8 +334,9 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
 
         var repository = new EvaluationWorkflowRepository(new DbConnectionFactory(dataSource));
         var service = new EvaluationWorkflowService(repository);
+        var technicianActor = new EvaluationActor(seed.EvaluatorId, ["TECNICO_EVALUADOR"], null);
         var baselineCalculation = await service.CalculateAsync(
-            previousEvaluationId, 1m, seed.EvaluatorId, CancellationToken.None);
+            previousEvaluationId, 1m, technicianActor, CancellationToken.None);
         if (baselineCalculation.CompliancePercentage != 75m)
             throw new InvalidOperationException("La ficha base de la prueba no fue calculada en 75% por el motor.");
         await connection.ExecuteAsync("""
@@ -378,7 +379,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             Guid.NewGuid(),
             1,
             DateTimeOffset.UtcNow,
-            null), seed.EvaluatorId, CancellationToken.None);
+            null), technicianActor, CancellationToken.None);
         var evidenceRepository = new EvidenceRepository(new DbConnectionFactory(dataSource));
         var evidence = new EvidenceRecord(
             Guid.NewGuid(), currentEvaluationId, seed.EvaluatorId, "SIGERSA_FILES",
@@ -397,7 +398,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             || string.IsNullOrWhiteSpace(linkedEvidence.ItemTitle))
             throw new InvalidOperationException("La evidencia no devolvió el ítem de la ficha asociado.");
         var calculation = await service.CalculateAsync(
-            currentEvaluationId, 1m, seed.EvaluatorId, CancellationToken.None);
+            currentEvaluationId, 1m, technicianActor, CancellationToken.None);
 
         const string persistedEvaluationSql = @"
             SELECT COUNT(*)::integer AS SavedAnswers,

@@ -1,5 +1,5 @@
 export function canExecuteInspection(roles: string[]) {
-  return roles.some((role) => role === 'ADMINISTRADOR' || role === 'TECNICO_EVALUADOR')
+  return roles.includes('TECNICO_EVALUADOR')
 }
 
 export function canEditInspection(status: string, canExecute: boolean) {

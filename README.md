@@ -56,7 +56,7 @@ Los códigos canónicos son `ADMINISTRADOR`, `ADMINISTRADOR_EMPRESA`, `USUARIO_D
 
 ### Evaluaciones e inspecciones: un solo módulo
 
-El módulo **Evaluaciones** concentra el ciclo completo: creación, inicio, ejecución de la inspección, supervisión, revisión, aprobación y cierre. Una evaluación en estado `EN_EJECUCION` o `EN_CORRECCION` muestra **Realizar inspección** al Administrador o Técnico Evaluador autorizado. El Coordinador consulta la ficha en modo de solo lectura, sin enviar respuestas ni adjuntos; después de finalizarse, el mismo acceso cambia a **Ver ficha** para todos los perfiles. La antigua dirección del módulo Inspecciones se conserva como acceso compatible y conduce a Evaluaciones.
+El módulo **Evaluaciones** concentra el ciclo completo: creación, inicio, ejecución de la inspección, supervisión, revisión, aprobación y cierre. Una evaluación en estado `EN_EJECUCION` muestra **Realizar inspección** únicamente al Técnico Evaluador autorizado. El Administrador y el Coordinador pueden consultar las respuestas en modo de solo lectura, sin enviar respuestas, datos complementarios ni adjuntos; después de finalizarse, el mismo acceso cambia a **Ver ficha** para todos los perfiles. La antigua dirección del módulo Inspecciones se conserva como acceso compatible y conduce a Evaluaciones.
 
 ```mermaid
 flowchart LR

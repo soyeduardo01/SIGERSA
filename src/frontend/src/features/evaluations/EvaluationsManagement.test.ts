@@ -14,8 +14,8 @@ describe('flujo unificado de evaluaciones e inspecciones', () => {
     expect(inspectionActionLabel(status, true)).toBe('Realizar inspección')
   })
 
-  it('habilita a administrador y técnico, y mantiene al coordinador en consulta', () => {
-    expect(canExecuteInspection(['ADMINISTRADOR'])).toBe(true)
+  it('habilita solo al técnico y mantiene a administrador y coordinador en consulta', () => {
+    expect(canExecuteInspection(['ADMINISTRADOR'])).toBe(false)
     expect(canExecuteInspection(['TECNICO_EVALUADOR'])).toBe(true)
     expect(canExecuteInspection(['COORDINADOR'])).toBe(false)
   })

@@ -87,8 +87,8 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
-        if (!CanRegisterAnswers(actor))
-            throw new ForbiddenException("Solo un administrador o técnico evaluador puede completar los datos de la evaluación.");
+        if (!HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("Solo el técnico evaluador puede completar los datos de la evaluación.");
         if (draft.RowVersion < 0)
             throw new ArgumentException("La versión de los datos complementarios no es válida.");
         if (draft.PreviousInspectionDate > draft.CurrentInspectionDate)
@@ -109,9 +109,11 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             Required(evaluationId, nameof(evaluationId)), normalized, actor.UserId, cancellationToken);
     }
 
-    public Task<EvaluationAnswer> SaveAnswerAsync(SaveEvaluationAnswerDraft draft, Guid actorId, CancellationToken cancellationToken)
+    public Task<EvaluationAnswer> SaveAnswerAsync(SaveEvaluationAnswerDraft draft, EvaluationActor actor, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(draft);
+        if (!HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("Solo el técnico evaluador puede registrar respuestas.");
         Required(draft.EvaluationId, nameof(draft.EvaluationId));
         Required(draft.IdempotencyKey, nameof(draft.IdempotencyKey));
         Required(draft.DeviceId, nameof(draft.DeviceId));
@@ -124,21 +126,23 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         if (normalized != "NO_CUMPLE") criticality = null;
         return repository.SaveAnswerAsync(
             draft with { Rating = normalized, CriticalityCode = criticality },
-            Required(actorId, nameof(actorId)), cancellationToken);
+            Required(actor.UserId, nameof(actor.UserId)), cancellationToken);
     }
 
     public async Task<EvaluationCalculation> CalculateAsync(
         Guid evaluationId,
         decimal productRisk,
-        Guid actorId,
+        EvaluationActor actor,
         CancellationToken cancellationToken)
     {
+        if (!HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("Solo el técnico evaluador puede calcular la evaluación.");
         if (productRisk is < 1m or > 3m) throw new ArgumentOutOfRangeException(nameof(productRisk));
         var input = await repository.GetCalculationInputAsync(
             Required(evaluationId, nameof(evaluationId)),
-            Required(actorId, nameof(actorId)),
+            Required(actor.UserId, nameof(actor.UserId)),
             cancellationToken);
-        var context = await repository.GetInspectionContextAsync(evaluationId, actorId, cancellationToken);
+        var context = await repository.GetInspectionContextAsync(evaluationId, actor.UserId, cancellationToken);
         var policy = InspectionQualificationPolicy.Resolve(
             context,
             input.Items,
@@ -246,7 +250,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         });
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot))).ToLowerInvariant();
         var version = await repository.SaveCalculationAsync(
-            calculation, obtainedScore, applicableScore, snapshot, hash, input.RowVersion, actorId, cancellationToken);
+            calculation, obtainedScore, applicableScore, snapshot, hash, input.RowVersion, actor.UserId, cancellationToken);
         return calculation with { RowVersion = version };
     }
 
@@ -256,8 +260,8 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
-        if (!CanRegisterAnswers(actor))
-            throw new ForbiddenException("Solo un administrador o técnico evaluador puede iniciar la evaluación.");
+        if (!HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("Solo el técnico evaluador puede iniciar la evaluación.");
         ValidateCoordinates(transition);
         return await TransitionAsync(evaluationId, transition with { Action = "START" }, actor, cancellationToken);
     }
@@ -268,9 +272,9 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
-        if (!CanRegisterAnswers(actor))
-            throw new ForbiddenException("Solo un administrador o técnico evaluador puede finalizar la evaluación.");
-        var calculation = await CalculateAsync(evaluationId, productRisk, actor.UserId, cancellationToken);
+        if (!HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("Solo el técnico evaluador puede finalizar la evaluación.");
+        var calculation = await CalculateAsync(evaluationId, productRisk, actor, cancellationToken);
         if (calculation.TotalRisk is null)
             throw new InvalidOperationException("La evaluación no puede finalizar hasta completar las respuestas y factores de riesgo requeridos.");
         var rowVersion = await TransitionAsync(evaluationId,
@@ -290,8 +294,8 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         var submitAction = action == "SUBMIT";
         var reviewerAction = action is "REVIEW" or "APPROVE" or "CLOSE";
         if (!executionAction && !submitAction && !reviewerAction) throw new ArgumentException("La transición solicitada no es válida.");
-        if (executionAction && !CanRegisterAnswers(actor))
-            throw new ForbiddenException("La transición corresponde a un administrador o técnico evaluador.");
+        if (executionAction && !HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("La transición corresponde al técnico evaluador asignado.");
         if (submitAction && !HasRole(actor, "TECNICO_EVALUADOR"))
             throw new ForbiddenException("Solo el técnico evaluador puede enviar la evaluación a revisión.");
         if (reviewerAction && !HasRole(actor, "COORDINADOR"))
@@ -456,8 +460,6 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
 
     private static bool HasRole(EvaluationActor actor, string role) =>
         actor.Roles.Contains(role, StringComparer.Ordinal);
-    private static bool CanRegisterAnswers(EvaluationActor actor) =>
-        HasRole(actor, "ADMINISTRADOR") || HasRole(actor, "TECNICO_EVALUADOR");
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
