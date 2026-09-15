@@ -16,7 +16,31 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
                    evidence.nombre_original AS OriginalName, evidence.file_size AS FileSize,
                    evidence.mime_type AS MimeType, evidence.tipo_evidencia AS EvidenceType,
                    evidence.estado_sincronizacion AS SynchronizationStatus,
-                   evidence.fecha_servidor AS UploadedAt
+                   evidence.fecha_servidor AS UploadedAt,
+                   (SELECT item.source_allitems_item
+                      FROM "SIGERSA"."EVIDENCIA_RESPUESTA" evidence_response
+                      JOIN "SIGERSA"."RESPUESTA_USUARIO" response
+                        ON response.id = evidence_response.respuesta_usuario_id
+                      JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                     WHERE evidence_response.evidencia_id = evidence.id
+                     ORDER BY item.orden
+                     LIMIT 1) AS SourceItem,
+                   (SELECT item.codigo
+                      FROM "SIGERSA"."EVIDENCIA_RESPUESTA" evidence_response
+                      JOIN "SIGERSA"."RESPUESTA_USUARIO" response
+                        ON response.id = evidence_response.respuesta_usuario_id
+                      JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                     WHERE evidence_response.evidencia_id = evidence.id
+                     ORDER BY item.orden
+                     LIMIT 1) AS ItemCode,
+                   (SELECT item.titulo
+                      FROM "SIGERSA"."EVIDENCIA_RESPUESTA" evidence_response
+                      JOIN "SIGERSA"."RESPUESTA_USUARIO" response
+                        ON response.id = evidence_response.respuesta_usuario_id
+                      JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                     WHERE evidence_response.evidencia_id = evidence.id
+                     ORDER BY item.orden
+                     LIMIT 1) AS ItemTitle
               FROM "SIGERSA"."EVIDENCIA" evidence
               JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = evidence.evaluacion_id
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
@@ -187,7 +211,23 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
                     """), new { EvidenceId = persistedId, evidence.UploadedBy, evidence.EvaluationId, evidence.SourceItem },
                     transaction, cancellationToken: cancellationToken));
                 if (linked == 0)
-                    throw new InvalidOperationException("Debe guardar la respuesta antes de asociarle una evidencia.");
+                {
+                    var associationExists = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(Sql("""
+                        SELECT EXISTS (
+                            SELECT 1
+                              FROM "SIGERSA"."EVIDENCIA_RESPUESTA" evidence_response
+                              JOIN "SIGERSA"."RESPUESTA_USUARIO" response
+                                ON response.id = evidence_response.respuesta_usuario_id
+                              JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                             WHERE evidence_response.evidencia_id = @EvidenceId
+                               AND response.evaluacion_id = @EvaluationId
+                               AND item.source_allitems_item = @SourceItem
+                        );
+                        """), new { EvidenceId = persistedId, evidence.EvaluationId, evidence.SourceItem },
+                        transaction, cancellationToken: cancellationToken));
+                    if (!associationExists)
+                        throw new InvalidOperationException("Debe guardar la respuesta antes de asociarle una evidencia.");
+                }
             }
             await transaction.CommitAsync(cancellationToken);
             return persistedId;
@@ -202,8 +242,10 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
         public string OriginalName { get; init; } = string.Empty; public long FileSize { get; init; }
         public string MimeType { get; init; } = string.Empty; public string EvidenceType { get; init; } = string.Empty;
         public string SynchronizationStatus { get; init; } = string.Empty; public DateTime UploadedAt { get; init; }
+        public int? SourceItem { get; init; } public string? ItemCode { get; init; } public string? ItemTitle { get; init; }
         public EvidenceSummary ToDomain() => new(Id, EvaluationId, EvaluationNumber, EstablishmentName,
             UploadedBy, UploadedByName, OriginalName, FileSize, MimeType, EvidenceType,
-            SynchronizationStatus, new DateTimeOffset(DateTime.SpecifyKind(UploadedAt, DateTimeKind.Utc)));
+            SynchronizationStatus, new DateTimeOffset(DateTime.SpecifyKind(UploadedAt, DateTimeKind.Utc)),
+            SourceItem, ItemCode, ItemTitle);
     }
 }

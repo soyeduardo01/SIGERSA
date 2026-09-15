@@ -30,7 +30,10 @@ public sealed record EvidenceSummary(
     string MimeType,
     string EvidenceType,
     string SynchronizationStatus,
-    DateTimeOffset UploadedAt);
+    DateTimeOffset UploadedAt,
+    int? SourceItem,
+    string? ItemCode,
+    string? ItemTitle);
 
 public sealed record EvidencesPage(IReadOnlyList<EvidenceSummary> Items, int Page, int PageSize, int Total);
 public sealed record EvidenceSearch(

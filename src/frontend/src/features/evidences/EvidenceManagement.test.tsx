@@ -21,6 +21,9 @@ const evidence = {
   evidenceType: 'FOTOGRAFIA',
   synchronizationStatus: 'SINCRONIZADA',
   uploadedAt: '2026-09-15T12:00:00Z',
+  sourceItem: 12,
+  itemCode: '1.1.1.a',
+  itemTitle: 'Ubicación adecuada',
 }
 
 vi.mock('../../contexts/useAuth', () => ({
@@ -65,6 +68,8 @@ describe('EvidenceManagement', () => {
     const image = await screen.findByRole('img', { name: 'Evidencia evidencia.jpg' })
     expect(image).toHaveAttribute('src', 'blob:preview-internal')
     expect(screen.getByRole('heading', { name: 'evidencia.jpg' })).toBeInTheDocument()
+    expect(screen.getAllByText('1.1.1.a')).toHaveLength(2)
+    expect(screen.getAllByText('Ubicación adecuada')).toHaveLength(2)
     expect(screen.queryByText('blob:preview-internal')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar vista previa' }))

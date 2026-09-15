@@ -337,17 +337,6 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
         if (supplement.CurrentQualification != "Actualizada" || supplement.RowVersion < 2)
             throw new InvalidOperationException("Los datos complementarios no se insertaron y actualizaron correctamente.");
 
-        var evidenceRepository = new EvidenceRepository(new DbConnectionFactory(dataSource));
-        var evidence = new EvidenceRecord(
-            Guid.NewGuid(), currentEvaluationId, seed.EvaluatorId, "SIGERSA_FILES",
-            $"diagnostics/{evidenceIdempotencyKey:N}.png", "evidencia-smoke.png",
-            $"{evidenceIdempotencyKey:N}.png", 8, "image/png", new string('a', 64),
-            "FOTOGRAFIA", null, evidenceIdempotencyKey);
-        var firstEvidenceId = await evidenceRepository.CreateAsync(evidence, CancellationToken.None);
-        var repeatedEvidenceId = await evidenceRepository.CreateAsync(evidence, CancellationToken.None);
-        if (firstEvidenceId != evidence.Id || repeatedEvidenceId != evidence.Id)
-            throw new InvalidOperationException("La evidencia no se persistió de forma idempotente.");
-
         await service.SaveAnswerAsync(new SaveEvaluationAnswerDraft(
             currentEvaluationId,
             seed.SourceItem,
@@ -360,6 +349,23 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             1,
             DateTimeOffset.UtcNow,
             null), seed.EvaluatorId, CancellationToken.None);
+        var evidenceRepository = new EvidenceRepository(new DbConnectionFactory(dataSource));
+        var evidence = new EvidenceRecord(
+            Guid.NewGuid(), currentEvaluationId, seed.EvaluatorId, "SIGERSA_FILES",
+            $"diagnostics/{evidenceIdempotencyKey:N}.png", $"evidencia-smoke-{marker}.png",
+            $"{evidenceIdempotencyKey:N}.png", 8, "image/png", new string('a', 64),
+            "FOTOGRAFIA", seed.SourceItem, evidenceIdempotencyKey);
+        var firstEvidenceId = await evidenceRepository.CreateAsync(evidence, CancellationToken.None);
+        var repeatedEvidenceId = await evidenceRepository.CreateAsync(evidence, CancellationToken.None);
+        if (firstEvidenceId != evidence.Id || repeatedEvidenceId != evidence.Id)
+            throw new InvalidOperationException("La evidencia no se persistió de forma idempotente.");
+        var linkedEvidence = (await evidenceRepository.SearchAsync(new EvidenceSearch(
+            marker.ToLowerInvariant(), null, 1, 5, seed.EvaluatorId, null, true, false),
+            CancellationToken.None)).Items.SingleOrDefault(item => item.Id == evidence.Id);
+        if (linkedEvidence?.SourceItem != seed.SourceItem
+            || string.IsNullOrWhiteSpace(linkedEvidence.ItemCode)
+            || string.IsNullOrWhiteSpace(linkedEvidence.ItemTitle))
+            throw new InvalidOperationException("La evidencia no devolvió el ítem de la ficha asociado.");
         var calculation = await service.CalculateAsync(
             currentEvaluationId, 1m, seed.EvaluatorId, CancellationToken.None);
 
@@ -530,10 +536,13 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
                                       WHERE evaluacion_id = @CurrentEvaluationId);
             DELETE FROM ""SIGERSA"".""CORRECCION""
              WHERE evaluacion_id = @CurrentEvaluationId;
-            DELETE FROM ""SIGERSA"".""RESPUESTA_USUARIO""
-             WHERE evaluacion_id IN (@PreviousEvaluationId, @CurrentEvaluationId);
+            DELETE FROM ""SIGERSA"".""EVIDENCIA_RESPUESTA""
+             WHERE evidencia_id IN (SELECT id FROM ""SIGERSA"".""EVIDENCIA""
+                                     WHERE evaluacion_id = @CurrentEvaluationId);
             DELETE FROM ""SIGERSA"".""EVIDENCIA""
              WHERE evaluacion_id = @CurrentEvaluationId;
+            DELETE FROM ""SIGERSA"".""RESPUESTA_USUARIO""
+             WHERE evaluacion_id IN (@PreviousEvaluationId, @CurrentEvaluationId);
             DELETE FROM ""SIGERSA"".""EVALUACION_COMPLEMENTO""
              WHERE evaluacion_id IN (@PreviousEvaluationId, @CurrentEvaluationId);
             DELETE FROM ""SIGERSA"".""EVALUACION""

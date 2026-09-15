@@ -575,6 +575,9 @@ export interface EvidenceSummary {
   evidenceType: string
   synchronizationStatus: string
   uploadedAt: string
+  sourceItem: number | null
+  itemCode: string | null
+  itemTitle: string | null
 }
 
 export interface EvidencesPage {

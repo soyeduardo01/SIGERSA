@@ -169,11 +169,12 @@ export function EvidenceManagement() {
           </div>
         )}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] text-left text-sm">
+          <table className="w-full min-w-[1050px] text-left text-sm">
             <thead>
               <tr className="border-b text-xs text-ink-muted uppercase">
                 <th className="px-3 py-3">Archivo</th>
                 <th className="px-3 py-3">Evaluación</th>
+                <th className="px-3 py-3">Ítem asociado</th>
                 <th className="px-3 py-3">Tipo</th>
                 <th className="px-3 py-3">Autor</th>
                 <th className="px-3 py-3">Estado</th>
@@ -192,6 +193,9 @@ export function EvidenceManagement() {
                   <td className="px-3 py-4">
                     {item.evaluationNumber}
                     <span className="block text-xs text-ink-muted">{item.establishmentName}</span>
+                  </td>
+                  <td className="max-w-xs px-3 py-4">
+                    <EvidenceItemRelation item={item} />
                   </td>
                   <td className="px-3 py-4">{formatStatusLabel(item.evidenceType)}</td>
                   <td className="px-3 py-4">{item.uploadedByName}</td>
@@ -218,7 +222,7 @@ export function EvidenceManagement() {
               ))}
             </tbody>
           </table>
-          {loading && <TableSkeleton rows={5} columns={6} />}
+          {loading && <TableSkeleton rows={5} columns={7} />}
           {!loading && !error && result.items.length === 0 && (
             <p className="p-10 text-center text-sm text-ink-muted">
               No hay evidencias disponibles.
@@ -269,6 +273,12 @@ function EvidencePreview({
             <p className="mt-1 text-xs text-ink-muted">
               {(item.fileSize / 1024).toFixed(1)} KB · {item.mimeType}
             </p>
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+              <span className="block text-[0.65rem] font-bold tracking-wide text-ink-muted uppercase">
+                Ítem relacionado
+              </span>
+              <EvidenceItemRelation item={item} />
+            </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Cerrar vista previa">
             ✕
@@ -329,6 +339,21 @@ function EvidencePreview({
         </footer>
       </section>
     </div>
+  )
+}
+
+function EvidenceItemRelation({ item }: { item: EvidenceSummary }) {
+  if (item.sourceItem === null || !item.itemTitle) {
+    return <span className="text-ink-muted">Evidencia general de la evaluación</span>
+  }
+
+  return (
+    <span>
+      <strong className="block text-ink-strong">
+        {item.itemCode ?? `Ítem ${item.sourceItem}`}
+      </strong>
+      <span className="line-clamp-2 text-xs text-ink-muted">{item.itemTitle}</span>
+    </span>
   )
 }
 
