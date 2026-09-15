@@ -38,6 +38,34 @@ public sealed class InspectionQualificationPolicyTests
     }
 
     [Fact]
+    public void ProgrammedInspectionRecognizesPublishedAllItemsPointCode()
+    {
+        var items = new[]
+        {
+            Item(1, "AI-0008-1.1.2", 1),
+            Item(2, "AI-0011-1.1.3", 2),
+            Item(3, "AI-0012-1.1.3.1", 3)
+        };
+
+        var policy = InspectionQualificationPolicy.Resolve(
+            Context("PROGRAMACION", null, hasPermit: true), items, []);
+
+        Assert.True(policy.IsReady);
+        Assert.Equal([2, 3], policy.RequiredSourceItems);
+        Assert.Equal([1], policy.ExcludedSourceItems);
+    }
+
+    [Fact]
+    public void ExplicitPermitRequestRequiresFullFormEvenWhenScheduled()
+    {
+        var policy = InspectionQualificationPolicy.Resolve(
+            Context("PROGRAMACION", "SOLICITUD_PERMISO_SANITARIO", hasPermit: true), Items, []);
+
+        Assert.Equal(InspectionQualificationPolicy.FullForm, policy.Mode);
+        Assert.Equal([1, 2, 3, 4], policy.RequiredSourceItems);
+    }
+
+    [Fact]
     public void FollowUpUsesOnlyNonconformitiesFromThePreviousInspection()
     {
         var priorId = Guid.NewGuid();

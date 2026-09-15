@@ -34,7 +34,7 @@ Los módulos públicos son **Inicio de sesión**, **Registro** y **Recuperación
 | Alertas y denuncias |  |  |  | ✓ |  |
 | Casos |  |  |  | ✓ |  |
 | Programación |  |  |  | ✓ | ✓* |
-| Evaluaciones e inspecciones |  |  |  | ✓ | ✓* |
+| Evaluaciones e inspecciones | ✓ |  |  | ✓ | ✓* |
 | Establecimientos | ✓ |  |  |  |  |
 | Hallazgos |  | ✓ | ✓ | ✓ | ✓* |
 | Evidencias |  | ✓ | ✓ | ✓ | ✓* |
@@ -56,7 +56,7 @@ Los códigos canónicos son `ADMINISTRADOR`, `ADMINISTRADOR_EMPRESA`, `USUARIO_D
 
 ### Evaluaciones e inspecciones: un solo módulo
 
-El módulo **Evaluaciones** concentra el ciclo completo: creación, inicio, ejecución de la inspección, supervisión, revisión, aprobación y cierre. Una evaluación en estado `EN_EJECUCION` o `EN_CORRECCION` muestra **Realizar inspección** al técnico autorizado; después de finalizarse, el mismo acceso cambia a **Ver ficha** y queda en solo lectura. La antigua dirección del módulo Inspecciones se conserva como acceso compatible y conduce a Evaluaciones.
+El módulo **Evaluaciones** concentra el ciclo completo: creación, inicio, ejecución de la inspección, supervisión, revisión, aprobación y cierre. Una evaluación en estado `EN_EJECUCION` o `EN_CORRECCION` muestra **Realizar inspección** al Administrador o Técnico Evaluador autorizado. El Coordinador consulta la ficha en modo de solo lectura, sin enviar respuestas ni adjuntos; después de finalizarse, el mismo acceso cambia a **Ver ficha** para todos los perfiles. La antigua dirección del módulo Inspecciones se conserva como acceso compatible y conduce a Evaluaciones.
 
 ```mermaid
 flowchart LR
@@ -253,7 +253,7 @@ Puertos predeterminados:
 CREATE DATABASE sigersa_db;
 ```
 
-Aplique, en orden alfabético, las migraciones de `src/backend/Database/Migrations`. Actualmente existen 21, desde `001_initial_schema_sigersa.sql` hasta `021_align_evaluation_status_catalog.sql`. La API no las ejecuta automáticamente.
+Aplique, en orden alfabético, las migraciones de `src/backend/Database/Migrations`. Actualmente existen 22, desde `001_initial_schema_sigersa.sql` hasta `022_inspection_frequency_notifications_and_reasons.sql`. La API no las ejecuta automáticamente.
 
 ### 2. Backend
 

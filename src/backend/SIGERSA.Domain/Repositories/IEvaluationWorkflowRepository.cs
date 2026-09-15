@@ -14,6 +14,6 @@ public interface IEvaluationWorkflowRepository
     Task<EvaluationSupplement> SaveSupplementAsync(Guid evaluationId, SaveEvaluationSupplementDraft draft, Guid actorId, CancellationToken cancellationToken = default);
     Task<EvaluationAnswer> SaveAnswerAsync(SaveEvaluationAnswerDraft draft, Guid actorId, CancellationToken cancellationToken = default);
     Task<EvaluationCalculationInput> GetCalculationInputAsync(Guid evaluationId, Guid actorId, CancellationToken cancellationToken = default);
-    Task<long> SaveCalculationAsync(EvaluationCalculation calculation, string snapshotJson, string snapshotHash, long expectedVersion, Guid actorId, CancellationToken cancellationToken = default);
+    Task<long> SaveCalculationAsync(EvaluationCalculation calculation, decimal obtainedScore, decimal applicableScore, string snapshotJson, string snapshotHash, long expectedVersion, Guid actorId, CancellationToken cancellationToken = default);
     Task<long?> TransitionAsync(Guid evaluationId, EvaluationTransitionDraft transition, Guid actorId, CancellationToken cancellationToken = default);
 }

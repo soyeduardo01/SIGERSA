@@ -16,6 +16,24 @@ public sealed class OperationalService(
         return repository.GetDashboardAsync(Scope(actor), cancellationToken);
     }
 
+    public Task<IReadOnlyList<NotificationRecord>> GetNotificationsAsync(
+        OperationalActor actor,
+        CancellationToken cancellationToken)
+    {
+        EnsureReader(actor);
+        return repository.GetNotificationsAsync(actor.UserId, cancellationToken);
+    }
+
+    public async Task MarkNotificationReadAsync(
+        Guid notificationId,
+        OperationalActor actor,
+        CancellationToken cancellationToken)
+    {
+        EnsureReader(actor);
+        if (!await repository.MarkNotificationReadAsync(notificationId, actor.UserId, cancellationToken))
+            throw new KeyNotFoundException("La notificación no existe o todavía no está disponible.");
+    }
+
     public Task<SurveillancePage> SearchSurveillanceAsync(
         string? search, string? kind, string? result, int page, int pageSize,
         OperationalActor actor, CancellationToken cancellationToken)

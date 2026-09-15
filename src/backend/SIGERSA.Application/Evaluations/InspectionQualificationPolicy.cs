@@ -67,9 +67,11 @@ public static class InspectionQualificationPolicy
                 context);
         }
 
-        if (context.Origin.Equals("PROGRAMACION", StringComparison.OrdinalIgnoreCase) && context.HasValidSanitaryPermit)
+        if (approvalPurpose is null &&
+            context.Origin.Equals("PROGRAMACION", StringComparison.OrdinalIgnoreCase) &&
+            context.HasValidSanitaryPermit)
         {
-            var cutoff = items.FirstOrDefault(item => string.Equals(item.Code.Trim(), "1.1.3", StringComparison.OrdinalIgnoreCase));
+            var cutoff = items.FirstOrDefault(item => IsPoint(item.Code, "1.1.3"));
             if (cutoff is null)
             {
                 return Build(
@@ -204,6 +206,13 @@ public static class InspectionQualificationPolicy
         reason.Contains("SEGUIMIENTO", StringComparison.Ordinal) ||
         reason.Contains("CONTROL", StringComparison.Ordinal) ||
         reason.Contains("VIGILANCIA", StringComparison.Ordinal);
+
+    private static bool IsPoint(string code, string point)
+    {
+        var normalized = code.Trim();
+        return normalized.Equals(point, StringComparison.OrdinalIgnoreCase) ||
+               normalized.EndsWith($"-{point}", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static string? ApprovalPurpose(string reason) => reason switch
     {

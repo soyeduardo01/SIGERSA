@@ -39,6 +39,17 @@ public sealed record DashboardUpcomingSchedule(
     DateTimeOffset StartsAt,
     string Status);
 
+public sealed record NotificationRecord(
+    Guid Id,
+    string Type,
+    string Title,
+    string Message,
+    string? ResourceType,
+    Guid? ResourceId,
+    DateTimeOffset ScheduledFor,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? ReadAt);
+
 public sealed record SurveillanceRecord(
     Guid Id,
     string Kind,

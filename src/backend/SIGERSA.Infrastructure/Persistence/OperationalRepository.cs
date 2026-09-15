@@ -58,9 +58,10 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
                AND (@GlobalScope = true OR request.empresa_id = @CompanyId OR request.solicitante_id = @UserId);
 
             SELECT COUNT(*)
-              FROM "SIGERSA"."NOTIFICACION" notification
+             FROM "SIGERSA"."NOTIFICACION" notification
              WHERE notification.usuario_id = @UserId
-               AND notification.canal = 'INTERNA' AND notification.leida_en IS NULL;
+               AND notification.canal = 'INTERNA' AND notification.leida_en IS NULL
+               AND notification.programada_para <= CURRENT_TIMESTAMP;
 
             SELECT COUNT(*)
               FROM "SIGERSA"."PROGRAMACION" schedule
@@ -149,6 +150,51 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
         }
     }
 
+    public async Task<IReadOnlyList<NotificationRecord>> GetNotificationsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT id AS Id, tipo AS Type, titulo AS Title, mensaje AS Message,
+                   recurso_tipo AS ResourceType, recurso_id AS ResourceId,
+                   programada_para AS ScheduledFor, creado_en AS CreatedAt, leida_en AS ReadAt
+              FROM "SIGERSA"."NOTIFICACION"
+             WHERE usuario_id = @UserId AND canal = 'INTERNA'
+               AND programada_para <= CURRENT_TIMESTAMP
+             ORDER BY (leida_en IS NULL) DESC, programada_para DESC, id
+             LIMIT 100;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            var rows = await connection.QueryAsync<NotificationRow>(new CommandDefinition(
+                Sql(sql), new { UserId = userId }, cancellationToken: cancellationToken));
+            return rows.Select(row => row.ToDomain()).ToArray();
+        }
+    }
+
+    public async Task<bool> MarkNotificationReadAsync(
+        Guid notificationId,
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE "SIGERSA"."NOTIFICACION"
+               SET estado = 'LEIDA', leida_en = COALESCE(leida_en, CURRENT_TIMESTAMP),
+                   modificado_en = CURRENT_TIMESTAMP, modificado_por = @UserId,
+                   version_fila = version_fila + 1
+             WHERE id = @NotificationId AND usuario_id = @UserId
+               AND canal = 'INTERNA' AND programada_para <= CURRENT_TIMESTAMP;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            return await connection.ExecuteAsync(new CommandDefinition(
+                Sql(sql), new { NotificationId = notificationId, UserId = userId },
+                cancellationToken: cancellationToken)) == 1;
+        }
+    }
+
     public async Task<SurveillancePage> SearchSurveillanceAsync(
         SurveillanceSearch search,
         CancellationToken cancellationToken = default)
@@ -217,9 +263,15 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             """;
         var parameters = new
         {
-            search.Search, search.Kind, search.Result,
-            Offset = (search.Page - 1) * search.PageSize, search.PageSize,
-            search.Scope.UserId, search.Scope.CompanyId, search.Scope.GlobalScope, search.Scope.AssignedOnly
+            search.Search,
+            search.Kind,
+            search.Result,
+            Offset = (search.Page - 1) * search.PageSize,
+            search.PageSize,
+            search.Scope.UserId,
+            search.Scope.CompanyId,
+            search.Scope.GlobalScope,
+            search.Scope.AssignedOnly
         };
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -345,9 +397,19 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
         {
             var affected = await connection.ExecuteAsync(new CommandDefinition(Sql(sql), new
             {
-                Id = id, draft.OccurredAt, draft.CompanyId, draft.EstablishmentId, draft.Subject,
-                draft.Description, draft.Priority, draft.Channel, draft.IsAnonymous,
-                draft.IsConfidential, draft.Result, draft.RowVersion, ActorId = actorId
+                Id = id,
+                draft.OccurredAt,
+                draft.CompanyId,
+                draft.EstablishmentId,
+                draft.Subject,
+                draft.Description,
+                draft.Priority,
+                draft.Channel,
+                draft.IsAnonymous,
+                draft.IsConfidential,
+                draft.Result,
+                draft.RowVersion,
+                ActorId = actorId
             }, cancellationToken: cancellationToken));
             return affected == 1;
         }
@@ -394,9 +456,14 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             """;
         var parameters = new
         {
-            search.Search, search.Status, Offset = (search.Page - 1) * search.PageSize,
-            search.PageSize, search.Scope.UserId, search.Scope.CompanyId,
-            search.Scope.GlobalScope, search.Scope.AssignedOnly
+            search.Search,
+            search.Status,
+            Offset = (search.Page - 1) * search.PageSize,
+            search.PageSize,
+            search.Scope.UserId,
+            search.Scope.CompanyId,
+            search.Scope.GlobalScope,
+            search.Scope.AssignedOnly
         };
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -555,9 +622,16 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             """;
         var parameters = new
         {
-            search.Search, search.Status, search.From, search.To,
-            Offset = (search.Page - 1) * search.PageSize, search.PageSize,
-            search.Scope.UserId, search.Scope.CompanyId, search.Scope.GlobalScope, search.Scope.AssignedOnly
+            search.Search,
+            search.Status,
+            search.From,
+            search.To,
+            Offset = (search.Page - 1) * search.PageSize,
+            search.PageSize,
+            search.Scope.UserId,
+            search.Scope.CompanyId,
+            search.Scope.GlobalScope,
+            search.Scope.AssignedOnly
         };
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -621,7 +695,11 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             """;
         var parameters = new
         {
-            EvaluationId = evaluationId, scope.UserId, scope.CompanyId, scope.GlobalScope, scope.AssignedOnly
+            EvaluationId = evaluationId,
+            scope.UserId,
+            scope.CompanyId,
+            scope.GlobalScope,
+            scope.AssignedOnly
         };
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -667,8 +745,12 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             """;
         var parameters = new
         {
-            search.Search, search.Result, search.From, search.To,
-            Offset = (search.Page - 1) * search.PageSize, search.PageSize
+            search.Search,
+            search.Result,
+            search.From,
+            search.To,
+            Offset = (search.Page - 1) * search.PageSize,
+            search.PageSize
         };
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -789,9 +871,18 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
                        version_actual = @Version, modificado_en = CURRENT_TIMESTAMP,
                        modificado_por = @ActorId, version_fila = version_fila + 1
                  WHERE id = @ReportId;
-                """), new { VersionId = versionId, ReportId = reportId, Version = version,
-                    BucketName = bucketName, SupabasePath = supabasePath, FileSize = fileSize,
-                    Hash = hash, IsOfficial = isOfficial, ActorId = actorId }, transaction,
+                """), new
+            {
+                VersionId = versionId,
+                ReportId = reportId,
+                Version = version,
+                BucketName = bucketName,
+                SupabasePath = supabasePath,
+                FileSize = fileSize,
+                Hash = hash,
+                IsOfficial = isOfficial,
+                ActorId = actorId
+            }, transaction,
                 cancellationToken: cancellationToken));
             var number = await connection.ExecuteScalarAsync<string>(new CommandDefinition(Sql("""
                 SELECT numero FROM "SIGERSA"."INFORME" WHERE id = @ReportId;
@@ -834,38 +925,65 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
 
     private static object ScopeParameters(OperationalActorScope scope) => new
     {
-        scope.UserId, scope.CompanyId, scope.GlobalScope, scope.AssignedOnly
+        scope.UserId,
+        scope.CompanyId,
+        scope.GlobalScope,
+        scope.AssignedOnly
     };
 
     private static DateTimeOffset Utc(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
     private sealed class DashboardEvaluationRow
     {
-        public Guid Id { get; init; } public string Number { get; init; } = string.Empty;
+        public Guid Id { get; init; }
+        public string Number { get; init; } = string.Empty;
         public string EstablishmentName { get; init; } = string.Empty; public string Status { get; init; } = string.Empty;
-        public decimal? CompliancePercentage { get; init; } public string? RiskLevel { get; init; }
+        public decimal? CompliancePercentage { get; init; }
+        public string? RiskLevel { get; init; }
         public DateTime UpdatedAt { get; init; }
         public DashboardEvaluation ToDomain() => new(Id, Number, EstablishmentName, Status, CompliancePercentage, RiskLevel, Utc(UpdatedAt));
     }
 
     private sealed class DashboardScheduleRow
     {
-        public Guid Id { get; init; } public string CaseNumber { get; init; } = string.Empty;
+        public Guid Id { get; init; }
+        public string CaseNumber { get; init; } = string.Empty;
         public string EstablishmentName { get; init; } = string.Empty; public DateTime StartsAt { get; init; }
         public string Status { get; init; } = string.Empty;
         public DashboardUpcomingSchedule ToDomain() => new(Id, CaseNumber, EstablishmentName, Utc(StartsAt), Status);
     }
 
+    private sealed class NotificationRow
+    {
+        public Guid Id { get; init; }
+        public string Type { get; init; } = string.Empty;
+        public string Title { get; init; } = string.Empty; public string Message { get; init; } = string.Empty;
+        public string? ResourceType { get; init; }
+        public Guid? ResourceId { get; init; }
+        public DateTime ScheduledFor { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? ReadAt { get; init; }
+        public NotificationRecord ToDomain() => new(Id, Type, Title, Message, ResourceType, ResourceId,
+            Utc(ScheduledFor), Utc(CreatedAt), ReadAt.HasValue ? Utc(ReadAt.Value) : null);
+    }
+
     private sealed class SurveillanceRow
     {
-        public Guid Id { get; init; } public string Kind { get; init; } = string.Empty;
+        public Guid Id { get; init; }
+        public string Kind { get; init; } = string.Empty;
         public string Number { get; init; } = string.Empty; public DateTime OccurredAt { get; init; }
-        public Guid? CompanyId { get; init; } public string? CompanyName { get; init; }
-        public Guid? EstablishmentId { get; init; } public string? EstablishmentName { get; init; }
+        public Guid? CompanyId { get; init; }
+        public string? CompanyName { get; init; }
+        public Guid? EstablishmentId { get; init; }
+        public string? EstablishmentName { get; init; }
         public string Subject { get; init; } = string.Empty; public string Description { get; init; } = string.Empty;
-        public short Priority { get; init; } public string? Channel { get; init; }
-        public bool IsAnonymous { get; init; } public bool IsConfidential { get; init; }
-        public string? Result { get; init; } public bool HasCase { get; init; } public long RowVersion { get; init; }
+        public short Priority { get; init; }
+        public string? Channel { get; init; }
+        public bool IsAnonymous { get; init; }
+        public bool IsConfidential { get; init; }
+        public string? Result { get; init; }
+        public bool HasCase { get; init; }
+        public long RowVersion { get; init; }
         public SurveillanceRecord ToDomain() => new(Id, Kind, Number, Utc(OccurredAt), CompanyId, CompanyName,
             EstablishmentId, EstablishmentName, Subject, Description, Priority, Channel,
             IsAnonymous, IsConfidential, Result, HasCase, RowVersion);
@@ -873,26 +991,36 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
 
     private sealed class FindingRow
     {
-        public Guid Id { get; init; } public Guid EvaluationId { get; init; }
+        public Guid Id { get; init; }
+        public Guid EvaluationId { get; init; }
         public string EvaluationNumber { get; init; } = string.Empty; public string EstablishmentName { get; init; } = string.Empty;
-        public int SourceItem { get; init; } public string ItemTitle { get; init; } = string.Empty;
+        public int SourceItem { get; init; }
+        public string ItemTitle { get; init; } = string.Empty;
         public string Criticality { get; init; } = string.Empty; public string Code { get; init; } = string.Empty;
         public string Description { get; init; } = string.Empty; public string Status { get; init; } = string.Empty;
-        public DateTime DetectedAt { get; init; } public DateTime? ClosedAt { get; init; } public long RowVersion { get; init; }
+        public DateTime DetectedAt { get; init; }
+        public DateTime? ClosedAt { get; init; }
+        public long RowVersion { get; init; }
         public FindingRecord ToDomain() => new(Id, EvaluationId, EvaluationNumber, EstablishmentName, SourceItem,
             ItemTitle, Criticality, Code, Description, Status, Utc(DetectedAt), ClosedAt.HasValue ? Utc(ClosedAt.Value) : null, RowVersion);
     }
 
     private sealed class HistoricalRow
     {
-        public Guid Id { get; init; } public string Number { get; init; } = string.Empty;
+        public Guid Id { get; init; }
+        public string Number { get; init; } = string.Empty;
         public string CaseNumber { get; init; } = string.Empty; public string CompanyName { get; init; } = string.Empty;
         public string EstablishmentName { get; init; } = string.Empty; public string EvaluatorName { get; init; } = string.Empty;
         public string Status { get; init; } = string.Empty; public decimal? CompliancePercentage { get; init; }
-        public decimal? TotalRisk { get; init; } public string? RiskLevel { get; init; } public string? Frequency { get; init; }
-        public DateTime CreatedAt { get; init; } public DateTime? ClosedAt { get; init; }
-        public Guid? ReportId { get; init; } public string? ReportNumber { get; init; }
-        public string? ReportStatus { get; init; } public bool HasOfficialReport { get; init; }
+        public decimal? TotalRisk { get; init; }
+        public string? RiskLevel { get; init; }
+        public string? Frequency { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? ClosedAt { get; init; }
+        public Guid? ReportId { get; init; }
+        public string? ReportNumber { get; init; }
+        public string? ReportStatus { get; init; }
+        public bool HasOfficialReport { get; init; }
         public HistoricalEvaluation ToDomain() => new(Id, Number, CaseNumber, CompanyName, EstablishmentName,
             EvaluatorName, Status, CompliancePercentage, TotalRisk, RiskLevel, Frequency,
             Utc(CreatedAt), ClosedAt.HasValue ? Utc(ClosedAt.Value) : null,
@@ -901,30 +1029,41 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
 
     private sealed class TimelineRow
     {
-        public DateTime OccurredAt { get; init; } public string EventType { get; init; } = string.Empty;
-        public string Title { get; init; } = string.Empty; public string? Detail { get; init; } public string? ActorName { get; init; }
+        public DateTime OccurredAt { get; init; }
+        public string EventType { get; init; } = string.Empty;
+        public string Title { get; init; } = string.Empty; public string? Detail { get; init; }
+        public string? ActorName { get; init; }
         public TimelineEvent ToDomain() => new(Utc(OccurredAt), EventType, Title, Detail, ActorName);
     }
 
     private sealed class AuditRow
     {
-        public Guid Id { get; init; } public DateTime OccurredAt { get; init; }
+        public Guid Id { get; init; }
+        public DateTime OccurredAt { get; init; }
         public string Action { get; init; } = string.Empty; public string ResourceType { get; init; } = string.Empty;
-        public Guid? ResourceId { get; init; } public string Result { get; init; } = string.Empty;
-        public string? ActorName { get; init; } public string? Reason { get; init; } public Guid? CorrelationId { get; init; }
+        public Guid? ResourceId { get; init; }
+        public string Result { get; init; } = string.Empty;
+        public string? ActorName { get; init; }
+        public string? Reason { get; init; }
+        public Guid? CorrelationId { get; init; }
         public AuditEventRecord ToDomain() => new(Id, Utc(OccurredAt), Action, ResourceType, ResourceId, Result, ActorName, Reason, CorrelationId);
     }
 
     private sealed class ReportHeaderRow
     {
-        public Guid EvaluationId { get; init; } public string EvaluationNumber { get; init; } = string.Empty;
+        public Guid EvaluationId { get; init; }
+        public string EvaluationNumber { get; init; } = string.Empty;
         public string CaseNumber { get; init; } = string.Empty; public string CompanyName { get; init; } = string.Empty;
         public string EstablishmentName { get; init; } = string.Empty; public string Address { get; init; } = string.Empty;
         public string EvaluatorName { get; init; } = string.Empty; public string Status { get; init; } = string.Empty;
-        public decimal? CompliancePercentage { get; init; } public decimal? ProductRisk { get; init; }
-        public decimal? EstablishmentRisk { get; init; } public decimal? TotalRisk { get; init; }
-        public string? RiskLevel { get; init; } public string? Frequency { get; init; }
-        public DateTime? StartedAt { get; init; } public DateTime? FinishedAt { get; init; }
+        public decimal? CompliancePercentage { get; init; }
+        public decimal? ProductRisk { get; init; }
+        public decimal? EstablishmentRisk { get; init; }
+        public decimal? TotalRisk { get; init; }
+        public string? RiskLevel { get; init; }
+        public string? Frequency { get; init; }
+        public DateTime? StartedAt { get; init; }
+        public DateTime? FinishedAt { get; init; }
         public ReportGenerationData ToDomain(IReadOnlyList<ReportFinding> findings, IReadOnlyList<ReportEvidence> evidences) =>
             new(EvaluationId, EvaluationNumber, CaseNumber, CompanyName, EstablishmentName, Address,
                 EvaluatorName, Status, CompliancePercentage, ProductRisk, EstablishmentRisk, TotalRisk,

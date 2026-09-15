@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canEditInspection,
+  canExecuteInspection,
   canFinalizeReview,
   canSubmitForReview,
   inspectionActionLabel,
@@ -11,6 +12,12 @@ describe('flujo unificado de evaluaciones e inspecciones', () => {
     const status = 'EN_EJECUCION'
     expect(canEditInspection(status, true)).toBe(true)
     expect(inspectionActionLabel(status, true)).toBe('Realizar inspección')
+  })
+
+  it('habilita a administrador y técnico, y mantiene al coordinador en consulta', () => {
+    expect(canExecuteInspection(['ADMINISTRADOR'])).toBe(true)
+    expect(canExecuteInspection(['TECNICO_EVALUADOR'])).toBe(true)
+    expect(canExecuteInspection(['COORDINADOR'])).toBe(false)
   })
 
   it.each([

@@ -13,6 +13,16 @@ var localSettings = File.ReadLines(Path.Combine(root, ".env.local"))
 var connectionString = localSettings["Database__ConnectionString"];
 await using var dataSource = NpgsqlDataSource.Create(connectionString);
 
+if (args.Contains("--apply-migration-022", StringComparer.Ordinal))
+{
+    var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations",
+        "022_inspection_frequency_notifications_and_reasons.sql");
+    await using var command = dataSource.CreateCommand(await File.ReadAllTextAsync(migrationPath));
+    await command.ExecuteNonQueryAsync();
+    Console.WriteLine("Migration 022: applied");
+    return;
+}
+
 if (args.Contains("--check-registration", StringComparer.Ordinal))
 {
     await using var command = dataSource.CreateCommand("""
@@ -236,7 +246,9 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
                        AND evaluable.es_evaluable = true
                        AND evaluable.activo = true) AS TotalEvaluableItems,
                    (SELECT id FROM "SIGERSA"."MOTIVO_INSPECCION"
-                     WHERE codigo = 'VIGILANCIA_CONTROL_RUTINA' AND activo = true LIMIT 1) AS ReasonId,
+                     WHERE codigo = 'INSPECCION_CONTROL' AND activo = true LIMIT 1) AS ReasonId,
+                   (SELECT id FROM "SIGERSA"."MOTIVO_INSPECCION"
+                     WHERE codigo = 'SOLICITUD_PERMISO_SANITARIO' AND activo = true LIMIT 1) AS BaselineReasonId,
                    (SELECT id FROM "SIGERSA"."NIVEL_CRITICIDAD"
                      WHERE codigo = 'M' AND activo = true LIMIT 1) AS MajorCriticalityId
               FROM "SIGERSA"."EVALUACION" evaluation
@@ -247,9 +259,9 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
              ORDER BY evaluation.creado_en DESC, item.orden
              LIMIT 1;
             """);
-        if (seed.TotalEvaluableItems <= 1)
-            throw new InvalidOperationException("La ficha disponible no tiene suficientes ítems para probar un alcance focalizado.");
-        if (seed.ReasonId == Guid.Empty || seed.MajorCriticalityId == Guid.Empty
+        if (seed.TotalEvaluableItems < 4)
+            throw new InvalidOperationException("La ficha disponible no tiene los cuatro ítems necesarios para probar el cálculo focalizado.");
+        if (seed.ReasonId == Guid.Empty || seed.BaselineReasonId == Guid.Empty || seed.MajorCriticalityId == Guid.Empty
             || seed.CoordinatorId == Guid.Empty || seed.AdministratorId == Guid.Empty)
             throw new InvalidOperationException("Faltan los catálogos o usuarios necesarios para validar el flujo.");
 
@@ -258,7 +270,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
                 (id, numero, empresa_id, establecimiento_id, motivo_inspeccion_id,
                  origen, estado, prioridad, responsable_actual_id, creado_por)
             VALUES
-                (@PreviousCaseId, @PreviousCaseNumber, @CompanyId, @EstablishmentId, @ReasonId,
+                (@PreviousCaseId, @PreviousCaseNumber, @CompanyId, @EstablishmentId, @BaselineReasonId,
                  'PROGRAMACION', 'ABIERTO', 3, @EvaluatorId, @EvaluatorId),
                 (@CurrentCaseId, @CurrentCaseNumber, @CompanyId, @EstablishmentId, @ReasonId,
                  'PROGRAMACION', 'ABIERTO', 3, @EvaluatorId, @EvaluatorId);
@@ -270,26 +282,34 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             VALUES
                  (@PreviousEvaluationId, @PreviousEvaluationNumber, @PreviousCaseId, @EstablishmentId,
                   @InspectionTemplateId, @EvaluatorId, 'EN_EJECUCION', 'COMPLETO',
-                  CURRENT_TIMESTAMP, NULL, NULL,
+                  CURRENT_TIMESTAMP - interval '2 minutes', NULL, NULL,
                  @RiskRuleVersionId, @EvaluatorId),
                 (@CurrentEvaluationId, @CurrentEvaluationNumber, @CurrentCaseId, @EstablishmentId,
                  @InspectionTemplateId, @EvaluatorId, 'EN_EJECUCION', 'SEGUIMIENTO',
                  CURRENT_TIMESTAMP, NULL, NULL, @RiskRuleVersionId, @EvaluatorId);
 
+            WITH ranked_items AS (
+                SELECT id, row_number() OVER (ORDER BY orden, id) AS position
+                  FROM "SIGERSA"."ITEM_FICHA"
+                 WHERE ficha_inspeccion_id = @InspectionTemplateId
+                   AND es_evaluable = true AND activo = true
+            )
             INSERT INTO "SIGERSA"."RESPUESTA_USUARIO"
                 (id, evaluacion_id, item_ficha_id, valor_texto, observacion,
                  nivel_criticidad_id, puntaje_obtenido, maximo_aplicable,
                  respondido_por, fecha_cliente, idempotency_key, creado_por)
-             VALUES
-                 (@PreviousResponseId, @PreviousEvaluationId, @ItemId, 'NO_CUMPLE',
-                  'No conformidad temporal para prueba de integración.', @MajorCriticalityId,
-                  0, 1, @EvaluatorId, CURRENT_TIMESTAMP, gen_random_uuid(), @EvaluatorId);
-
-            UPDATE "SIGERSA"."EVALUACION"
-               SET estado = 'FINALIZADA',
-                   finalizada_en = CURRENT_TIMESTAMP + interval '1 minute',
-                   porcentaje_cumplimiento = 75
-             WHERE id = @PreviousEvaluationId;
+            SELECT CASE WHEN position = 1 THEN @PreviousResponseId ELSE gen_random_uuid() END,
+                   @PreviousEvaluationId, id,
+                   CASE WHEN position = 1 THEN 'NO_CUMPLE'
+                        WHEN position BETWEEN 2 AND 4 THEN 'CUMPLE'
+                        ELSE 'NO_APLICA' END,
+                   'Respuesta controlada para prueba de integración.',
+                   CASE WHEN position = 1 THEN @MajorCriticalityId ELSE NULL END,
+                   CASE WHEN position = 1 THEN 0
+                        WHEN position BETWEEN 2 AND 4 THEN 1 ELSE NULL END,
+                   CASE WHEN position <= 4 THEN 1 ELSE NULL END,
+                   @EvaluatorId, CURRENT_TIMESTAMP, gen_random_uuid(), @EvaluatorId
+              FROM ranked_items;
             """, new
         {
             PreviousCaseId = previousCaseId,
@@ -304,6 +324,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             seed.CompanyId,
             seed.EstablishmentId,
             seed.ReasonId,
+            seed.BaselineReasonId,
             seed.EvaluatorId,
             seed.InspectionTemplateId,
             seed.RiskRuleVersionId,
@@ -313,6 +334,15 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
 
         var repository = new EvaluationWorkflowRepository(new DbConnectionFactory(dataSource));
         var service = new EvaluationWorkflowService(repository);
+        var baselineCalculation = await service.CalculateAsync(
+            previousEvaluationId, 1m, seed.EvaluatorId, CancellationToken.None);
+        if (baselineCalculation.CompliancePercentage != 75m)
+            throw new InvalidOperationException("La ficha base de la prueba no fue calculada en 75% por el motor.");
+        await connection.ExecuteAsync("""
+            UPDATE "SIGERSA"."EVALUACION"
+               SET estado = 'FINALIZADA', finalizada_en = CURRENT_TIMESTAMP - interval '1 minute'
+             WHERE id = @PreviousEvaluationId;
+            """, new { PreviousEvaluationId = previousEvaluationId });
         var workspace = await service.GetWorkspaceAsync(currentEvaluationId, seed.EvaluatorId, CancellationToken.None);
         if (workspace.Policy.Mode != InspectionQualificationPolicy.PreviousNonconformities ||
             workspace.Policy.RequiredSourceItems.Count != 1 ||
@@ -373,17 +403,27 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
             SELECT COUNT(*)::integer AS SavedAnswers,
                    MAX(response.valor_texto) AS Rating,
                    evaluation.porcentaje_cumplimiento AS CompliancePercentage,
-                   evaluation.snapshot_calculo -> 'Decision' ->> 'ApplicableItems' AS ApplicableItems
+                   evaluation.snapshot_calculo -> 'Decision' ->> 'ApplicableItems' AS ApplicableItems,
+                   evaluation.frecuencia AS Frequency,
+                   inspection_case.proxima_inspeccion_en AS NextInspectionAt,
+                   (SELECT COUNT(*)::integer FROM ""SIGERSA"".""NOTIFICACION"" notification
+                     WHERE notification.recurso_tipo = 'EVALUACION'
+                       AND notification.recurso_id = evaluation.id
+                       AND notification.tipo LIKE 'RECORDATORIO_INSPECCION_%'
+                       AND notification.leida_en IS NULL) AS ReminderCount
               FROM ""SIGERSA"".""EVALUACION"" evaluation
+              JOIN ""SIGERSA"".""CASO"" inspection_case ON inspection_case.id = evaluation.caso_id
               LEFT JOIN ""SIGERSA"".""RESPUESTA_USUARIO"" response ON response.evaluacion_id = evaluation.id
              WHERE evaluation.id = @CurrentEvaluationId
-             GROUP BY evaluation.porcentaje_cumplimiento, evaluation.snapshot_calculo;";
+             GROUP BY evaluation.id, evaluation.porcentaje_cumplimiento, evaluation.snapshot_calculo,
+                      evaluation.frecuencia, inspection_case.proxima_inspeccion_en;";
         var persisted = await connection.QuerySingleAsync<FocusedEvaluationResult>(
             persistedEvaluationSql,
             new { CurrentEvaluationId = currentEvaluationId });
         if (persisted.SavedAnswers != 1 || persisted.Rating != "CUMPLE" ||
             persisted.CompliancePercentage != 100m || calculation.Decision.ApplicableItems != 1 ||
-            persisted.ApplicableItems != "1")
+            persisted.ApplicableItems != "1" || persisted.Frequency != calculation.Frequency ||
+            persisted.NextInspectionAt is null || persisted.ReminderCount < 4)
             throw new InvalidOperationException("La respuesta focalizada no quedó persistida o el cálculo incluyó ítems ocultos.");
 
         var correctionRepository = new CorrectionRepository(new DbConnectionFactory(dataSource));
@@ -545,6 +585,9 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
              WHERE evaluacion_id IN (@PreviousEvaluationId, @CurrentEvaluationId);
             DELETE FROM ""SIGERSA"".""EVALUACION_COMPLEMENTO""
              WHERE evaluacion_id IN (@PreviousEvaluationId, @CurrentEvaluationId);
+            DELETE FROM ""SIGERSA"".""NOTIFICACION""
+             WHERE recurso_tipo = 'EVALUACION'
+               AND recurso_id IN (@PreviousEvaluationId, @CurrentEvaluationId);
             DELETE FROM ""SIGERSA"".""EVALUACION""
              WHERE id IN (@PreviousEvaluationId, @CurrentEvaluationId);
             DELETE FROM ""SIGERSA"".""CASO""
@@ -575,6 +618,7 @@ sealed class FocusedEvaluationSeed
     public int SourceItem { get; init; }
     public int TotalEvaluableItems { get; init; }
     public Guid ReasonId { get; init; }
+    public Guid BaselineReasonId { get; init; }
     public Guid MajorCriticalityId { get; init; }
 }
 
@@ -584,6 +628,9 @@ sealed class FocusedEvaluationResult
     public string Rating { get; init; } = string.Empty;
     public decimal? CompliancePercentage { get; init; }
     public string? ApplicableItems { get; init; }
+    public string? Frequency { get; init; }
+    public DateTime? NextInspectionAt { get; init; }
+    public int ReminderCount { get; init; }
 }
 
 sealed class CorrectionFlowResult

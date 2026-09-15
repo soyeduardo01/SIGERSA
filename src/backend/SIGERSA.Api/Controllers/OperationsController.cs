@@ -16,6 +16,18 @@ public sealed class OperationsController(OperationalService service) : Controlle
     public Task<DashboardSnapshot> Dashboard(CancellationToken cancellationToken) =>
         service.GetDashboardAsync(Actor(), cancellationToken);
 
+    [HttpGet("notifications")]
+    public Task<IReadOnlyList<NotificationRecord>> Notifications(CancellationToken cancellationToken) =>
+        service.GetNotificationsAsync(Actor(), cancellationToken);
+
+    [HttpPost("notifications/{notificationId:guid}/read")]
+    public async Task<IActionResult> MarkNotificationRead(
+        Guid notificationId, CancellationToken cancellationToken)
+    {
+        await service.MarkNotificationReadAsync(notificationId, Actor(), cancellationToken);
+        return NoContent();
+    }
+
     [HttpGet("surveillance")]
     public Task<SurveillancePage> Surveillance(
         string? search, string? kind, string? result, int page = 1, int pageSize = 20,

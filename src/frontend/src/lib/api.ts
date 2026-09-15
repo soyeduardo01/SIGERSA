@@ -255,6 +255,18 @@ export interface DashboardSnapshot {
   }>
 }
 
+export interface SystemNotification {
+  id: string
+  type: string
+  title: string
+  message: string
+  resourceType: string | null
+  resourceId: string | null
+  scheduledFor: string
+  createdAt: string
+  readAt: string | null
+}
+
 export interface SurveillanceRecord {
   id: string
   kind: 'ALERTA_LAPCH' | 'DENUNCIA'
@@ -506,6 +518,7 @@ export interface EvaluationCalculation {
   totalRisk: number | null
   riskLevel: 'BAJO' | 'MEDIO' | 'ALTO' | 'NO_CALCULABLE'
   frequency: 'ANUAL' | 'SEMESTRAL' | 'TRIMESTRAL' | 'NO_APLICA'
+  nextInspectionDate: string | null
   decision: EvaluationDecisionGuidance
   rowVersion: number
 }
@@ -525,6 +538,8 @@ export interface EvaluationSummary {
   compliancePercentage: number | null
   totalRisk: number | null
   riskLevel: string | null
+  frequency: string | null
+  nextInspectionAt: string | null
   answeredItems: number
   rowVersion: number
 }
@@ -1542,6 +1557,14 @@ export async function transitionCorrection(
 
 export async function getDashboard() {
   return getJson<DashboardSnapshot>('/api/v1/dashboard')
+}
+
+export async function getNotifications() {
+  return getJson<SystemNotification[]>('/api/v1/notifications')
+}
+
+export async function markNotificationRead(id: string) {
+  return sendJson<void>(`/api/v1/notifications/${id}/read`, 'POST', {})
 }
 
 export async function getSurveillance(filters: {

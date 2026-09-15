@@ -23,6 +23,8 @@ public sealed record EvaluationSummary(
     decimal? CompliancePercentage,
     decimal? TotalRisk,
     string? RiskLevel,
+    string? Frequency,
+    DateTimeOffset? NextInspectionAt,
     int AnsweredItems,
     long RowVersion);
 
@@ -149,6 +151,7 @@ public sealed record EvaluationCalculation(
     decimal? TotalRisk,
     string RiskLevel,
     string Frequency,
+    DateOnly? NextInspectionDate,
     EvaluationDecisionGuidance Decision,
     long RowVersion);
 

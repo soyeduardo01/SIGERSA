@@ -18,6 +18,7 @@ import { DynamicInspectionForm } from '../inspection/DynamicInspectionForm'
 import { useAuth } from '../../contexts/useAuth'
 import {
   canEditInspection,
+  canExecuteInspection,
   canFinalizeReview,
   canSubmitForReview,
   inspectionActionLabel,
@@ -35,7 +36,7 @@ export function EvaluationsManagement() {
   const [selected, setSelected] = useState<EvaluationSummary | null>(null)
   const evaluationStates = useParameterOptions('ESTADO_EVALUACION')
   const { roles } = useAuth()
-  const canExecute = roles.includes('TECNICO_EVALUADOR')
+  const canExecute = canExecuteInspection(roles)
 
   async function load() {
     setLoading(true)
@@ -198,6 +199,14 @@ export function EvaluationsManagement() {
                     {item.compliancePercentage === null
                       ? `${item.answeredItems} respuestas`
                       : `${item.compliancePercentage.toFixed(1)}% · ${formatStatusLabel(item.riskLevel ?? '')}`}
+                    {item.frequency && (
+                      <span className="mt-1 block text-xs font-semibold text-brand-700">
+                        Frecuencia {formatStatusLabel(item.frequency)}
+                        {item.nextInspectionAt
+                          ? ` · Próxima ${new Intl.DateTimeFormat('es-DO', { dateStyle: 'medium' }).format(new Date(item.nextInspectionAt))}`
+                          : ''}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-4 text-right">
                     <div className="flex flex-wrap justify-end gap-2">
@@ -259,14 +268,10 @@ export function EvaluationsManagement() {
           <DynamicInspectionForm
             selectedEvaluationId={selected.id}
             onFinalized={() => {
-              setSelected((current) =>
-                current ? { ...current, status: 'FINALIZADA' } : current,
-              )
+              setSelected((current) => (current ? { ...current, status: 'FINALIZADA' } : current))
               void load()
             }}
-            readOnly={
-              !canEditInspection(selected.status, canExecute)
-            }
+            readOnly={!canEditInspection(selected.status, canExecute)}
           />
         </div>
       )}

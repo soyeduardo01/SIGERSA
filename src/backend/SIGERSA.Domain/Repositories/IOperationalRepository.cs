@@ -5,6 +5,8 @@ namespace SIGERSA.Domain.Repositories;
 public interface IOperationalRepository
 {
     Task<DashboardSnapshot> GetDashboardAsync(OperationalActorScope scope, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<NotificationRecord>> GetNotificationsAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<bool> MarkNotificationReadAsync(Guid notificationId, Guid userId, CancellationToken cancellationToken = default);
     Task<SurveillancePage> SearchSurveillanceAsync(SurveillanceSearch search, CancellationToken cancellationToken = default);
     Task<SurveillanceOptions> GetSurveillanceOptionsAsync(bool canManage, CancellationToken cancellationToken = default);
     Task<Guid> CreateSurveillanceAsync(SurveillanceDraft draft, Guid actorId, CancellationToken cancellationToken = default);

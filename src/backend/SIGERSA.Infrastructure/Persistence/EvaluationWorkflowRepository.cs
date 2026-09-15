@@ -47,6 +47,8 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                    evaluation.programada_fin_en AS ScheduledEnd,
                    evaluation.porcentaje_cumplimiento AS CompliancePercentage,
                    evaluation.riesgo_total AS TotalRisk, evaluation.nivel_riesgo AS RiskLevel,
+                   evaluation.frecuencia AS Frequency,
+                   inspection_case.proxima_inspeccion_en AS NextInspectionAt,
                    (SELECT COUNT(*) FROM "SIGERSA"."RESPUESTA_USUARIO" response
                      WHERE response.evaluacion_id = evaluation.id)::integer AS AnsweredItems,
                    evaluation.version_fila AS RowVersion
@@ -99,9 +101,14 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
             """;
         var parameters = new
         {
-            query.Search, query.Status, query.ActorId, query.CompanyScope,
-            query.GlobalScope, query.AssignedOnly,
-            Offset = (query.Page - 1) * query.PageSize, query.PageSize
+            query.Search,
+            query.Status,
+            query.ActorId,
+            query.CompanyScope,
+            query.GlobalScope,
+            query.AssignedOnly,
+            Offset = (query.Page - 1) * query.PageSize,
+            query.PageSize
         };
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -455,6 +462,9 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                      WHERE prior.establecimiento_id = evaluation.establecimiento_id
                        AND prior.id <> evaluation.id
                        AND prior.estado IN ('FINALIZADA', 'ENVIADA', 'EN_REVISION', 'APROBADA', 'CERRADA')
+                       AND COALESCE(prior.finalizada_en, prior.enviada_en, prior.aprobada_en,
+                                    prior.iniciada_en, prior.creado_en)
+                           <= COALESCE(evaluation.iniciada_en, evaluation.creado_en)
                      ORDER BY COALESCE(prior.finalizada_en, prior.iniciada_en, prior.creado_en) DESC, prior.id DESC
                      LIMIT 1) AS PreviousEvaluationId,
                    (SELECT COALESCE(prior.finalizada_en, prior.iniciada_en)::date
@@ -462,6 +472,9 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                      WHERE prior.establecimiento_id = evaluation.establecimiento_id
                        AND prior.id <> evaluation.id
                        AND prior.estado IN ('FINALIZADA', 'ENVIADA', 'EN_REVISION', 'APROBADA', 'CERRADA')
+                       AND COALESCE(prior.finalizada_en, prior.enviada_en, prior.aprobada_en,
+                                    prior.iniciada_en, prior.creado_en)
+                           <= COALESCE(evaluation.iniciada_en, evaluation.creado_en)
                      ORDER BY COALESCE(prior.finalizada_en, prior.iniciada_en, prior.creado_en) DESC, prior.id DESC
                      LIMIT 1) AS PreviousInspectionDate,
                    (SELECT prior.porcentaje_cumplimiento
@@ -469,6 +482,9 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                      WHERE prior.establecimiento_id = evaluation.establecimiento_id
                        AND prior.id <> evaluation.id
                        AND prior.estado IN ('FINALIZADA', 'ENVIADA', 'EN_REVISION', 'APROBADA', 'CERRADA')
+                       AND COALESCE(prior.finalizada_en, prior.enviada_en, prior.aprobada_en,
+                                    prior.iniciada_en, prior.creado_en)
+                           <= COALESCE(evaluation.iniciada_en, evaluation.creado_en)
                      ORDER BY COALESCE(prior.finalizada_en, prior.iniciada_en, prior.creado_en) DESC, prior.id DESC
                      LIMIT 1) AS PreviousCompliancePercentage
               FROM "SIGERSA"."EVALUACION" evaluation
@@ -573,21 +589,21 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                           recomendaciones::text AS RecommendationsJson,
                           version_fila AS RowVersion;
                 """), new
-                {
-                    EvaluationId = evaluationId,
-                    PreviousInspectionDate = draft.PreviousInspectionDate?.ToDateTime(TimeOnly.MinValue),
-                    draft.PreviousQualification,
-                    CurrentInspectionDate = draft.CurrentInspectionDate?.ToDateTime(TimeOnly.MinValue),
-                    draft.CurrentQualification,
-                    draft.DpsDasOfficer1,
-                    draft.DpsDasOfficer2,
-                    draft.DigemapsTechnician1,
-                    draft.DigemapsTechnician2,
-                    CorrectiveMeasures = JsonSerializer.Serialize(draft.CorrectiveMeasures),
-                    Recommendations = JsonSerializer.Serialize(draft.Recommendations),
-                    RowVersion = draft.RowVersion,
-                    ActorId = actorId
-                }, transaction, cancellationToken: cancellationToken));
+            {
+                EvaluationId = evaluationId,
+                PreviousInspectionDate = draft.PreviousInspectionDate?.ToDateTime(TimeOnly.MinValue),
+                draft.PreviousQualification,
+                CurrentInspectionDate = draft.CurrentInspectionDate?.ToDateTime(TimeOnly.MinValue),
+                draft.CurrentQualification,
+                draft.DpsDasOfficer1,
+                draft.DpsDasOfficer2,
+                draft.DigemapsTechnician1,
+                draft.DigemapsTechnician2,
+                CorrectiveMeasures = JsonSerializer.Serialize(draft.CorrectiveMeasures),
+                Recommendations = JsonSerializer.Serialize(draft.Recommendations),
+                RowVersion = draft.RowVersion,
+                ActorId = actorId
+            }, transaction, cancellationToken: cancellationToken));
             if (saved is null) throw new OptimisticConcurrencyException(evaluationId);
             await transaction.CommitAsync(cancellationToken);
             return saved.ToDomain();
@@ -751,11 +767,13 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         }
     }
 
-    public async Task<long> SaveCalculationAsync(EvaluationCalculation calculation, string snapshotJson, string snapshotHash, long expectedVersion, Guid actorId, CancellationToken cancellationToken = default)
+    public async Task<long> SaveCalculationAsync(EvaluationCalculation calculation, decimal obtainedScore, decimal applicableScore, string snapshotJson, string snapshotHash, long expectedVersion, Guid actorId, CancellationToken cancellationToken = default)
     {
         const string sql = """
+            WITH updated AS (
             UPDATE "SIGERSA"."EVALUACION"
             SET porcentaje_cumplimiento = @CompliancePercentage,
+                puntaje_obtenido = @ObtainedScore, puntaje_aplicable = @ApplicableScore,
                 riesgo_producto = @ProductRisk, riesgo_establecimiento = @EstablishmentRisk,
                 riesgo_total = @TotalRisk, nivel_riesgo = @RiskLevel,
                 frecuencia = @DatabaseFrequency, snapshot_calculo = @Snapshot::jsonb,
@@ -763,12 +781,63 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 modificado_en = CURRENT_TIMESTAMP, version_fila = version_fila + 1
             WHERE id = @EvaluationId AND version_fila = @ExpectedVersion
               AND estado = 'EN_EJECUCION'
-            RETURNING version_fila;
+            RETURNING version_fila, caso_id, evaluador_principal_id
+            ), next_case AS (
+                UPDATE "SIGERSA"."CASO" inspection_case
+                   SET proxima_inspeccion_en = @NextInspectionDate::date,
+                       modificado_por = @ActorId, modificado_en = CURRENT_TIMESTAMP,
+                       version_fila = inspection_case.version_fila + 1
+                  FROM updated
+                 WHERE inspection_case.id = updated.caso_id
+                RETURNING inspection_case.id
+            ), retired_reminders AS (
+                UPDATE "SIGERSA"."NOTIFICACION" notification
+                   SET estado = 'LEIDA', leida_en = COALESCE(leida_en, CURRENT_TIMESTAMP),
+                       modificado_por = @ActorId, modificado_en = CURRENT_TIMESTAMP,
+                       version_fila = version_fila + 1
+                 WHERE notification.recurso_tipo = 'EVALUACION'
+                   AND notification.recurso_id = @EvaluationId
+                   AND notification.tipo LIKE 'RECORDATORIO_INSPECCION_%'
+                   AND notification.leida_en IS NULL
+                RETURNING notification.id
+            ), recipients AS (
+                SELECT evaluador_principal_id AS usuario_id FROM updated
+                UNION
+                SELECT user_role.usuario_id
+                  FROM "SIGERSA"."USUARIO_ROL" user_role
+                  JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                  JOIN "SIGERSA"."USUARIO" app_user ON app_user.id = user_role.usuario_id
+                 WHERE user_role.activo = true AND role.activo = true AND app_user.activo = true
+                   AND role.codigo IN ('ADMINISTRADOR', 'COORDINADOR')
+                   AND user_role.vigente_desde <= CURRENT_TIMESTAMP
+                   AND (user_role.vigente_hasta IS NULL OR user_role.vigente_hasta > CURRENT_TIMESTAMP)
+            ), reminders AS (
+                SELECT * FROM (VALUES
+                    (30, '30_DIAS', 'La próxima inspección es en 30 días.'),
+                    (14, '14_DIAS', 'La próxima inspección es en 14 días.'),
+                    (7, '7_DIAS', 'La próxima inspección es en 7 días.'),
+                    (0, 'HOY', 'La inspección programada corresponde al día de hoy.')
+                ) value(days_before, code, message)
+            ), inserted_reminders AS (
+                INSERT INTO "SIGERSA"."NOTIFICACION"
+                    (id, usuario_id, tipo, titulo, mensaje, canal, estado,
+                     recurso_tipo, recurso_id, programada_para, creado_por)
+                SELECT gen_random_uuid(), recipients.usuario_id,
+                       'RECORDATORIO_INSPECCION_' || reminders.code,
+                       'Recordatorio de próxima inspección', reminders.message,
+                       'INTERNA', 'PENDIENTE', 'EVALUACION', @EvaluationId,
+                       (@NextInspectionDate::date - reminders.days_before)::timestamptz, @ActorId
+                  FROM recipients CROSS JOIN reminders
+                 WHERE @NextInspectionDate IS NOT NULL
+                ON CONFLICT DO NOTHING
+                RETURNING id
+            )
+            SELECT version_fila FROM updated;
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
         {
-            var version = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(Sql(sql), new { calculation.EvaluationId, calculation.CompliancePercentage, calculation.ProductRisk, calculation.EstablishmentRisk, calculation.TotalRisk, calculation.RiskLevel, DatabaseFrequency = calculation.Frequency == "NO_APLICA" ? null : calculation.Frequency, Snapshot = snapshotJson, Hash = snapshotHash, ActorId = actorId, ExpectedVersion = expectedVersion }, cancellationToken: cancellationToken));
+            var version = await connection.ExecuteScalarAsync<long?>(new CommandDefinition(Sql(sql), new { calculation.EvaluationId, calculation.CompliancePercentage, ObtainedScore = obtainedScore, ApplicableScore = applicableScore, calculation.ProductRisk, calculation.EstablishmentRisk, calculation.TotalRisk, calculation.RiskLevel, NextInspectionDate = calculation.NextInspectionDate?.ToDateTime(TimeOnly.MinValue), DatabaseFrequency = calculation.Frequency == "NO_APLICA" ? null : calculation.Frequency, Snapshot = snapshotJson, Hash = snapshotHash, ActorId = actorId, ExpectedVersion = expectedVersion }, cancellationToken: cancellationToken));
             if (version is null) throw new OptimisticConcurrencyException(calculation.EvaluationId);
             return version.Value;
         }
@@ -850,17 +919,26 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
     }
     private sealed class EvaluationSummaryRow
     {
-        public Guid Id { get; init; } public string Number { get; init; } = string.Empty;
-        public Guid CaseId { get; init; } public string CaseNumber { get; init; } = string.Empty;
-        public Guid EstablishmentId { get; init; } public string EstablishmentName { get; init; } = string.Empty;
-        public Guid EvaluatorId { get; init; } public string EvaluatorName { get; init; } = string.Empty;
+        public Guid Id { get; init; }
+        public string Number { get; init; } = string.Empty;
+        public Guid CaseId { get; init; }
+        public string CaseNumber { get; init; } = string.Empty;
+        public Guid EstablishmentId { get; init; }
+        public string EstablishmentName { get; init; } = string.Empty;
+        public Guid EvaluatorId { get; init; }
+        public string EvaluatorName { get; init; } = string.Empty;
         public string Status { get; init; } = string.Empty; public DateTime? ScheduledStart { get; init; }
-        public DateTime? ScheduledEnd { get; init; } public decimal? CompliancePercentage { get; init; }
-        public decimal? TotalRisk { get; init; } public string? RiskLevel { get; init; }
-        public int AnsweredItems { get; init; } public long RowVersion { get; init; }
+        public DateTime? ScheduledEnd { get; init; }
+        public decimal? CompliancePercentage { get; init; }
+        public decimal? TotalRisk { get; init; }
+        public string? RiskLevel { get; init; }
+        public string? Frequency { get; init; }
+        public DateTime? NextInspectionAt { get; init; }
+        public int AnsweredItems { get; init; }
+        public long RowVersion { get; init; }
         public EvaluationSummary ToDomain() => new(Id, Number, CaseId, CaseNumber, EstablishmentId,
             EstablishmentName, EvaluatorId, EvaluatorName, Status, Utc(ScheduledStart), Utc(ScheduledEnd),
-            CompliancePercentage, TotalRisk, RiskLevel, AnsweredItems, RowVersion);
+            CompliancePercentage, TotalRisk, RiskLevel, Frequency, Utc(NextInspectionAt), AnsweredItems, RowVersion);
         private static DateTimeOffset? Utc(DateTime? value) => value.HasValue
             ? new DateTimeOffset(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)) : null;
     }

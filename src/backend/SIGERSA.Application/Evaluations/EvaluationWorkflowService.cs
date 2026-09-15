@@ -87,8 +87,8 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
-        if (!HasRole(actor, "TECNICO_EVALUADOR"))
-            throw new ForbiddenException("Solo el técnico asignado puede completar los datos de la evaluación.");
+        if (!CanRegisterAnswers(actor))
+            throw new ForbiddenException("Solo un administrador o técnico evaluador puede completar los datos de la evaluación.");
         if (draft.RowVersion < 0)
             throw new ArgumentException("La versión de los datos complementarios no es válida.");
         if (draft.PreviousInspectionDate > draft.CurrentInspectionDate)
@@ -158,6 +158,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             throw new InvalidOperationException("Debe responder al menos un ítem aplicable antes de calcular el riesgo.");
         var ratings = applicableAnswers.Select(answer => ParseRating(answer.Rating)).ToArray();
         var bpm = RiskEngine.CalculateBpm(ratings);
+        var applicableScore = ratings.Count(rating => rating is not BpmRating.NotApplicable);
         var nodes = input.Items.Select(item => new AllItem(
             item.SourceItem,
             item.Id.ToString("N"),
@@ -170,6 +171,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         var compliance = bpm.Score.HasValue
             ? bpm.Score.Value * 100m
             : throw new InvalidOperationException("Todos los ítems aplicables están marcados como N/A; no es posible calcular una calificación.");
+        var obtainedScore = bpm.Score.Value * applicableScore;
         var productionScore = ScoreProduction(input.MonthlyProduction);
         var haccpScore = ScoreHaccp(input.HaccpImplemented, input.HaccpPercentage);
         var bpmScore = ScoreBpm(compliance);
@@ -199,6 +201,13 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             InspectionFrequency.Quarterly => "TRIMESTRAL",
             _ => "NO_APLICA"
         };
+        var nextInspectionDate = total.Frequency switch
+        {
+            InspectionFrequency.Annual => DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(12),
+            InspectionFrequency.Semiannual => DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(6),
+            InspectionFrequency.Quarterly => DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(3),
+            _ => (DateOnly?)null
+        };
         var decision = InspectionQualificationPolicy.Evaluate(policy, compliance, applicableAnswers);
         var calculation = new EvaluationCalculation(
             input.EvaluationId,
@@ -208,6 +217,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             total.TotalRisk,
             level,
             frequency,
+            nextInspectionDate,
             decision,
             input.RowVersion);
         var snapshot = JsonSerializer.Serialize(new
@@ -219,6 +229,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             calculation.TotalRisk,
             calculation.RiskLevel,
             calculation.Frequency,
+            calculation.NextInspectionDate,
             policy = new
             {
                 policy.Mode,
@@ -229,12 +240,13 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
                 policy.PreviousEvaluationId
             },
             calculation.Decision,
+            scores = new { obtained = obtainedScore, applicable = applicableScore },
             factors = new { productionScore, haccpScore, bpmScore, inabieScore, rejectionScore, samplingScore },
             nodes = nodeScores
         });
         var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(snapshot))).ToLowerInvariant();
         var version = await repository.SaveCalculationAsync(
-            calculation, snapshot, hash, input.RowVersion, actorId, cancellationToken);
+            calculation, obtainedScore, applicableScore, snapshot, hash, input.RowVersion, actorId, cancellationToken);
         return calculation with { RowVersion = version };
     }
 
@@ -244,8 +256,8 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
-        if (!HasRole(actor, "TECNICO_EVALUADOR"))
-            throw new ForbiddenException("Solo el técnico asignado puede iniciar la evaluación.");
+        if (!CanRegisterAnswers(actor))
+            throw new ForbiddenException("Solo un administrador o técnico evaluador puede iniciar la evaluación.");
         ValidateCoordinates(transition);
         return await TransitionAsync(evaluationId, transition with { Action = "START" }, actor, cancellationToken);
     }
@@ -256,8 +268,8 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
-        if (!HasRole(actor, "TECNICO_EVALUADOR"))
-            throw new ForbiddenException("Solo el técnico asignado puede finalizar la evaluación.");
+        if (!CanRegisterAnswers(actor))
+            throw new ForbiddenException("Solo un administrador o técnico evaluador puede finalizar la evaluación.");
         var calculation = await CalculateAsync(evaluationId, productRisk, actor.UserId, cancellationToken);
         if (calculation.TotalRisk is null)
             throw new InvalidOperationException("La evaluación no puede finalizar hasta completar las respuestas y factores de riesgo requeridos.");
@@ -274,11 +286,14 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
     {
         if (transition.RowVersion <= 0) throw new ArgumentException("La versión de la evaluación es obligatoria.");
         var action = transition.Action.Trim().ToUpperInvariant();
-        var technicianAction = action is "START" or "FINALIZE" or "SUBMIT";
+        var executionAction = action is "START" or "FINALIZE";
+        var submitAction = action == "SUBMIT";
         var reviewerAction = action is "REVIEW" or "APPROVE" or "CLOSE";
-        if (!technicianAction && !reviewerAction) throw new ArgumentException("La transición solicitada no es válida.");
-        if (technicianAction && !HasRole(actor, "TECNICO_EVALUADOR"))
-            throw new ForbiddenException("La transición corresponde al técnico evaluador asignado.");
+        if (!executionAction && !submitAction && !reviewerAction) throw new ArgumentException("La transición solicitada no es válida.");
+        if (executionAction && !CanRegisterAnswers(actor))
+            throw new ForbiddenException("La transición corresponde a un administrador o técnico evaluador.");
+        if (submitAction && !HasRole(actor, "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("Solo el técnico evaluador puede enviar la evaluación a revisión.");
         if (reviewerAction && !HasRole(actor, "COORDINADOR"))
             throw new ForbiddenException("La transición corresponde al coordinador revisor.");
         if (action == "APPROVE")
@@ -441,6 +456,8 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
 
     private static bool HasRole(EvaluationActor actor, string role) =>
         actor.Roles.Contains(role, StringComparer.Ordinal);
+    private static bool CanRegisterAnswers(EvaluationActor actor) =>
+        HasRole(actor, "ADMINISTRADOR") || HasRole(actor, "TECNICO_EVALUADOR");
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 

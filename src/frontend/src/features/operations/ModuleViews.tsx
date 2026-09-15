@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/useAuth'
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
+import { getNotifications, markNotificationRead, type SystemNotification } from '../../lib/api'
 import { offlineDb, type SyncQueueItem } from '../../offline/database'
 import {
   discardSyncMutation,
@@ -89,16 +90,42 @@ export function ProfilePage() {
 
 export function NotificationsPage() {
   const [items, setItems] = useState<SyncQueueItem[]>([])
+  const [notifications, setNotifications] = useState<SystemNotification[]>([])
+  const [notificationError, setNotificationError] = useState('')
   const [syncing, setSyncing] = useState(false)
 
   const loadQueue = useCallback(async () => {
     setItems(await offlineDb.syncQueue.orderBy('createdAt').reverse().toArray())
   }, [])
 
+  const loadNotifications = useCallback(async () => {
+    try {
+      setNotifications(await getNotifications())
+      setNotificationError('')
+    } catch (error) {
+      setNotificationError(
+        error instanceof Error ? error.message : 'No se pudieron cargar las notificaciones.',
+      )
+    }
+  }, [])
+
   useEffect(() => {
     queueMicrotask(() => void loadQueue())
     return subscribeToSyncQueue(() => void loadQueue())
   }, [loadQueue])
+
+  useEffect(() => {
+    queueMicrotask(() => void loadNotifications())
+  }, [loadNotifications])
+
+  async function readNotification(id: string) {
+    try {
+      await markNotificationRead(id)
+      await loadNotifications()
+    } catch (error) {
+      await alerts.error(error, 'No se pudo marcar la notificación como leída')
+    }
+  }
 
   async function synchronize() {
     setSyncing(true)
@@ -145,7 +172,7 @@ export function NotificationsPage() {
             Notificaciones y sincronización
           </h1>
           <p className="mt-2 text-sm text-ink-muted">
-            Revise los cambios guardados sin conexión y envíelos cuando la red esté disponible.
+            Revise los recordatorios de inspección y los cambios guardados sin conexión.
           </p>
         </div>
         <button
@@ -157,6 +184,49 @@ export function NotificationsPage() {
           {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
         </button>
       </div>
+
+      <article className="mt-6 overflow-hidden rounded-card bg-white shadow-card">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <h2 className="font-extrabold text-ink-strong">Avisos del sistema</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Los recordatorios aparecen 30, 14 y 7 días antes, y el día de la próxima inspección.
+          </p>
+        </div>
+        {notificationError && <p className="p-5 text-sm text-red-700">{notificationError}</p>}
+        {!notificationError && notifications.length === 0 && (
+          <p className="p-5 text-sm text-ink-muted">No hay avisos disponibles en este momento.</p>
+        )}
+        {notifications.length > 0 && (
+          <ul className="divide-y divide-slate-100">
+            {notifications.map((notification) => (
+              <li
+                key={notification.id}
+                className={`flex flex-wrap items-start gap-3 px-5 py-4 text-sm ${notification.readAt ? 'bg-white' : 'bg-brand-50'}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-extrabold text-ink-strong">{notification.title}</p>
+                  <p className="mt-1 text-ink-body">{notification.message}</p>
+                  <p className="mt-2 text-xs text-ink-muted">
+                    {new Intl.DateTimeFormat('es-DO', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    }).format(new Date(notification.scheduledFor))}
+                  </p>
+                </div>
+                {!notification.readAt && (
+                  <button
+                    type="button"
+                    onClick={() => void readNotification(notification.id)}
+                    className="text-brand-800 rounded-lg border border-brand-700 px-3 py-2 font-bold"
+                  >
+                    Marcar como leída
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </article>
 
       <article className="mt-6 overflow-hidden rounded-card bg-white shadow-card">
         <div className="border-b border-slate-100 px-5 py-4">
@@ -187,7 +257,7 @@ export function NotificationsPage() {
                       type="button"
                       disabled={syncing || !navigator.onLine}
                       onClick={() => void retry(item)}
-                      className="rounded-lg border border-brand-700 px-3 py-2 font-bold text-brand-800 disabled:opacity-50"
+                      className="text-brand-800 rounded-lg border border-brand-700 px-3 py-2 font-bold disabled:opacity-50"
                     >
                       Reintentar
                     </button>

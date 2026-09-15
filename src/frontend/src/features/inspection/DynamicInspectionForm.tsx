@@ -471,10 +471,15 @@ export function DynamicInspectionForm({
     <section aria-labelledby="dynamic-form-title">
       <div className="rounded-xl bg-white p-4 shadow-card">
         <div className="mb-4 rounded-xl bg-brand-50 p-4 text-sm leading-6 text-ink-body">
-          <strong className="text-brand-900">Complete la evaluación por capítulos</strong>
+          <strong className="text-brand-900">
+            {readOnly
+              ? 'Consulte la evaluación por capítulos'
+              : 'Complete la evaluación por capítulos'}
+          </strong>
           <p className="mt-1">
-            Las respuestas se guardan en la base de datos. Las evidencias son opcionales y cada
-            archivo puede pesar hasta 5 MB.
+            {readOnly
+              ? 'Esta vista no intenta guardar respuestas, datos complementarios ni evidencias.'
+              : 'Las respuestas se guardan en la base de datos. Las evidencias son opcionales y cada archivo puede pesar hasta 5 MB.'}
           </p>
         </div>
         {!selectedEvaluationId && (
@@ -715,6 +720,12 @@ export function DynamicInspectionForm({
               <output className="mt-4 block rounded-lg bg-white/10 px-4 py-3 text-sm">
                 Cumplimiento {calculation.compliancePercentage?.toFixed(1) ?? 'N/D'}% · Riesgo{' '}
                 {calculation.totalRisk?.toFixed(2) ?? 'N/D'} · {calculation.riskLevel}
+                <span className="mt-2 block rounded-lg bg-emerald-950/40 p-3 text-base font-extrabold text-emerald-100">
+                  Frecuencia de inspección: {formatStatusLabel(calculation.frequency)}
+                  {calculation.nextInspectionDate
+                    ? ` · Próxima inspección: ${new Intl.DateTimeFormat('es-DO', { dateStyle: 'long' }).format(new Date(`${calculation.nextInspectionDate}T12:00:00`))}`
+                    : ''}
+                </span>
                 <strong className="mt-2 block text-emerald-100">
                   {calculation.decision.condition} · {calculation.decision.primaryRecommendation}
                 </strong>

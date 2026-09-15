@@ -28,8 +28,8 @@ public sealed class EvaluationsControllerRouteTests
     }
 
     [Theory]
-    [InlineData(nameof(EvaluationsController.Start), "TECNICO_EVALUADOR")]
-    [InlineData(nameof(EvaluationsController.Finalize), "TECNICO_EVALUADOR")]
+    [InlineData(nameof(EvaluationsController.Start), "ADMINISTRADOR,TECNICO_EVALUADOR")]
+    [InlineData(nameof(EvaluationsController.Finalize), "ADMINISTRADOR,TECNICO_EVALUADOR")]
     [InlineData(nameof(EvaluationsController.Submit), "TECNICO_EVALUADOR")]
     [InlineData(nameof(EvaluationsController.Approve), "COORDINADOR")]
     public void WorkflowTransitionsEnforceTheResponsibleRole(string methodName, string roles)
@@ -39,5 +39,20 @@ public sealed class EvaluationsControllerRouteTests
             .Cast<AuthorizeAttribute>());
 
         Assert.Equal(roles, authorization.Roles);
+    }
+
+    [Theory]
+    [InlineData(nameof(EvaluationsController.SaveSupplement))]
+    [InlineData(nameof(EvaluationsController.SaveAnswer))]
+    [InlineData(nameof(EvaluationsController.SaveEvaluationAnswer))]
+    [InlineData(nameof(EvaluationsController.Calculate))]
+    public void EvaluationWritesAllowAdministratorAndEvaluator(string methodName)
+    {
+        var method = typeof(EvaluationsController).GetMethod(methodName);
+        var authorization = Assert.Single(method!.GetCustomAttributes(typeof(AuthorizeAttribute), false)
+            .Cast<AuthorizeAttribute>());
+
+        Assert.Equal("ADMINISTRADOR,TECNICO_EVALUADOR", authorization.Roles);
+        Assert.DoesNotContain("COORDINADOR", authorization.Roles, StringComparison.Ordinal);
     }
 }
