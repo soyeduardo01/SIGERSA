@@ -8,7 +8,7 @@ namespace SIGERSA.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/cases")]
-[Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
+[Authorize(Roles = "ADMINISTRADOR,COORDINADOR,TECNICO_EVALUADOR")]
 public sealed class CasesController(CaseService service) : ControllerBase
 {
     [HttpGet]

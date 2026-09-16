@@ -8,6 +8,7 @@ import { UsersManagement } from './features/admin/UsersManagement'
 import { LoginPage } from './features/auth/LoginPage'
 import { PasswordRecoveryPage } from './features/auth/PasswordRecoveryPage'
 import { RegistrationPage } from './features/auth/RegistrationPage'
+import { LandingPage } from './features/public/LandingPage'
 import {
   AlertsPage,
   AuditPage,
@@ -68,12 +69,12 @@ function Redirect({ href }: { href: string }) {
 
 function LoginEntry() {
   const { session, authenticate } = useAuth()
-  if (session) return <Redirect href={moduleHref('resumen')} />
+  if (session) return <Redirect href={moduleHref(session.roles.includes('LABORATORISTA') ? 'alertas-denuncias' : 'resumen')} />
   return (
     <LoginPage
       onAuthenticated={(value) => {
         authenticate(value)
-        window.location.assign(moduleHref('resumen'))
+        window.location.assign(moduleHref(value.roles.includes('LABORATORISTA') ? 'alertas-denuncias' : 'resumen'))
       }}
       onRecover={() => window.location.assign(recoveryHref)}
       onRegister={() => window.location.assign(registrationHref)}
@@ -119,7 +120,9 @@ function App() {
   const entry = document.documentElement.dataset.entry ?? 'login'
   return (
     <AuthProvider>
-      {entry === 'module' ? (
+      {entry === 'landing' ? (
+        <LandingPage />
+      ) : entry === 'module' ? (
         <ModuleEntry />
       ) : entry === 'registration' ? (
         <RegistrationEntry />

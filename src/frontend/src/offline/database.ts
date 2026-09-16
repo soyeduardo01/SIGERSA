@@ -47,6 +47,7 @@ export interface EvidencePayload {
 
 export interface RequestPayload {
   companyId: string | null
+  applicantUserId?: string | null
   establishmentId: string | null
   inspectionReasonId: string
   reasonDetail: string
@@ -91,6 +92,7 @@ export interface CorrectionPayload {
 
 export interface SyncQueueItem {
   idempotencyKey: string
+  ownerUserId: string
   kind: SyncMutationKind
   status: SyncStatus
   payload:
@@ -121,6 +123,12 @@ class SigersaOfflineDatabase extends Dexie {
       evaluations: '&id, establishmentId, status, riskLevel, updatedAt',
       inspectionTemplates: '&key, id, code, version, status, updatedAt',
       syncQueue: '&idempotencyKey, kind, status, createdAt, nextAttemptAt, [status+nextAttemptAt]',
+    })
+    this.version(2).stores({
+      evaluations: '&id, establishmentId, status, riskLevel, updatedAt',
+      inspectionTemplates: '&key, id, code, version, status, updatedAt',
+      syncQueue:
+        '&idempotencyKey, ownerUserId, kind, status, createdAt, nextAttemptAt, [ownerUserId+status+nextAttemptAt]',
     })
   }
 }

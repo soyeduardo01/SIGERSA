@@ -13,18 +13,18 @@ const expectedByRole: Record<(typeof canonicalRoles)[number], AppModule[]> = {
     'fichas-bpm',
     'reportes',
     'establecimientos',
+    'solicitudes',
+    'alertas-denuncias',
     'evaluaciones',
     'correcciones',
+    'hallazgos',
+    'evidencias',
   ],
   ADMINISTRADOR_EMPRESA: [
     'resumen',
     'perfil',
     'notificaciones',
     'usuarios',
-    'reportes',
-    'solicitudes',
-    'hallazgos',
-    'evidencias',
   ],
   USUARIO_DELEGADO: [
     'resumen',
@@ -32,8 +32,6 @@ const expectedByRole: Record<(typeof canonicalRoles)[number], AppModule[]> = {
     'notificaciones',
     'reportes',
     'solicitudes',
-    'hallazgos',
-    'evidencias',
   ],
   COORDINADOR: [
     'resumen',
@@ -60,6 +58,7 @@ const expectedByRole: Record<(typeof canonicalRoles)[number], AppModule[]> = {
     'evidencias',
     'correcciones',
   ],
+  LABORATORISTA: ['perfil', 'notificaciones', 'alertas-denuncias'],
 }
 
 describe('matriz RBAC de módulos', () => {

@@ -48,7 +48,8 @@ public sealed class CompanyService(ICompanyRepository repository, IValidator<Com
             contact.FullName.Trim(),
             Optional(contact.Identification),
             Optional(contact.Phone),
-            Optional(contact.Email)?.ToLowerInvariant())).ToArray(),
+            Optional(contact.Email)?.ToLowerInvariant(),
+            Optional(contact.IdentificationType)?.ToUpperInvariant())).ToArray(),
         request.Status.Trim().ToUpperInvariant(),
         request.RowVersion);
 

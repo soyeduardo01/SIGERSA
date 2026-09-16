@@ -9,7 +9,11 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
 {
     private const string CaseAccess = """
         (@GlobalScope = true
-         OR (@CompanyId IS NOT NULL AND inspection_case.empresa_id = @CompanyId)
+         OR (@CompanyId IS NOT NULL AND inspection_case.empresa_id = @CompanyId
+             AND (@OwnerOnly = false OR EXISTS (
+                 SELECT 1 FROM "SIGERSA"."SOLICITUD" owner_request
+                  WHERE owner_request.id = inspection_case.solicitud_id
+                    AND owner_request.solicitante_id = @UserId)))
          OR (@AssignedOnly = true AND EXISTS (
              SELECT 1 FROM "SIGERSA"."EVALUACION" scoped_evaluation
               WHERE scoped_evaluation.caso_id = inspection_case.id
@@ -18,7 +22,11 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
 
     private const string EvaluationAccess = """
         (@GlobalScope = true
-         OR (@CompanyId IS NOT NULL AND inspection_case.empresa_id = @CompanyId)
+         OR (@CompanyId IS NOT NULL AND inspection_case.empresa_id = @CompanyId
+             AND (@OwnerOnly = false OR EXISTS (
+                 SELECT 1 FROM "SIGERSA"."SOLICITUD" owner_request
+                  WHERE owner_request.id = inspection_case.solicitud_id
+                    AND owner_request.solicitante_id = @UserId)))
          OR (@AssignedOnly = true AND evaluation.evaluador_principal_id = @UserId))
         """;
 
@@ -415,6 +423,88 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
         }
     }
 
+    public async Task<IReadOnlyList<OperationalOption>> GetPublicComplaintOptionsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT establishment.id AS Id,
+                   company.razon_social || ' - ' || establishment.nombre AS Name,
+                   establishment.empresa_id AS CompanyId
+              FROM "SIGERSA"."ESTABLECIMIENTO" establishment
+              JOIN "SIGERSA"."EMPRESA" company ON company.id = establishment.empresa_id
+             WHERE establishment.activo = true AND establishment.estado = 'ACTIVO'
+               AND company.activo = true AND company.estado = 'ACTIVA'
+             ORDER BY company.razon_social, establishment.nombre;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+            return (await connection.QueryAsync<OperationalOption>(new CommandDefinition(
+                Sql(sql), cancellationToken: cancellationToken))).ToArray();
+    }
+
+    public async Task<Guid> CreatePublicComplaintAsync(
+        PublicComplaintDraft draft,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
+        {
+            var coordinatorId = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(Sql("""
+                SELECT user_account.id
+                  FROM "SIGERSA"."USUARIO" user_account
+                  JOIN "SIGERSA"."USUARIO_ROL" user_role
+                    ON user_role.usuario_id = user_account.id AND user_role.activo = true
+                  JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                  LEFT JOIN "SIGERSA"."DENUNCIA" complaint
+                    ON complaint.coordinador_asignado_id = user_account.id AND complaint.resultado IS NULL
+                 WHERE user_account.activo = true AND user_account.estado = 'ACTIVO'
+                   AND role.codigo = 'COORDINADOR' AND role.activo = true
+                 GROUP BY user_account.id, user_account.nombre_completo
+                 ORDER BY COUNT(complaint.id), user_account.nombre_completo
+                 LIMIT 1;
+                """), transaction: transaction, cancellationToken: cancellationToken));
+            if (!coordinatorId.HasValue)
+                throw new InvalidOperationException("No hay coordinadores activos disponibles para recibir la denuncia.");
+
+            var id = Guid.NewGuid();
+            var inserted = await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                WITH inserted_complaint AS (
+                INSERT INTO "SIGERSA"."DENUNCIA"
+                    (id, numero, establecimiento_id, tipo_denuncia, fecha_recepcion, canal,
+                     es_anonima, es_confidencial, descripcion, registrada_por,
+                     coordinador_asignado_id, creado_por)
+                SELECT @Id,
+                       'DEN-' || to_char(CURRENT_TIMESTAMP, 'YYYYMMDD') || '-' || upper(substr(replace(@Id::text, '-', ''), 1, 8)),
+                       establishment.id, @ComplaintType, CURRENT_TIMESTAMP, 'PORTAL_PUBLICO',
+                       true, @IsConfidential, @Description, @CoordinatorId, @CoordinatorId, @CoordinatorId
+                  FROM "SIGERSA"."ESTABLECIMIENTO" establishment
+                 WHERE establishment.id = @EstablishmentId AND establishment.activo = true
+                RETURNING id)
+
+                INSERT INTO "SIGERSA"."NOTIFICACION"
+                    (id, usuario_id, tipo, titulo, mensaje, recurso_tipo, recurso_id,
+                     canal, estado, programada_para, creado_por)
+                SELECT gen_random_uuid(), @CoordinatorId, 'DENUNCIA_PUBLICA_ASIGNADA',
+                        'Nueva denuncia ciudadana asignada',
+                        'Se recibió una denuncia desde el portal público y fue asignada para coordinación.',
+                        'DENUNCIA', inserted_complaint.id, 'INTERNA', 'PENDIENTE', CURRENT_TIMESTAMP, @CoordinatorId
+                  FROM inserted_complaint;
+                """), new
+            {
+                Id = id,
+                draft.EstablishmentId,
+                draft.ComplaintType,
+                draft.Description,
+                draft.IsConfidential,
+                CoordinatorId = coordinatorId.Value
+            }, transaction, cancellationToken: cancellationToken));
+            if (inserted != 1) throw new ArgumentException("El establecimiento seleccionado no está disponible.");
+            await transaction.CommitAsync(cancellationToken);
+            return id;
+        }
+    }
+
     public async Task<FindingsPage> SearchFindingsAsync(
         FindingSearch search,
         CancellationToken cancellationToken = default)
@@ -800,7 +890,8 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
              WHERE finding.evaluacion_id = @EvaluationId
              ORDER BY finding.detectada_en, finding.codigo;
 
-            SELECT nombre_original AS Name, tipo_evidencia AS Type, mime_type AS MimeType
+            SELECT nombre_original AS Name, tipo_evidencia AS Type, mime_type AS MimeType,
+                   bucket_name AS BucketName, supabase_path AS SupabasePath
               FROM "SIGERSA"."EVIDENCIA"
              WHERE evaluacion_id = @EvaluationId AND eliminada = false
              ORDER BY fecha_servidor, id;
@@ -928,7 +1019,8 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
         scope.UserId,
         scope.CompanyId,
         scope.GlobalScope,
-        scope.AssignedOnly
+        scope.AssignedOnly,
+        scope.OwnerOnly
     };
 
     private static DateTimeOffset Utc(DateTime value) => new(DateTime.SpecifyKind(value, DateTimeKind.Utc));

@@ -4,6 +4,7 @@ export const canonicalRoles = [
   'USUARIO_DELEGADO',
   'COORDINADOR',
   'TECNICO_EVALUADOR',
+  'LABORATORISTA',
 ] as const
 
 export type CanonicalRole = (typeof canonicalRoles)[number]
@@ -33,7 +34,7 @@ const allRoles: readonly CanonicalRole[] = canonicalRoles
 // SRS V2, sección 10. La ruta concede acceso al módulo; cada API vuelve a
 // comprobar rol, ámbito y propiedad del recurso antes de operar.
 export const moduleRoles: Record<AppModule, readonly CanonicalRole[]> = {
-  resumen: allRoles,
+  resumen: ['ADMINISTRADOR', 'ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO', 'COORDINADOR', 'TECNICO_EVALUADOR'],
   perfil: allRoles,
   notificaciones: allRoles,
   empresas: ['ADMINISTRADOR'],
@@ -41,15 +42,15 @@ export const moduleRoles: Record<AppModule, readonly CanonicalRole[]> = {
   parametros: ['ADMINISTRADOR'],
   auditoria: ['ADMINISTRADOR'],
   'fichas-bpm': ['ADMINISTRADOR'],
-  reportes: allRoles,
-  solicitudes: ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO', 'COORDINADOR'],
-  'alertas-denuncias': ['COORDINADOR'],
+  reportes: ['ADMINISTRADOR', 'USUARIO_DELEGADO', 'COORDINADOR', 'TECNICO_EVALUADOR'],
+  solicitudes: ['ADMINISTRADOR', 'USUARIO_DELEGADO', 'COORDINADOR'],
+  'alertas-denuncias': ['ADMINISTRADOR', 'COORDINADOR', 'LABORATORISTA'],
   casos: ['COORDINADOR'],
   programacion: ['COORDINADOR', 'TECNICO_EVALUADOR'],
   evaluaciones: ['ADMINISTRADOR', 'COORDINADOR', 'TECNICO_EVALUADOR'],
   establecimientos: ['ADMINISTRADOR'],
-  hallazgos: ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO', 'COORDINADOR', 'TECNICO_EVALUADOR'],
-  evidencias: ['ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO', 'COORDINADOR', 'TECNICO_EVALUADOR'],
+  hallazgos: ['ADMINISTRADOR', 'COORDINADOR', 'TECNICO_EVALUADOR'],
+  evidencias: ['ADMINISTRADOR', 'COORDINADOR', 'TECNICO_EVALUADOR'],
   correcciones: ['ADMINISTRADOR', 'COORDINADOR', 'TECNICO_EVALUADOR'],
 }
 
@@ -59,6 +60,7 @@ export const roleNames: Record<CanonicalRole, string> = {
   USUARIO_DELEGADO: 'Usuario delegado',
   COORDINADOR: 'Coordinador',
   TECNICO_EVALUADOR: 'Técnico evaluador',
+  LABORATORISTA: 'Laboratorista',
 }
 
 export function normalizeRoles(roles: readonly string[]): CanonicalRole[] {

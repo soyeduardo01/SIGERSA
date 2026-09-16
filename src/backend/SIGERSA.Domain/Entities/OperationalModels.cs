@@ -4,7 +4,8 @@ public sealed record OperationalActorScope(
     Guid UserId,
     Guid? CompanyId,
     bool GlobalScope,
-    bool AssignedOnly);
+    bool AssignedOnly,
+    bool OwnerOnly = false);
 
 public sealed record DashboardSnapshot(
     int ActiveCases,
@@ -103,6 +104,12 @@ public sealed record SurveillanceOptions(
     IReadOnlyList<OperationalOption> Companies,
     IReadOnlyList<OperationalOption> Establishments,
     bool CanManage);
+
+public sealed record PublicComplaintDraft(
+    Guid EstablishmentId,
+    string ComplaintType,
+    string Description,
+    bool IsConfidential);
 
 public sealed record FindingRecord(
     Guid Id,
@@ -230,7 +237,12 @@ public sealed record ReportGenerationData(
     IReadOnlyList<ReportEvidence> Evidences);
 
 public sealed record ReportFinding(string Code, string Criticality, string Description, string Status);
-public sealed record ReportEvidence(string Name, string Type, string MimeType);
+public sealed record ReportEvidence(
+    string Name,
+    string Type,
+    string MimeType,
+    string? BucketName = null,
+    string? SupabasePath = null);
 
 public sealed record ReportFileReference(
     Guid ReportId,

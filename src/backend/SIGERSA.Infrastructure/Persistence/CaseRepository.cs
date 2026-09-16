@@ -26,7 +26,9 @@ public sealed class CaseRepository(IDbConnectionFactory connectionFactory)
               JOIN "SIGERSA"."ESTABLECIMIENTO" AS est ON est.id = c.establecimiento_id
               LEFT JOIN "SIGERSA"."USUARIO" AS u ON u.id = c.responsable_actual_id
              WHERE (@GlobalScope = true
-                    OR (@CompanyScope IS NOT NULL AND c.empresa_id = @CompanyScope)
+                    OR (@CompanyScope IS NOT NULL AND c.empresa_id = @CompanyScope AND EXISTS (
+                        SELECT 1 FROM "SIGERSA"."SOLICITUD" owner_request
+                         WHERE owner_request.id = c.solicitud_id AND owner_request.solicitante_id = @ActorId))
                     OR (@AssignedOnly = true AND EXISTS (
                         SELECT 1 FROM "SIGERSA"."EVALUACION" AS ev
                          WHERE ev.caso_id = c.id AND ev.evaluador_principal_id = @ActorId)))
@@ -42,7 +44,9 @@ public sealed class CaseRepository(IDbConnectionFactory connectionFactory)
               JOIN "SIGERSA"."EMPRESA" AS e ON e.id = c.empresa_id
               JOIN "SIGERSA"."ESTABLECIMIENTO" AS est ON est.id = c.establecimiento_id
              WHERE (@GlobalScope = true
-                    OR (@CompanyScope IS NOT NULL AND c.empresa_id = @CompanyScope)
+                    OR (@CompanyScope IS NOT NULL AND c.empresa_id = @CompanyScope AND EXISTS (
+                        SELECT 1 FROM "SIGERSA"."SOLICITUD" owner_request
+                         WHERE owner_request.id = c.solicitud_id AND owner_request.solicitante_id = @ActorId))
                     OR (@AssignedOnly = true AND EXISTS (
                         SELECT 1 FROM "SIGERSA"."EVALUACION" AS ev
                          WHERE ev.caso_id = c.id AND ev.evaluador_principal_id = @ActorId)))

@@ -349,7 +349,11 @@ function FormSections(props: FormSectionsProps) {
             required
             disabled={isEditing}
             value={draft.companyId}
-            onChange={(event) => update('companyId', event.target.value)}
+            onChange={(event) => {
+              const companyId = event.target.value
+              update('companyId', companyId)
+              update('name', options.companies.find((value) => value.id === companyId)?.name ?? '')
+            }}
             className={inputClass}
           >
             <option value="">Seleccione</option>
@@ -363,10 +367,10 @@ function FormSections(props: FormSectionsProps) {
         <Field label="Nombre o razón social" required className="lg:col-span-3">
           <input
             required
+            readOnly
             maxLength={250}
             value={draft.name}
-            onChange={(event) => update('name', event.target.value)}
-            className={inputClass}
+            className={`${inputClass} bg-slate-100`}
           />
         </Field>
         <Field label="Calle" className="lg:col-span-4">

@@ -30,7 +30,7 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
              WHERE s.activo = true
                AND (
                     @GlobalScope = true
-                    OR (@CompanyScope IS NOT NULL AND s.empresa_id = @CompanyScope)
+                    OR (@CompanyScope IS NOT NULL AND s.empresa_id = @CompanyScope AND s.solicitante_id = @ActorId)
                     OR (@AssignedOnly = true AND EXISTS (
                         SELECT 1
                           FROM "SIGERSA"."CASO" AS c
@@ -53,7 +53,7 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
              WHERE s.activo = true
                AND (
                     @GlobalScope = true
-                    OR (@CompanyScope IS NOT NULL AND s.empresa_id = @CompanyScope)
+                    OR (@CompanyScope IS NOT NULL AND s.empresa_id = @CompanyScope AND s.solicitante_id = @ActorId)
                     OR (@AssignedOnly = true AND EXISTS (
                         SELECT 1
                           FROM "SIGERSA"."CASO" AS c
@@ -107,6 +107,20 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
                AND (@CompanyScope IS NULL OR empresa_id = @CompanyScope)
              ORDER BY nombre;
 
+            SELECT user_account.id AS Id, user_account.nombre_completo AS Name,
+                   user_company.empresa_id AS CompanyId
+              FROM "SIGERSA"."USUARIO" user_account
+              JOIN "SIGERSA"."USUARIO_EMPRESA" user_company
+                ON user_company.usuario_id = user_account.id AND user_company.activo = true
+              JOIN "SIGERSA"."USUARIO_ROL" user_role
+                ON user_role.usuario_id = user_account.id AND user_role.activo = true
+              JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+             WHERE user_account.activo = true AND user_account.estado = 'ACTIVO'
+               AND role.codigo = 'USUARIO_DELEGADO' AND role.activo = true
+               AND @CanManage = true
+               AND (@CompanyScope IS NULL OR user_company.empresa_id = @CompanyScope)
+             ORDER BY user_account.nombre_completo;
+
             SELECT id AS Id, nombre AS Name, NULL::uuid AS CompanyId
               FROM "SIGERSA"."MOTIVO_INSPECCION"
              WHERE activo = true AND @CanManage = true
@@ -126,9 +140,10 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
                 cancellationToken: cancellationToken));
             var companies = (await result.ReadAsync<OptionRow>()).Select(ToOption).ToArray();
             var establishments = (await result.ReadAsync<OptionRow>()).Select(ToOption).ToArray();
+            var delegates = (await result.ReadAsync<OptionRow>()).Select(ToOption).ToArray();
             var reasons = (await result.ReadAsync<OptionRow>()).Select(ToOption).ToArray();
             var establishmentTypes = (await result.ReadAsync<string>()).ToArray();
-            return new InspectionRequestOptions(companies, establishments, reasons, establishmentTypes, canManage);
+            return new InspectionRequestOptions(companies, establishments, reasons, establishmentTypes, canManage, delegates);
         }
     }
 
@@ -142,6 +157,21 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
         await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
             await ValidateReferencesAsync(connection, transaction, draft, cancellationToken);
+            var validApplicant = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(Sql("""
+                SELECT EXISTS (
+                    SELECT 1 FROM "SIGERSA"."USUARIO" user_account
+                    JOIN "SIGERSA"."USUARIO_EMPRESA" user_company
+                      ON user_company.usuario_id = user_account.id AND user_company.activo = true
+                    JOIN "SIGERSA"."USUARIO_ROL" user_role
+                      ON user_role.usuario_id = user_account.id AND user_role.activo = true
+                    JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                   WHERE user_account.id = @ApplicantId AND user_account.activo = true
+                     AND user_company.empresa_id = @CompanyId
+                     AND role.codigo = 'USUARIO_DELEGADO' AND role.activo = true);
+                """), new { ApplicantId = applicantId, draft.CompanyId }, transaction,
+                cancellationToken: cancellationToken));
+            if (!validApplicant)
+                throw new ArgumentException("El solicitante debe ser un usuario delegado activo de la empresa seleccionada.");
             var id = Guid.NewGuid();
             var insertedId = await connection.QuerySingleOrDefaultAsync<Guid?>(new CommandDefinition(Sql("""
                 INSERT INTO "SIGERSA"."SOLICITUD"

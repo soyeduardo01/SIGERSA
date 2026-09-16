@@ -82,7 +82,7 @@ public sealed class UserManagementServiceTests
             CancellationToken.None);
 
         Assert.True(options.CanManage);
-        Assert.Equal(["ADMINISTRADOR_EMPRESA", "USUARIO_DELEGADO"], options.Roles.Select(role => role.Code));
+        Assert.Equal(["USUARIO_DELEGADO"], options.Roles.Select(role => role.Code));
         Assert.Collection(options.Companies, company => Assert.Equal(CompanyId, company.Id));
     }
 

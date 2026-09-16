@@ -93,10 +93,12 @@ export function NotificationsPage() {
   const [notifications, setNotifications] = useState<SystemNotification[]>([])
   const [notificationError, setNotificationError] = useState('')
   const [syncing, setSyncing] = useState(false)
+  const { identity } = useAuth()
 
   const loadQueue = useCallback(async () => {
-    setItems(await offlineDb.syncQueue.orderBy('createdAt').reverse().toArray())
-  }, [])
+    const allItems = await offlineDb.syncQueue.orderBy('createdAt').reverse().toArray()
+    setItems(allItems.filter((item) => item.ownerUserId === identity?.id))
+  }, [identity?.id])
 
   const loadNotifications = useCallback(async () => {
     try {

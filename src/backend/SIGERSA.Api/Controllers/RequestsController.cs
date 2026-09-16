@@ -11,7 +11,7 @@ namespace SIGERSA.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/requests")]
-[Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
+[Authorize(Roles = "ADMINISTRADOR,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
 public sealed class RequestsController(
     InspectionRequestService service,
     SupportingDocumentService documents,
@@ -31,7 +31,7 @@ public sealed class RequestsController(
         service.GetOptionsAsync(Actor(), cancellationToken);
 
     [HttpPost]
-    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,USUARIO_DELEGADO,COORDINADOR")]
     public async Task<ActionResult<object>> Create(
         InspectionRequestInput input,
         [FromHeader(Name = "Idempotency-Key")] Guid? headerIdempotencyKey,
@@ -51,7 +51,7 @@ public sealed class RequestsController(
     }
 
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,USUARIO_DELEGADO,COORDINADOR")]
     public async Task<IActionResult> Update(
         Guid id,
         InspectionRequestInput input,
@@ -62,7 +62,7 @@ public sealed class RequestsController(
     }
 
     [HttpPost("{id:guid}/documents")]
-    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,USUARIO_DELEGADO,COORDINADOR")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(6_291_456)]
     public async Task<ActionResult<object>> UploadDocument(
@@ -77,7 +77,7 @@ public sealed class RequestsController(
     }
 
     [HttpPost("{id:guid}/submit")]
-    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,USUARIO_DELEGADO,COORDINADOR")]
     public async Task<IActionResult> Submit(
         Guid id,
         InspectionRequestTransitionInput input,
@@ -88,7 +88,7 @@ public sealed class RequestsController(
     }
 
     [HttpPost("{id:guid}/cancel")]
-    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,USUARIO_DELEGADO,COORDINADOR")]
     public async Task<IActionResult> Cancel(
         Guid id,
         InspectionRequestTransitionInput input,

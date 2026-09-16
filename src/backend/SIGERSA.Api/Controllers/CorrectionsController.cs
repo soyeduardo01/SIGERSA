@@ -33,7 +33,7 @@ public sealed class CorrectionsController(CorrectionService service) : Controlle
     }
 
     [HttpPost("{id:guid}/submit")]
-    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
     public async Task<IActionResult> Submit(Guid id, CorrectionTransitionInput input, CancellationToken cancellationToken)
     {
         await service.SubmitAsync(id, input, Actor(), cancellationToken);

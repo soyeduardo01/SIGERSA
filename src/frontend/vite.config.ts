@@ -88,7 +88,8 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        login: fileURLToPath(new URL('./index.html', import.meta.url)),
+        landing: fileURLToPath(new URL('./index.html', import.meta.url)),
+        login: fileURLToPath(new URL('./acceso.html', import.meta.url)),
         recovery: fileURLToPath(new URL('./recuperar-clave.html', import.meta.url)),
         registration: fileURLToPath(new URL('./registro.html', import.meta.url)),
         module: fileURLToPath(new URL('./modulo.html', import.meta.url)),

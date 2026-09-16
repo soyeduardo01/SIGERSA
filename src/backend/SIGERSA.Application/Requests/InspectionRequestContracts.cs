@@ -12,7 +12,8 @@ public sealed record InspectionRequestInput(
     string? EstablishmentType,
     string? Observations,
     Guid IdempotencyKey,
-    long? RowVersion);
+    long? RowVersion,
+    Guid? ApplicantUserId = null);
 
 public sealed record InspectionRequestTransitionInput(long RowVersion);
 

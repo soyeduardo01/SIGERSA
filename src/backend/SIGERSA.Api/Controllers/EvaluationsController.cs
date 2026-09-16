@@ -12,14 +12,14 @@ namespace SIGERSA.Api.Controllers;
 public sealed class EvaluationsController(EvaluationWorkflowService service) : ControllerBase
 {
     [HttpGet("evaluations")]
-    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR,TECNICO_EVALUADOR")]
     public Task<EvaluationsPage> Search(
         string? search, string? status, int page = 1, int pageSize = 10,
         CancellationToken cancellationToken = default) =>
         service.SearchAsync(search, status, page, pageSize, ActorContext(), cancellationToken);
 
     [HttpGet("evaluations/options")]
-    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR,TECNICO_EVALUADOR")]
     public Task<EvaluationCreateOptions> Options(CancellationToken cancellationToken) =>
         service.GetOptionsAsync(ActorContext(), cancellationToken);
 
@@ -39,12 +39,12 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
     }
 
     [HttpGet("evaluations/{evaluationId:guid}/form")]
-    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR,TECNICO_EVALUADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR,TECNICO_EVALUADOR")]
     public Task<IReadOnlyList<EvaluationFormItem>> GetForm(Guid evaluationId, CancellationToken cancellationToken) =>
         service.GetFormAsync(evaluationId, Actor(), cancellationToken);
 
     [HttpGet("evaluations/{evaluationId:guid}/workspace")]
-    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR,TECNICO_EVALUADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR,TECNICO_EVALUADOR")]
     public Task<EvaluationWorkspace> GetWorkspace(Guid evaluationId, CancellationToken cancellationToken) =>
         service.GetWorkspaceAsync(evaluationId, Actor(), cancellationToken);
 

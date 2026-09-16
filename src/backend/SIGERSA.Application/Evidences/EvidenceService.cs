@@ -174,7 +174,6 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
             "application/pdf" => ".pdf",
             "image/jpeg" => ".jpg",
             "image/png" => ".png",
-            "video/mp4" => ".mp4",
             _ => throw new InvalidDataException("El tipo MIME no está permitido.")
         };
         return $"evaluaciones/{evaluationId:N}/{idempotencyKey:N}{extension}";

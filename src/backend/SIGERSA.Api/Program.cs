@@ -128,6 +128,15 @@ builder.Services.AddRateLimiter(options =>
             QueueLimit = 0,
             AutoReplenishment = true
         }));
+    options.AddPolicy("public-complaints", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 5,
+            Window = TimeSpan.FromMinutes(15),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
 });
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 {

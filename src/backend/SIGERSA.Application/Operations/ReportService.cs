@@ -24,7 +24,19 @@ public sealed class ReportService(
         EnsureReviewer(actor);
         var data = await repository.GetReportDataAsync(evaluationId, actor.UserId, cancellationToken)
             ?? throw new KeyNotFoundException("La evaluación no existe o todavía no está lista para generar su informe.");
-        var content = PdfReportBuilder.Build(data, official);
+        var mainReport = InstitutionalPdfReportBuilder.Build(data, official);
+        var attachments = new List<ReportAttachment>();
+        foreach (var evidence in data.Evidences)
+        {
+            if (string.IsNullOrWhiteSpace(evidence.BucketName) || string.IsNullOrWhiteSpace(evidence.SupabasePath))
+                continue;
+            await using var evidenceStream = await storage.DownloadAsync(
+                evidence.BucketName, evidence.SupabasePath, cancellationToken);
+            using var buffer = new MemoryStream();
+            await evidenceStream.CopyToAsync(buffer, cancellationToken);
+            attachments.Add(new ReportAttachment(evidence.Name, evidence.MimeType, buffer.ToArray()));
+        }
+        var content = PdfAttachmentMerger.Merge(mainReport, attachments);
         var path = $"informes/{evaluationId:N}/{Guid.NewGuid():N}.pdf";
         await using var stream = new MemoryStream(content, writable: false);
         var stored = await storage.UploadAsync(new StorageUpload(
@@ -52,7 +64,8 @@ public sealed class ReportService(
         var assigned = !global && actor.Roles.Contains("TECNICO_EVALUADOR", StringComparer.Ordinal);
         Guid? company = global || assigned ? null : actor.CompanyId
             ?? throw new ForbiddenException("El usuario no tiene un ámbito empresarial válido.");
-        return new OperationalActorScope(actor.UserId, company, global, assigned);
+        return new OperationalActorScope(actor.UserId, company, global, assigned,
+            actor.Roles.Contains("USUARIO_DELEGADO", StringComparer.Ordinal));
     }
 
     private static void EnsureReviewer(OperationalActor actor)

@@ -25,6 +25,7 @@ public sealed class CompanyRepository(IDbConnectionFactory connectionFactory)
                        SELECT jsonb_agg(jsonb_build_object(
                            'Type', contact.tipo, 'FullName', contact.nombre_completo,
                            'Identification', contact.identificacion_normalizada,
+                           'IdentificationType', contact.tipo_identificacion,
                            'Phone', contact.telefono, 'Email', contact.correo)
                            ORDER BY contact.tipo)::text
                          FROM "SIGERSA"."CONTACTO" contact
@@ -197,12 +198,12 @@ public sealed class CompanyRepository(IDbConnectionFactory connectionFactory)
         {
             await connection.ExecuteAsync(new CommandDefinition(Sql("""
                 INSERT INTO "SIGERSA"."CONTACTO"
-                    (id, empresa_id, tipo, nombre_completo, identificacion_normalizada,
+                    (id, empresa_id, tipo, nombre_completo, identificacion_normalizada, tipo_identificacion,
                      telefono, correo, principal, activo, creado_por)
-                VALUES (gen_random_uuid(), @CompanyId, @Type, @FullName, @Identification,
+                VALUES (gen_random_uuid(), @CompanyId, @Type, @FullName, @Identification, @IdentificationType,
                         @Phone, @Email, @IsPrimary, true, @ActorId);
                 """), new { CompanyId = companyId, contact.Type, contact.FullName,
-                    contact.Identification, contact.Phone, contact.Email,
+                    contact.Identification, contact.IdentificationType, contact.Phone, contact.Email,
                     IsPrimary = contact.Type == "PRINCIPAL", ActorId = actorId }, transaction,
                 cancellationToken: cancellationToken));
         }

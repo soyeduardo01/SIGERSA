@@ -9,7 +9,7 @@ namespace SIGERSA.Api.Controllers;
 
 [ApiController]
 [Route("api/v1")]
-[Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
+[Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR,LABORATORISTA")]
 public sealed class OperationsController(OperationalService service) : ControllerBase
 {
     [HttpGet("dashboard")]
@@ -39,7 +39,7 @@ public sealed class OperationsController(OperationalService service) : Controlle
         service.GetSurveillanceOptionsAsync(Actor(), cancellationToken);
 
     [HttpPost("surveillance")]
-    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR,LABORATORISTA")]
     public async Task<ActionResult<object>> CreateSurveillance(
         SurveillanceRequest request, CancellationToken cancellationToken)
     {
@@ -48,7 +48,7 @@ public sealed class OperationsController(OperationalService service) : Controlle
     }
 
     [HttpPut("surveillance/{id:guid}")]
-    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR,LABORATORISTA")]
     public async Task<IActionResult> UpdateSurveillance(
         Guid id, SurveillanceRequest request, CancellationToken cancellationToken)
     {

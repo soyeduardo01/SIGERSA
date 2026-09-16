@@ -2,18 +2,23 @@ using FluentValidation;
 using SIGERSA.Domain.Entities;
 using SIGERSA.Domain.Exceptions;
 using SIGERSA.Domain.Repositories;
+using SIGERSA.Domain.Caching;
 
 namespace SIGERSA.Application.Operations;
 
 public sealed class OperationalService(
     IOperationalRepository repository,
+    ICacheStore cache,
     IValidator<SurveillanceRequest> surveillanceValidator,
     IValidator<FindingRequest> findingValidator)
 {
     public Task<DashboardSnapshot> GetDashboardAsync(OperationalActor actor, CancellationToken cancellationToken)
     {
-        EnsureReader(actor);
-        return repository.GetDashboardAsync(Scope(actor), cancellationToken);
+        EnsureRole(actor, "ADMINISTRADOR", "ADMINISTRADOR_EMPRESA", "USUARIO_DELEGADO", "COORDINADOR", "TECNICO_EVALUADOR");
+        var scope = Scope(actor);
+        return cache.GetOrCreateAsync(
+            $"dashboard:{actor.UserId:N}:{actor.CompanyId:N}:{string.Join(',', actor.Roles.Order())}",
+            token => repository.GetDashboardAsync(scope, token), TimeSpan.FromSeconds(45), cancellationToken);
     }
 
     public Task<IReadOnlyList<NotificationRecord>> GetNotificationsAsync(
@@ -21,7 +26,10 @@ public sealed class OperationalService(
         CancellationToken cancellationToken)
     {
         EnsureReader(actor);
-        return repository.GetNotificationsAsync(actor.UserId, cancellationToken);
+        return cache.GetOrCreateAsync(
+            $"notifications:{actor.UserId:N}",
+            token => repository.GetNotificationsAsync(actor.UserId, token),
+            TimeSpan.FromSeconds(30), cancellationToken);
     }
 
     public async Task MarkNotificationReadAsync(
@@ -32,13 +40,14 @@ public sealed class OperationalService(
         EnsureReader(actor);
         if (!await repository.MarkNotificationReadAsync(notificationId, actor.UserId, cancellationToken))
             throw new KeyNotFoundException("La notificación no existe o todavía no está disponible.");
+        await cache.RemoveAsync($"notifications:{actor.UserId:N}", cancellationToken);
     }
 
     public Task<SurveillancePage> SearchSurveillanceAsync(
         string? search, string? kind, string? result, int page, int pageSize,
         OperationalActor actor, CancellationToken cancellationToken)
     {
-        EnsureReader(actor);
+        EnsureRole(actor, "ADMINISTRADOR", "COORDINADOR", "LABORATORISTA");
         return repository.SearchSurveillanceAsync(new SurveillanceSearch(
             Normalize(search)?.ToLowerInvariant(), Normalize(kind)?.ToUpperInvariant(),
             Normalize(result)?.ToUpperInvariant(), Math.Max(1, page),
@@ -47,7 +56,7 @@ public sealed class OperationalService(
 
     public Task<SurveillanceOptions> GetSurveillanceOptionsAsync(OperationalActor actor, CancellationToken cancellationToken)
     {
-        EnsureReader(actor);
+        EnsureRole(actor, "ADMINISTRADOR", "COORDINADOR", "LABORATORISTA");
         return repository.GetSurveillanceOptionsAsync(CanCoordinate(actor), cancellationToken);
     }
 
@@ -73,15 +82,15 @@ public sealed class OperationalService(
         string? search, string? status, int page, int pageSize,
         OperationalActor actor, CancellationToken cancellationToken)
     {
-        EnsureReader(actor);
+        EnsureRole(actor, "ADMINISTRADOR", "USUARIO_DELEGADO", "COORDINADOR", "TECNICO_EVALUADOR");
         return repository.SearchFindingsAsync(new FindingSearch(
             Normalize(search)?.ToLowerInvariant(), Normalize(status)?.ToUpperInvariant(),
-            Math.Max(1, page), Math.Clamp(pageSize, 5, 100), Scope(actor)), cancellationToken);
+            Math.Max(1, page), Math.Clamp(pageSize, 5, 100), Scope(actor, ownerOnly: true)), cancellationToken);
     }
 
     public Task<FindingOptions> GetFindingOptionsAsync(OperationalActor actor, CancellationToken cancellationToken)
     {
-        EnsureReader(actor);
+        EnsureRole(actor, "ADMINISTRADOR", "USUARIO_DELEGADO", "COORDINADOR", "TECNICO_EVALUADOR");
         return repository.GetFindingOptionsAsync(actor.UserId, CanCreateFinding(actor), cancellationToken);
     }
 
@@ -109,18 +118,18 @@ public sealed class OperationalService(
         string? search, string? status, DateTimeOffset? from, DateTimeOffset? to,
         int page, int pageSize, OperationalActor actor, CancellationToken cancellationToken)
     {
-        EnsureReader(actor);
+        EnsureRole(actor, "ADMINISTRADOR", "USUARIO_DELEGADO", "COORDINADOR", "TECNICO_EVALUADOR");
         if (from.HasValue && to.HasValue && to < from) throw new ArgumentException("El rango de fechas no es válido.");
         return repository.SearchHistoryAsync(new HistoricalEvaluationSearch(
             Normalize(search)?.ToLowerInvariant(), Normalize(status)?.ToUpperInvariant(), from, to,
-            Math.Max(1, page), Math.Clamp(pageSize, 5, 100), Scope(actor)), cancellationToken);
+            Math.Max(1, page), Math.Clamp(pageSize, 5, 100), Scope(actor, ownerOnly: true)), cancellationToken);
     }
 
     public Task<IReadOnlyList<TimelineEvent>> GetTimelineAsync(
         Guid evaluationId, OperationalActor actor, CancellationToken cancellationToken)
     {
-        EnsureReader(actor);
-        return repository.GetTimelineAsync(evaluationId, Scope(actor), cancellationToken);
+        EnsureRole(actor, "ADMINISTRADOR", "USUARIO_DELEGADO", "COORDINADOR", "TECNICO_EVALUADOR");
+        return repository.GetTimelineAsync(evaluationId, Scope(actor, ownerOnly: true), cancellationToken);
     }
 
     public Task<AuditEventsPage> SearchAuditAsync(
@@ -141,17 +150,18 @@ public sealed class OperationalService(
         Normalize(request.Channel)?.ToUpperInvariant(), request.IsAnonymous, request.IsConfidential,
         Normalize(request.Result)?.ToUpperInvariant(), request.RowVersion);
 
-    private static OperationalActorScope Scope(OperationalActor actor)
+    private static OperationalActorScope Scope(OperationalActor actor, bool ownerOnly = false)
     {
-        var global = actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR");
+        var global = actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR" or "LABORATORISTA");
         var assigned = !global && actor.Roles.Contains("TECNICO_EVALUADOR", StringComparer.Ordinal);
         Guid? company = global || assigned ? null : actor.CompanyId
             ?? throw new ForbiddenException("El usuario no tiene un ámbito empresarial válido.");
-        return new OperationalActorScope(actor.UserId, company, global, assigned);
+        return new OperationalActorScope(actor.UserId, company, global, assigned,
+            ownerOnly && actor.Roles.Contains("USUARIO_DELEGADO", StringComparer.Ordinal));
     }
 
     private static bool CanCoordinate(OperationalActor actor) =>
-        actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR");
+        actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR" or "LABORATORISTA");
 
     private static bool CanCreateFinding(OperationalActor actor) =>
         actor.Roles.Any(role => role is "ADMINISTRADOR" or "TECNICO_EVALUADOR");
@@ -163,7 +173,13 @@ public sealed class OperationalService(
 
     private static void EnsureReader(OperationalActor actor)
     {
-        if (!actor.Roles.Any(role => role is "ADMINISTRADOR" or "ADMINISTRADOR_EMPRESA" or "USUARIO_DELEGADO" or "COORDINADOR" or "TECNICO_EVALUADOR"))
+        if (!actor.Roles.Any(role => role is "ADMINISTRADOR" or "ADMINISTRADOR_EMPRESA" or "USUARIO_DELEGADO" or "COORDINADOR" or "TECNICO_EVALUADOR" or "LABORATORISTA"))
+            throw new ForbiddenException("No tiene permisos para consultar este módulo.");
+    }
+
+    private static void EnsureRole(OperationalActor actor, params string[] allowedRoles)
+    {
+        if (!actor.Roles.Any(role => allowedRoles.Contains(role, StringComparer.Ordinal)))
             throw new ForbiddenException("No tiene permisos para consultar este módulo.");
     }
 

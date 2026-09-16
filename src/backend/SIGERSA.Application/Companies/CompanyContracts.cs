@@ -20,7 +20,8 @@ public sealed record CompanyContactRequest(
     string FullName,
     string? Identification,
     string? Phone,
-    string? Email);
+    string? Email,
+    string? IdentificationType = null);
 
 public sealed class CompanyRequestValidator : AbstractValidator<CompanyRequest>
 {
@@ -44,6 +45,9 @@ public sealed class CompanyRequestValidator : AbstractValidator<CompanyRequest>
                 .Must(value => value.Trim().ToUpperInvariant() is "LEGAL" or "CALIDAD" or "PRINCIPAL");
             contact.RuleFor(value => value.FullName).NotEmpty().MaximumLength(250);
             contact.RuleFor(value => value.Identification).MaximumLength(100);
+            contact.RuleFor(value => value.IdentificationType)
+                .Must(value => value is null or "CEDULA" or "PASAPORTE")
+                .WithMessage("El tipo de identificación debe ser CEDULA o PASAPORTE.");
             contact.RuleFor(value => value.Phone).MaximumLength(40);
             contact.RuleFor(value => value.Email).EmailAddress().MaximumLength(320)
                 .When(value => !string.IsNullOrWhiteSpace(value.Email));

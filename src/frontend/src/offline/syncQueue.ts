@@ -4,6 +4,8 @@ import {
   apiError,
   apiFetch,
   confirmEvidenceUpload,
+  getSession,
+  getSessionIdentity,
   requestEvidenceUploadAuthorization,
 } from '../lib/api'
 import {
@@ -56,7 +58,12 @@ export async function queueCorrection(payload: CorrectionPayload) {
 }
 
 export async function getPendingMutationCount() {
-  return offlineDb.syncQueue.where('status').anyOf('pending', 'processing', 'failed').count()
+  const ownerUserId = currentUserId()
+  return offlineDb.syncQueue
+    .where('status')
+    .anyOf('pending', 'processing', 'failed')
+    .filter((item) => item.ownerUserId === ownerUserId)
+    .count()
 }
 
 export function flushSyncQueue() {
@@ -70,11 +77,14 @@ export function flushSyncQueue() {
 }
 
 export async function discardSyncMutation(idempotencyKey: string) {
-  await offlineDb.syncQueue.delete(idempotencyKey)
+  const item = await offlineDb.syncQueue.get(idempotencyKey)
+  if (item?.ownerUserId === currentUserId()) await offlineDb.syncQueue.delete(idempotencyKey)
   notifyQueueChanged()
 }
 
 export async function retrySyncMutation(idempotencyKey: string) {
+  const item = await offlineDb.syncQueue.get(idempotencyKey)
+  if (!item || item.ownerUserId !== currentUserId()) return
   await offlineDb.syncQueue.update(idempotencyKey, {
     status: 'pending',
     attempts: 0,
@@ -101,15 +111,13 @@ export async function retryEvaluationMutations(evaluationId: string) {
 }
 
 async function processSyncQueue() {
+  const ownerUserId = currentUserId()
   const now = new Date().toISOString()
-  await offlineDb.syncQueue.where('status').equals('processing').modify({
-    status: 'pending',
-    nextAttemptAt: now,
-  })
+  await offlineDb.syncQueue.where('status').equals('processing').filter((item) => item.ownerUserId === ownerUserId).modify({ status: 'pending', nextAttemptAt: now })
   const queuedItems = await offlineDb.syncQueue
     .where('status')
     .anyOf('pending', 'failed')
-    .filter((item) => item.attempts < maxAttempts && item.nextAttemptAt <= now)
+    .filter((item) => item.ownerUserId === ownerUserId && item.attempts < maxAttempts && item.nextAttemptAt <= now)
     .sortBy('createdAt')
 
   for (const item of queuedItems) {
@@ -125,6 +133,7 @@ async function enqueueMutation(
   const createdAt = new Date().toISOString()
   const item: SyncQueueItem = {
     idempotencyKey,
+    ownerUserId: currentUserId(),
     kind,
     status: 'pending',
     payload,
@@ -256,4 +265,12 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function notifyQueueChanged() {
   window.dispatchEvent(new Event(queueChangedEvent))
+}
+
+function currentUserId() {
+  const session = getSession()
+  if (!session) throw new Error('Se requiere una sesión activa para sincronizar cambios locales.')
+  const userId = getSessionIdentity(session).id
+  if (!userId) throw new Error('La sesión activa no contiene un identificador de usuario válido.')
+  return userId
 }

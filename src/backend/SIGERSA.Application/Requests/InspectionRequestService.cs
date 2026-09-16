@@ -43,7 +43,7 @@ public sealed class InspectionRequestService(
             cancellationToken);
     }
 
-    public Task<InspectionRequestOptions> GetOptionsAsync(
+    public async Task<InspectionRequestOptions> GetOptionsAsync(
         InspectionRequestActor actor,
         CancellationToken cancellationToken)
     {
@@ -51,7 +51,10 @@ public sealed class InspectionRequestService(
         var canManage = CanManage(actor);
         var globalScope = HasRole(actor, "ADMINISTRADOR") || HasRole(actor, "COORDINADOR");
         var companyScope = globalScope ? null : actor.CompanyId;
-        return repository.GetOptionsAsync(companyScope, canManage, cancellationToken);
+        var options = await repository.GetOptionsAsync(companyScope, canManage, cancellationToken);
+        if (HasRole(actor, "USUARIO_DELEGADO"))
+            options = options with { Delegates = (options.Delegates ?? []).Where(value => value.Id == actor.UserId).ToArray() };
+        return options;
     }
 
     public async Task<Guid> CreateAsync(
@@ -64,7 +67,8 @@ public sealed class InspectionRequestService(
         if (input.IdempotencyKey == Guid.Empty)
             throw new ArgumentException("La clave de idempotencia es obligatoria.");
         var companyId = ResolveCompany(input.CompanyId, actor);
-        return await repository.CreateAsync(ToDraft(input, companyId), actor.UserId, cancellationToken);
+        var applicantId = ResolveApplicant(input.ApplicantUserId, companyId, actor);
+        return await repository.CreateAsync(ToDraft(input, companyId), applicantId, cancellationToken);
     }
 
     public async Task UpdateAsync(
@@ -136,6 +140,17 @@ public sealed class InspectionRequestService(
         return company;
     }
 
+    private static Guid ResolveApplicant(Guid? requested, Guid companyId, InspectionRequestActor actor)
+    {
+        if (HasRole(actor, "USUARIO_DELEGADO"))
+        {
+            if (requested.HasValue && requested.Value != actor.UserId)
+                throw new ForbiddenException("Un delegado solo puede crear solicitudes a su propio nombre.");
+            return actor.UserId;
+        }
+        return requested ?? throw new ArgumentException("Debe seleccionar un usuario delegado de la empresa.");
+    }
+
     private static Guid? CompanyWriteScope(InspectionRequestActor actor) =>
         HasRole(actor, "ADMINISTRADOR") || HasRole(actor, "COORDINADOR") ? null : RequiredCompany(actor);
 
@@ -144,7 +159,6 @@ public sealed class InspectionRequestService(
 
     private static bool CanManage(InspectionRequestActor actor) =>
         HasRole(actor, "ADMINISTRADOR") ||
-        HasRole(actor, "ADMINISTRADOR_EMPRESA") ||
         HasRole(actor, "USUARIO_DELEGADO") ||
         HasRole(actor, "COORDINADOR");
 

@@ -21,7 +21,8 @@ public sealed record CompanyContact(
     string FullName,
     string? Identification,
     string? Phone,
-    string? Email);
+    string? Email,
+    string? IdentificationType = null);
 
 public sealed record CompaniesPage(
     IReadOnlyList<CompanySummary> Items,

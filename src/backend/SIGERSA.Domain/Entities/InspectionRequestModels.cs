@@ -54,4 +54,5 @@ public sealed record InspectionRequestOptions(
     IReadOnlyList<InspectionRequestOption> Establishments,
     IReadOnlyList<InspectionRequestOption> Reasons,
     IReadOnlyList<string> EstablishmentTypes,
-    bool CanManage);
+    bool CanManage,
+    IReadOnlyList<InspectionRequestOption>? Delegates = null);

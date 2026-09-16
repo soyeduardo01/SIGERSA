@@ -32,6 +32,7 @@ export interface PublicRegistrationDraft {
 }
 
 export interface SessionIdentity {
+  id?: string
   name: string
   email: string
   initials: string
@@ -116,6 +117,7 @@ export interface CompanyContactDraft {
   type: 'LEGAL' | 'CALIDAD' | 'PRINCIPAL'
   fullName: string
   identification: string | null
+  identificationType?: 'CEDULA' | 'PASAPORTE' | null
   phone: string | null
   email: string | null
 }
@@ -675,6 +677,7 @@ export interface InspectionRequestsPage {
 export interface InspectionRequestOptions {
   companies: Array<{ id: string; name: string; companyId: string | null }>
   establishments: Array<{ id: string; name: string; companyId: string | null }>
+  delegates: Array<{ id: string; name: string; companyId: string | null }>
   reasons: Array<{ id: string; name: string; companyId: string | null }>
   establishmentTypes: string[]
   canManage: boolean
@@ -682,6 +685,7 @@ export interface InspectionRequestOptions {
 
 export interface InspectionRequestDraft {
   companyId: string | null
+  applicantUserId?: string | null
   establishmentId: string | null
   inspectionReasonId: string
   reasonDetail: string
@@ -857,6 +861,7 @@ export function subscribeSessionChanges(listener: (session: AuthSession | null) 
 
 export function getSessionIdentity(session: AuthSession): SessionIdentity {
   const claims = readJwtClaims(session.accessToken)
+  const id = stringClaim(claims, ['sub']) || ''
   const name =
     session.userName ||
     stringClaim(claims, ['name', 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name']) ||
@@ -871,7 +876,7 @@ export function getSessionIdentity(session: AuthSession): SessionIdentity {
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
       .join('') || 'US'
-  return { name, email, initials }
+  return { id, name, email, initials }
 }
 
 export async function logout() {
@@ -1587,6 +1592,27 @@ export async function getSurveillanceOptions() {
 
 export async function createSurveillance(draft: SurveillanceDraft) {
   return sendJson<{ id: string }>('/api/v1/surveillance', 'POST', draft)
+}
+
+export async function getPublicComplaintOptions() {
+  const response = await publicFetch('/api/v1/public/complaints/options', { method: 'GET' })
+  if (!response.ok) throw await apiError(response)
+  return (await response.json()) as Array<{ id: string; name: string; companyId: string | null }>
+}
+
+export async function createPublicComplaint(draft: {
+  establishmentId: string
+  complaintType: string
+  description: string
+  isConfidential: boolean
+}) {
+  const response = await publicFetch('/api/v1/public/complaints', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(draft),
+  })
+  if (!response.ok) throw await apiError(response)
+  return (await response.json()) as { id: string; status: string }
 }
 
 export async function updateSurveillance(id: string, draft: SurveillanceDraft) {

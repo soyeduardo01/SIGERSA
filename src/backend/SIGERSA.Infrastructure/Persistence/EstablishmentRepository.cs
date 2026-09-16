@@ -344,7 +344,8 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
              nivel_haccp_porcentaje, plan_muestreo_microbiologico, aplicacion_muestreo_codigo,
              es_suplidor_inabie, distribucion_inabie_codigo, estado, activo, creado_por)
         VALUES
-            (@Id, @CompanyId, @MunicipalityId, @DpsDasId, @CommercializationId, @Name,
+            (@Id, @CompanyId, @MunicipalityId, @DpsDasId, @CommercializationId,
+             (SELECT razon_social FROM "SIGERSA"."EMPRESA" WHERE id = @CompanyId AND activo = true),
              @Street, @AddressNumber, @Phone, @Email, @OperationsStartDate,
              @SanitaryPermitNumber, @SanitaryPermitExpiresAt, @ProductsDescription,
              @AnnualProduction, @FemaleEmployees, @MaleEmployees,
@@ -356,7 +357,8 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
     private const string UpdateSql = """
         UPDATE "SIGERSA"."ESTABLECIMIENTO"
            SET municipio_id = @MunicipalityId, dps_das_id = @DpsDasId,
-               comercializacion_id = @CommercializationId, nombre = @Name,
+               comercializacion_id = @CommercializationId,
+               nombre = (SELECT razon_social FROM "SIGERSA"."EMPRESA" WHERE id = @CompanyId AND activo = true),
                calle = @Street, numero_direccion = @AddressNumber, telefono = @Phone, correo = @Email,
                fecha_inicio_operaciones = @OperationsStartDate,
                permiso_sanitario_numero = @SanitaryPermitNumber,

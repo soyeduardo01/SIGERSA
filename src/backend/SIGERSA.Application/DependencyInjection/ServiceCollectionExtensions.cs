@@ -57,6 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<CorrectionService>();
         services.AddScoped<SupportingDocumentService>();
         services.AddScoped<OperationalService>();
+        services.AddScoped<PublicComplaintService>();
         services.AddScoped<ReportService>();
         return services;
     }

@@ -13,7 +13,7 @@ import {
   type MunicipalityOption,
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
-import { formatStatusLabel } from '../../lib/formatters'
+import { formatCedula, formatPhone, formatStatusLabel } from '../../lib/formatters'
 
 const emptyPage: CompaniesPage = { items: [], page: 1, pageSize: 10, total: 0 }
 
@@ -233,12 +233,6 @@ export function CompaniesManagement() {
                         >
                           Evaluaciones
                         </a>
-                        <a
-                          href={`/modulo.html?module=auditoria&search=${company.id}`}
-                          className="rounded-lg border border-slate-300 px-3 py-2 font-bold"
-                        >
-                          Actividad
-                        </a>
                         <button
                           type="button"
                           onClick={() => openEdit(company)}
@@ -359,7 +353,7 @@ function CompanyFormModal({
 
   function updateContact(
     type: 'LEGAL' | 'CALIDAD' | 'PRINCIPAL',
-    field: 'fullName' | 'identification' | 'phone' | 'email',
+    field: 'fullName' | 'identification' | 'identificationType' | 'phone' | 'email',
     value: string,
   ) {
     const existing = draft.contacts.find((contact) => contact.type === type)
@@ -367,6 +361,7 @@ function CompanyFormModal({
       type,
       fullName: existing?.fullName ?? '',
       identification: existing?.identification ?? null,
+      identificationType: existing?.identificationType ?? 'CEDULA',
       phone: existing?.phone ?? null,
       email: existing?.email ?? null,
       [field]: field === 'fullName' ? value : value.trimStart() || null,
@@ -405,16 +400,6 @@ function CompanyFormModal({
           </button>
         </div>
         <form onSubmit={submit} className="grid gap-4 p-6 md:grid-cols-2">
-          <label className="text-sm font-bold text-ink-body md:col-span-2">
-            Razón social
-            <input
-              required
-              maxLength={250}
-              value={draft.legalName}
-              onChange={(event) => setDraft({ ...draft, legalName: event.target.value })}
-              className={inputClass}
-            />
-          </label>
           <label className="text-sm font-bold text-ink-body">
             RNC
             <input
@@ -422,6 +407,16 @@ function CompanyFormModal({
               maxLength={30}
               value={draft.taxId}
               onChange={(event) => setDraft({ ...draft, taxId: event.target.value })}
+              className={inputClass}
+            />
+          </label>
+          <label className="text-sm font-bold text-ink-body">
+            Razón social
+            <input
+              required
+              maxLength={250}
+              value={draft.legalName}
+              onChange={(event) => setDraft({ ...draft, legalName: event.target.value })}
               className={inputClass}
             />
           </label>
@@ -494,7 +489,7 @@ function CompanyFormModal({
               type="tel"
               maxLength={40}
               value={draft.phone ?? ''}
-              onChange={(event) => setOptional('phone', event.target.value)}
+              onChange={(event) => setOptional('phone', formatPhone(event.target.value))}
               className={inputClass}
             />
           </label>
@@ -548,13 +543,33 @@ function CompanyFormModal({
                       className={inputClass}
                     />
                   </label>
-                  <label className="text-xs font-bold text-ink-body md:col-span-2">
-                    Cédula o pasaporte
+                  <label className="text-xs font-bold text-ink-body">
+                    Tipo de identificación
+                    <select
+                      value={contact?.identificationType ?? 'CEDULA'}
+                      onChange={(event) => {
+                        updateContact(type, 'identificationType', event.target.value)
+                        updateContact(type, 'identification', '')
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="CEDULA">Cédula</option>
+                      <option value="PASAPORTE">Pasaporte</option>
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-ink-body">
+                    Número de identificación
                     <input
                       maxLength={100}
                       value={contact?.identification ?? ''}
                       onChange={(event) =>
-                        updateContact(type, 'identification', event.target.value)
+                        updateContact(
+                          type,
+                          'identification',
+                          (contact?.identificationType ?? 'CEDULA') === 'CEDULA'
+                            ? formatCedula(event.target.value)
+                            : event.target.value.toUpperCase(),
+                        )
                       }
                       className={inputClass}
                     />
@@ -564,7 +579,7 @@ function CompanyFormModal({
                     <input
                       maxLength={40}
                       value={contact?.phone ?? ''}
-                      onChange={(event) => updateContact(type, 'phone', event.target.value)}
+                      onChange={(event) => updateContact(type, 'phone', formatPhone(event.target.value))}
                       className={inputClass}
                     />
                   </label>

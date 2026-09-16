@@ -1,6 +1,6 @@
 import type { AppModule } from './rbac'
 
-export const loginHref = '/'
+export const loginHref = '/acceso.html'
 export const recoveryHref = '/recuperar-clave.html'
 export const registrationHref = '/registro.html'
 

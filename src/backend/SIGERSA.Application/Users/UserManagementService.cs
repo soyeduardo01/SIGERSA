@@ -11,6 +11,7 @@ public sealed class UserManagementService(
     IValidator<UserManagementRequest> validator)
 {
     private static readonly string[] CompanyAssignableRoles = ["ADMINISTRADOR_EMPRESA", "USUARIO_DELEGADO"];
+    private static readonly string[] CompanyAdminAssignableRoles = ["USUARIO_DELEGADO"];
 
     public Task<ManagedUsersPage> SearchAsync(
         string? search,
@@ -44,7 +45,7 @@ public sealed class UserManagementService(
         var canManage = CanManage(actor);
         var allowedRoles = CanReadGlobally(actor)
             ? roles
-            : roles.Where(role => CompanyAssignableRoles.Contains(role.Code, StringComparer.Ordinal)).ToArray();
+            : roles.Where(role => CompanyAdminAssignableRoles.Contains(role.Code, StringComparer.Ordinal)).ToArray();
         var allowedCompanies = CanReadGlobally(actor)
             ? companies
             : companies.Where(company => company.Id == RequiredCompanyScope(actor)).ToArray();
@@ -137,13 +138,15 @@ public sealed class UserManagementService(
         var companyId = request.EmpresaId;
         if (!IsGlobalAdministrator(actor))
         {
-            if (!CompanyAssignableRoles.Contains(role, StringComparer.Ordinal))
-                throw new ForbiddenException("No puede asignar roles internos o globales.");
+            if (!CompanyAdminAssignableRoles.Contains(role, StringComparer.Ordinal))
+                throw new ForbiddenException("El administrador de empresa solo puede gestionar usuarios delegados.");
             companyId = RequiredCompanyScope(actor);
         }
         if (CompanyAssignableRoles.Contains(role, StringComparer.Ordinal) && companyId is null
             && status is not ("PENDIENTE_VALIDACION" or "RECHAZADO"))
             throw new ArgumentException("Debe asignar una empresa antes de aprobar un usuario empresarial.");
+        if (role == "LABORATORISTA" && companyId is not null)
+            throw new ArgumentException("El laboratorista pertenece al ámbito institucional y no puede asociarse a una empresa.");
 
         return new ManagedUserDraft(
             request.NombreCompleto.Trim(),

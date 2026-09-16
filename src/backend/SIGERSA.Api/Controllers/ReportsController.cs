@@ -18,7 +18,7 @@ public sealed class ReportsController(ReportService service) : ControllerBase
         service.GenerateAsync(evaluationId, request.Official, Actor(), cancellationToken);
 
     [HttpGet("{reportId:guid}/content")]
-    [Authorize(Roles = "ADMINISTRADOR,ADMINISTRADOR_EMPRESA,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
+    [Authorize(Roles = "ADMINISTRADOR,USUARIO_DELEGADO,COORDINADOR,TECNICO_EVALUADOR")]
     public async Task<IActionResult> Download(Guid reportId, CancellationToken cancellationToken)
     {
         var download = await service.DownloadAsync(reportId, Actor(), cancellationToken);

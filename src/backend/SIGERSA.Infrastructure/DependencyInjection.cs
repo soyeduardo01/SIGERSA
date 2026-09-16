@@ -3,6 +3,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using SIGERSA.Domain.Repositories;
+using SIGERSA.Domain.Caching;
+using SIGERSA.Infrastructure.Caching;
 using SIGERSA.Domain.Security;
 using SIGERSA.Domain.Storage;
 using SIGERSA.Infrastructure.Configuration;
@@ -65,6 +67,21 @@ public static class DependencyInjection
 
         services.AddSingleton(_ => NpgsqlDataSource.Create(connectionStringBuilder.ConnectionString));
         services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
+
+        var redisConnection = configuration["Redis:ConnectionString"];
+        if (string.IsNullOrWhiteSpace(redisConnection))
+        {
+            services.AddDistributedMemoryCache();
+        }
+        else
+        {
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = redisConnection;
+                options.InstanceName = configuration["Redis:InstanceName"] ?? "SIGERSA:";
+            });
+        }
+        services.AddSingleton<ICacheStore, DistributedCacheStore>();
 
         var supabaseOptions = configuration
             .GetRequiredSection(SupabaseOptions.SectionName)

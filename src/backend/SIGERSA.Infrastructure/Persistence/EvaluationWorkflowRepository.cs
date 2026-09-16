@@ -63,7 +63,9 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                     OR lower(evaluator.nombre_completo) LIKE '%' || @Search || '%')
                AND (
                     @GlobalScope = true
-                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope)
+                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope AND EXISTS (
+                        SELECT 1 FROM "SIGERSA"."SOLICITUD" owner_request
+                         WHERE owner_request.id = inspection_case.solicitud_id AND owner_request.solicitante_id = @ActorId))
                     OR (@AssignedOnly = true AND (
                         evaluation.evaluador_principal_id = @ActorId
                         OR EXISTS (
@@ -88,7 +90,9 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                     OR lower(evaluator.nombre_completo) LIKE '%' || @Search || '%')
                AND (
                     @GlobalScope = true
-                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope)
+                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope AND EXISTS (
+                        SELECT 1 FROM "SIGERSA"."SOLICITUD" owner_request
+                         WHERE owner_request.id = inspection_case.solicitud_id AND owner_request.solicitante_id = @ActorId))
                     OR (@AssignedOnly = true AND (
                         evaluation.evaluador_principal_id = @ActorId
                         OR EXISTS (

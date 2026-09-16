@@ -51,7 +51,10 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
                     OR lower(evaluation.numero) LIKE '%' || @Search || '%'
                     OR lower(establishment.nombre) LIKE '%' || @Search || '%')
                AND (@GlobalScope = true
-                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope)
+                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope AND EXISTS (
+                        SELECT 1 FROM "SIGERSA"."CASO" owner_case
+                        JOIN "SIGERSA"."SOLICITUD" owner_request ON owner_request.id = owner_case.solicitud_id
+                         WHERE owner_case.id = evaluation.caso_id AND owner_request.solicitante_id = @ActorId))
                     OR (@AssignedOnly = true AND (
                         evaluation.evaluador_principal_id = @ActorId
                         OR EXISTS (SELECT 1 FROM "SIGERSA"."ASIGNACION" assignment
@@ -71,7 +74,10 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
                     OR lower(evaluation.numero) LIKE '%' || @Search || '%'
                     OR lower(establishment.nombre) LIKE '%' || @Search || '%')
                AND (@GlobalScope = true
-                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope)
+                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope AND EXISTS (
+                        SELECT 1 FROM "SIGERSA"."CASO" owner_case
+                        JOIN "SIGERSA"."SOLICITUD" owner_request ON owner_request.id = owner_case.solicitud_id
+                         WHERE owner_case.id = evaluation.caso_id AND owner_request.solicitante_id = @ActorId))
                     OR (@AssignedOnly = true AND (
                         evaluation.evaluador_principal_id = @ActorId
                         OR EXISTS (SELECT 1 FROM "SIGERSA"."ASIGNACION" assignment
@@ -109,7 +115,10 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
              WHERE evidence.id = @EvidenceId AND evidence.eliminada = false
                AND (@GlobalScope = true
-                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope)
+                    OR (@CompanyScope IS NOT NULL AND establishment.empresa_id = @CompanyScope AND EXISTS (
+                        SELECT 1 FROM "SIGERSA"."CASO" owner_case
+                        JOIN "SIGERSA"."SOLICITUD" owner_request ON owner_request.id = owner_case.solicitud_id
+                         WHERE owner_case.id = evaluation.caso_id AND owner_request.solicitante_id = @ActorId))
                     OR (@AssignedOnly = true AND (
                         evaluation.evaluador_principal_id = @ActorId
                         OR EXISTS (SELECT 1 FROM "SIGERSA"."ASIGNACION" assignment
@@ -193,6 +202,29 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
         await using (connection)
         await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
+            if (evidence.SourceItem is not null)
+            {
+                await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                    SELECT 1 FROM "SIGERSA"."EVALUACION"
+                     WHERE id = @EvaluationId FOR UPDATE;
+                    """), new { evidence.EvaluationId }, transaction, cancellationToken: cancellationToken));
+                var itemEvidenceCount = await connection.ExecuteScalarAsync<int>(new CommandDefinition(Sql("""
+                    SELECT COUNT(*)::integer
+                      FROM "SIGERSA"."EVIDENCIA" existing_evidence
+                      JOIN "SIGERSA"."EVIDENCIA_RESPUESTA" evidence_response
+                        ON evidence_response.evidencia_id = existing_evidence.id
+                      JOIN "SIGERSA"."RESPUESTA_USUARIO" response
+                        ON response.id = evidence_response.respuesta_usuario_id
+                      JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                     WHERE existing_evidence.evaluacion_id = @EvaluationId
+                       AND existing_evidence.eliminada = false
+                       AND item.source_allitems_item = @SourceItem
+                       AND (@IdempotencyKey IS NULL OR existing_evidence.idempotency_key IS DISTINCT FROM @IdempotencyKey);
+                    """), new { evidence.EvaluationId, evidence.SourceItem, evidence.IdempotencyKey }, transaction,
+                    cancellationToken: cancellationToken));
+                if (itemEvidenceCount >= 3)
+                    throw new InvalidOperationException("Cada ítem admite un máximo de 3 evidencias.");
+            }
             var id = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(
                 Sql(sql), evidence, transaction, cancellationToken: cancellationToken));
             var persistedId = id ?? throw new InvalidOperationException(

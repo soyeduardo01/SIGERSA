@@ -358,6 +358,9 @@ function RequestForm({
   onSave: (draft: InspectionRequestDraft, supportingDocument: File | null) => Promise<void>
 }) {
   const [companyId, setCompanyId] = useState(request?.companyId ?? options.companies[0]?.id ?? '')
+  const [applicantUserId, setApplicantUserId] = useState(
+    request?.applicantId ?? options.delegates?.find((item) => item.companyId === (request?.companyId ?? options.companies[0]?.id))?.id ?? '',
+  )
   const [establishmentId, setEstablishmentId] = useState(request?.establishmentId ?? '')
   const [inspectionReasonId, setInspectionReasonId] = useState(request?.inspectionReasonId ?? '')
   const [reasonDetail, setReasonDetail] = useState(request?.reasonDetail ?? '')
@@ -370,6 +373,10 @@ function RequestForm({
     () => options.establishments.filter((item) => item.companyId === companyId),
     [companyId, options.establishments],
   )
+  const delegates = useMemo(
+    () => (options.delegates ?? []).filter((item) => item.companyId === companyId),
+    [companyId, options.delegates],
+  )
 
   async function submit(event: FormEvent) {
     event.preventDefault()
@@ -377,6 +384,7 @@ function RequestForm({
     try {
       await onSave({
         companyId: companyId || null,
+        applicantUserId: applicantUserId || null,
         establishmentId: establishmentId || null,
         inspectionReasonId,
         reasonDetail,
@@ -428,11 +436,29 @@ function RequestForm({
               onChange={(event) => {
                 setCompanyId(event.target.value)
                 setEstablishmentId('')
+                setApplicantUserId('')
               }}
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
             >
               <option value="">Seleccione</option>
               {options.companies.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm font-bold text-ink-body">
+            Usuario delegado
+            <select
+              required
+              disabled={!companyId}
+              value={applicantUserId}
+              onChange={(event) => setApplicantUserId(event.target.value)}
+              className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
+            >
+              <option value="">Seleccione</option>
+              {delegates.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.name}
                 </option>
