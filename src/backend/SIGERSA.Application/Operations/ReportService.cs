@@ -11,6 +11,7 @@ namespace SIGERSA.Application.Operations;
 public sealed class ReportService(
     IOperationalRepository repository,
     IFileStorage storage,
+    IInstitutionalPdfRenderer pdfRenderer,
     IOptions<ReportOptions> options)
 {
     private readonly ReportOptions _options = options.Value;
@@ -24,7 +25,7 @@ public sealed class ReportService(
         EnsureReviewer(actor);
         var data = await repository.GetReportDataAsync(evaluationId, actor.UserId, cancellationToken)
             ?? throw new KeyNotFoundException("La evaluación no existe o todavía no está lista para generar su informe.");
-        var mainReport = InstitutionalPdfReportBuilder.Build(data, official);
+        var mainReport = await pdfRenderer.RenderAsync(data, official, cancellationToken);
         var attachments = new List<ReportAttachment>();
         foreach (var evidence in data.Evidences)
         {

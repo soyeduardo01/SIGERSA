@@ -38,6 +38,11 @@ describe('flujo unificado de evaluaciones e inspecciones', () => {
     expect(inspectionActionLabel('EN_EJECUCION', false)).toBe('Ver ficha')
   })
 
+  it('mantiene la ficha en lectura cuando el servidor no reconoce al técnico como asignado', () => {
+    expect(canEditInspection('EN_EJECUCION', true, false)).toBe(false)
+    expect(inspectionActionLabel('EN_EJECUCION', true, false)).toBe('Ver ficha')
+  })
+
   it('solo permite al técnico enviar una evaluación finalizada a revisión', () => {
     expect(canSubmitForReview('FINALIZADA', ['TECNICO_EVALUADOR'])).toBe(true)
     expect(canSubmitForReview('FINALIZADA', ['ADMINISTRADOR'])).toBe(false)

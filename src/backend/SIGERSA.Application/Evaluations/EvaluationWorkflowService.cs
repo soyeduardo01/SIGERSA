@@ -35,7 +35,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         return repository.SearchAsync(new EvaluationSearch(
             Normalize(search)?.ToLowerInvariant(), Normalize(status)?.ToUpperInvariant(),
             Math.Max(page, 1), Math.Clamp(pageSize, 5, 100), actor.UserId,
-            company, global, assigned), cancellationToken);
+            company, global, assigned, HasRole(actor, "TECNICO_EVALUADOR")), cancellationToken);
     }
 
     public Task<EvaluationCreateOptions> GetOptionsAsync(EvaluationActor actor, CancellationToken cancellationToken)

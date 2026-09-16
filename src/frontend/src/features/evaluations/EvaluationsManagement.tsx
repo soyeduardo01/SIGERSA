@@ -41,7 +41,11 @@ export function EvaluationsManagement() {
   async function load() {
     setLoading(true)
     try {
-      setResult(await getEvaluations({ status }))
+      const page = await getEvaluations({ status })
+      setResult(page)
+      setSelected((current) =>
+        current ? (page.items.find((item) => item.id === current.id) ?? current) : current,
+      )
       setError('')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'No se pudieron cargar las evaluaciones.')
@@ -241,12 +245,12 @@ export function EvaluationsManagement() {
                         type="button"
                         onClick={() => setSelected(item)}
                         className={`rounded-lg px-3 py-2 font-bold ${
-                          canEditInspection(item.status, canExecute)
+                          canEditInspection(item.status, canExecute, item.canEdit)
                             ? 'bg-brand-700 text-white'
                             : 'border border-slate-300 text-ink-body'
                         }`}
                       >
-                        {inspectionActionLabel(item.status, canExecute)}
+                        {inspectionActionLabel(item.status, canExecute, item.canEdit)}
                       </button>
                     </div>
                   </td>
@@ -271,7 +275,7 @@ export function EvaluationsManagement() {
               setSelected((current) => (current ? { ...current, status: 'FINALIZADA' } : current))
               void load()
             }}
-            readOnly={!canEditInspection(selected.status, canExecute)}
+            readOnly={!canEditInspection(selected.status, canExecute, selected.canEdit)}
           />
         </div>
       )}

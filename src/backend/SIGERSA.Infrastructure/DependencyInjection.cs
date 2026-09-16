@@ -2,6 +2,7 @@ using System.Net.Mail;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
+using SIGERSA.Application.Operations;
 using SIGERSA.Domain.Repositories;
 using SIGERSA.Domain.Caching;
 using SIGERSA.Infrastructure.Caching;
@@ -10,6 +11,7 @@ using SIGERSA.Domain.Storage;
 using SIGERSA.Infrastructure.Configuration;
 using SIGERSA.Infrastructure.Email;
 using SIGERSA.Infrastructure.Persistence;
+using SIGERSA.Infrastructure.Reports;
 using SIGERSA.Infrastructure.Security;
 using SIGERSA.Infrastructure.Storage;
 
@@ -113,6 +115,7 @@ public static class DependencyInjection
         services.AddScoped<IOperationalRepository, OperationalRepository>();
         services.AddScoped<ISupportingDocumentRepository, SupportingDocumentRepository>();
         services.AddScoped<IFileStorage, SupabaseStorageAdapter>();
+        services.AddSingleton<IInstitutionalPdfRenderer, ChromiumInstitutionalPdfRenderer>();
         services.AddSingleton<IPasswordService, BcryptPasswordService>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();

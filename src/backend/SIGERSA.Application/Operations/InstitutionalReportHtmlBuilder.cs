@@ -1,0 +1,118 @@
+using System.Globalization;
+using System.Net;
+using SIGERSA.Domain.Entities;
+
+namespace SIGERSA.Application.Operations;
+
+public static class InstitutionalReportHtmlBuilder
+{
+    private const string Styles = """
+        @page { size: Letter; margin: 0; }
+        * { box-sizing: border-box; }
+        html,body { margin:0; background:#eef3f0; color:#132420; font-family:Poppins,Arial,sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+        .page { position:relative; width:8.5in; height:11in; margin:0 auto; padding:.58in .58in .68in; background:#fff; break-after:page; page-break-after:always; overflow:hidden; }
+        .page + .page { break-before:page; page-break-before:always; }
+        .page:last-child { break-after:auto; page-break-after:auto; }
+        .cover { background:#0f4436; color:#fff; padding:.52in .58in; }
+        .cover::before,.cover::after { content:""; position:absolute; border-radius:50%; background:#1c6f53; opacity:.55; }
+        .cover::before { width:4.2in; height:3.2in; left:-1.6in; top:-1.7in; }
+        .cover::after { width:3.4in; height:3.4in; right:-1.4in; bottom:-1.1in; }
+        .logos,.brand { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+        .sigersa { width:1.25in; height:.32in; object-fit:contain; }
+        .digemaps { width:.76in; height:.42in; object-fit:contain; }
+        .cover .sigersa { width:2.35in; height:.55in; filter:brightness(0) invert(1); }
+        .cover .digemaps { width:1.62in; height:.78in; background:#fff; border-radius:10px; padding:7px; }
+        .cover-main { position:relative; z-index:1; margin-top:.78in; }
+        .eyebrow,.label,.kicker { font-size:8px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+        .eyebrow { color:#a6d887; }
+        h1 { font-size:31px; line-height:1.16; margin:.18in 0; color:#fff; }
+        .lead { max-width:6.4in; color:#dcefe8; font-size:11px; line-height:1.7; }
+        .chips,.kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:11px; margin-top:.34in; }
+        .chip { padding:14px; background:#246f59; border-radius:9px; }
+        .chip small { display:block; color:#a6d887; font-size:7px; text-transform:uppercase; }
+        .chip b { display:block; margin-top:7px; font-size:11px; }
+        .cover-card,.grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .cover-card { margin-top:.35in; padding:20px; border-radius:13px; background:#fff; color:#132420; gap:18px 28px; }
+        .cell { min-height:57px; padding:12px; background:#f3f7f5; border:1px solid #dce6e1; }
+        .cover-card .cell { padding:0; min-height:42px; background:#fff; border:0; }
+        .label { display:block; color:#5c6b66; font-size:7px; }
+        .value { display:block; margin-top:6px; color:#175a47; font-size:10px; font-weight:700; }
+        .cover-foot,footer { position:absolute; left:.58in; right:.58in; bottom:.32in; display:flex; justify-content:space-between; font-size:7px; }
+        .cover-foot { z-index:1; color:#c8e2d8; }
+        header { display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid #238066; padding-bottom:10px; break-inside:avoid; page-break-inside:avoid; }
+        header span { font-size:8px; color:#5c6b66; text-align:right; }
+        h2 { font-size:20px; color:#0f4436; margin:.34in 0 4px; }
+        .kicker { color:#238066; }
+        .section { margin-top:.28in; }
+        .section-title { display:flex; align-items:center; gap:10px; margin:18px 0 13px; color:#0f4436; font-size:15px; font-weight:700; }
+        .section-title i { font-style:normal; display:grid; place-items:center; width:28px; height:28px; border-radius:6px; background:#175a47; color:#fff; font-size:10px; }
+        .kpis { grid-template-columns:repeat(4,1fr); margin-top:0; }
+        .kpi { border-top:4px solid #238066; border-radius:7px; background:#f3f7f5; padding:11px; }
+        .kpi span { font-size:7px; color:#5c6b66; text-transform:uppercase; font-weight:700; }
+        .kpi b { display:block; color:#175a47; font-size:15px; margin-top:8px; }
+        .gauge { margin-top:16px; padding:18px; border:1px solid #dce6e1; border-radius:10px; }
+        .bar { height:10px; background:#dce6e1; border-radius:10px; overflow:hidden; margin:11px 0 7px; }
+        .bar i { display:block; height:100%; background:#238066; }
+        table { width:100%; border-collapse:collapse; font-size:8px; }
+        th { padding:9px; background:#175a47; color:#fff; text-align:left; text-transform:uppercase; }
+        td { padding:10px; border-bottom:2px solid #fff; background:#f3f7f5; vertical-align:top; }
+        .severity { font-weight:700; color:#b3382c; }
+        .empty { padding:20px; background:#eaf5e4; border-left:5px solid #238066; border-radius:8px; font-size:9px; }
+        ol.recs { list-style:none; padding:0; counter-reset:item; }
+        ol.recs li { counter-increment:item; display:flex; gap:12px; margin:11px 0; font-size:9px; line-height:1.55; }
+        ol.recs li::before { content:counter(item); flex:0 0 24px; height:24px; display:grid; place-items:center; border-radius:50%; background:#175a47; color:#fff; }
+        .evidence { list-style:none; padding:0; }
+        .evidence li { display:flex; align-items:center; gap:14px; border:1px solid #dce6e1; border-radius:8px; padding:12px; margin:9px 0; }
+        .evidence li>b { display:grid; place-items:center; width:38px; height:34px; background:#175a47; color:#fff; border-radius:6px; }
+        .evidence strong,.evidence small { display:block; } .evidence small { margin-top:4px; color:#5c6b66; }
+        .evidence-identity { display:flex; align-items:center; gap:16px; margin:14px 0; padding:10px 12px; border-left:3px solid #238066; background:#f3f7f5; }
+        .signatures { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:22px; }
+        .signature { height:112px; border:1px solid #dce6e1; border-radius:9px; text-align:center; padding-top:62px; }
+        .signature hr { width:72%; border:0; border-top:1px solid #5c6b66; }
+        .signature b,.signature span { display:block; font-size:9px; } .signature span { color:#5c6b66; font-size:7px; }
+        footer { border-top:1px solid #dce6e1; padding-top:8px; color:#5c6b66; }
+        """;
+
+    public static string Build(ReportGenerationData data, bool official, InstitutionalReportAssets assets)
+    {
+        var findings = data.Findings.Count == 0
+            ? "<div class=\"empty\"><strong>No se registraron no conformidades.</strong></div>"
+            : $"<table><thead><tr><th>Código</th><th>Criticidad</th><th>Descripción</th><th>Estado</th></tr></thead><tbody>{string.Join(string.Empty, data.Findings.Select(FindingRow))}</tbody></table>";
+        var evidence = data.Evidences.Count == 0
+            ? "<div class=\"empty\"><strong>No se adjuntaron evidencias.</strong></div>"
+            : $"<ul class=\"evidence\">{string.Join(string.Empty, data.Evidences.Select(EvidenceRow))}</ul>";
+        var recommendations = Recommendations(data);
+
+        return $$"""
+            <!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe {{E(data.EvaluationNumber)}}</title><style>
+            @font-face { font-family:Poppins; src:url('{{assets.PoppinsRegularDataUri}}') format('truetype'); font-weight:400; }
+            @font-face { font-family:Poppins; src:url('{{assets.PoppinsSemiBoldDataUri}}') format('truetype'); font-weight:600 900; }
+            {{Styles}}</style></head><body>
+            <section class="page cover"><div class="logos">{{Logos(assets)}}</div><div class="cover-main"><div class="eyebrow">{{(official ? "Informe oficial de auditoría sanitaria" : "Borrador para revisión")}}</div><h1>Evaluación de Buenas<br>Prácticas de Manufactura</h1><p class="lead">Reporte técnico de cumplimiento normativo, gestión de riesgo sanitario y trazabilidad institucional.</p><div class="chips"><div class="chip"><small>N.º de evaluación</small><b>{{E(data.EvaluationNumber)}}</b></div><div class="chip"><small>N.º de caso</small><b>{{E(data.CaseNumber)}}</b></div><div class="chip"><small>Clasificación de riesgo</small><b>{{E(data.RiskLevel ?? "No calculable")}}</b></div></div><div class="cover-card">{{Cell("Empresa", data.CompanyName)}}{{Cell("Establecimiento", data.EstablishmentName)}}{{Cell("Técnico evaluador", data.EvaluatorName)}}{{Cell("Cumplimiento BPM", Number(data.CompliancePercentage, "%"))}}</div></div><div class="cover-foot"><span>Sistema Integral de Gestión de Riesgos Sanitarios</span><span>{{DateTimeOffset.UtcNow:dd/MM/yyyy}}</span></div></section>
+            {{PageStart(assets, data, "Resumen ejecutivo", "Resultados generales de la evaluación")}}
+            {{Title("1", "Identificación de la evaluación")}}<div class="grid">{{Cell("Empresa", data.CompanyName)}}{{Cell("Establecimiento", data.EstablishmentName)}}{{Cell("Dirección", data.Address)}}{{Cell("Técnico evaluador", data.EvaluatorName)}}{{Cell("Periodo de ejecución", DateRange(data))}}{{Cell("Estado", data.Status)}}</div>
+            <div class="section">{{Title("2", "Indicadores de cumplimiento y riesgo")}}<div class="kpis">{{Kpi("Cumplimiento", Number(data.CompliancePercentage, "%"))}}{{Kpi("Riesgo producto", Number(data.ProductRisk))}}{{Kpi("Riesgo total", Number(data.TotalRisk))}}{{Kpi("Frecuencia", data.Frequency ?? "No aplica")}}</div><div class="gauge"><b>Cumplimiento BPM</b><div class="bar"><i style="width:{{Percent(data.CompliancePercentage)}}%"></i></div><small>{{Number(data.CompliancePercentage, "%")}} sobre los criterios aplicables.</small></div></div>{{Footer(data, 2)}}</section>
+            {{PageStart(assets, data, "Hallazgos y recomendaciones", "Detalle técnico de la inspección")}}{{Title("3", "Hallazgos y no conformidades")}}{{findings}}<div class="section">{{Title("4", "Recomendaciones")}}<ol class="recs">{{string.Join(string.Empty, recommendations.Select(item => $"<li>{E(item)}</li>"))}}</ol></div>{{Footer(data, 3)}}</section>
+            {{PageStart(assets, data, "Anexo de evidencias", "Índice documental asociado")}}<div class="evidence-identity">{{Logos(assets)}}</div><p style="font-size:9px;color:#5c6b66">Los archivos originales se incorporan a continuación y conservan su formato.</p>{{evidence}}{{Footer(data, 4)}}</section>
+            {{PageStart(assets, data, "Validación y trazabilidad", "Control institucional del documento")}}<div class="signatures">{{Signature(data.EvaluatorName, "Técnico evaluador · SIGERSA")}}{{Signature(official ? "Supervisión técnica" : "Pendiente de validación", "DIGEMAPS · Validación de caso")}}</div><div class="section"><div class="grid">{{Cell("Evaluación", data.EvaluationNumber)}}{{Cell("Caso", data.CaseNumber)}}{{Cell("Estado", data.Status)}}{{Cell("Tipo de documento", official ? "Informe oficial" : "Borrador para revisión")}}</div></div><div class="section"><b>Aviso de confidencialidad y control documental</b><p style="font-size:9px;line-height:1.7;color:#5c6b66">Generado automáticamente por SIGERSA el {{DateTimeOffset.UtcNow:dd/MM/yyyy 'a las' HH:mm}} UTC. Se conserva como documento institucional trazable.</p></div>{{Footer(data, 5)}}</section>
+            </body></html>
+            """;
+    }
+
+    private static string Logos(InstitutionalReportAssets a) => $"<img class=\"sigersa\" src=\"{a.SigersaLogoDataUri}\" alt=\"SIGERSA\"><img class=\"digemaps\" src=\"{a.DigemapsLogoDataUri}\" alt=\"DIGEMAPS\">";
+    private static string PageStart(InstitutionalReportAssets a, ReportGenerationData d, string title, string kicker) => $"<section class=\"page\"><header><div class=\"brand\">{Logos(a)}</div><span>{E(d.EvaluationNumber)}<br>{E(d.CaseNumber)}</span></header><h2>{E(title)}</h2><div class=\"kicker\">{E(kicker)}</div>";
+    private static string Footer(ReportGenerationData d, int page) => $"<footer><span>Documento institucional · SIGERSA / DIGEMAPS</span><span>{E(d.EvaluationNumber)} · Página {page}</span></footer>";
+    private static string Title(string n, string t) => $"<div class=\"section-title\"><i>{E(n)}</i>{E(t)}</div>";
+    private static string Cell(string l, string v) => $"<div class=\"cell\"><span class=\"label\">{E(l)}</span><span class=\"value\">{E(v)}</span></div>";
+    private static string Kpi(string l, string v) => $"<div class=\"kpi\"><span>{E(l)}</span><b>{E(v)}</b></div>";
+    private static string Signature(string n, string r) => $"<div class=\"signature\"><hr><b>{E(n)}</b><span>{E(r)}</span></div>";
+    private static string FindingRow(ReportFinding f) => $"<tr><td>{E(f.Code)}</td><td><span class=\"severity\">{E(f.Criticality)}</span></td><td>{E(f.Description)}</td><td>{E(f.Status)}</td></tr>";
+    private static string EvidenceRow(ReportEvidence e, int i) => $"<li><b>{i + 1:00}</b><span><strong>{E(e.Name)}</strong><small>{E(e.Type)} · {E(e.MimeType)}</small></span></li>";
+    private static string[] Recommendations(ReportGenerationData d) => d.Findings.Count == 0
+        ? [$"Mantener los controles BPM y el cumplimiento alcanzado ({Number(d.CompliancePercentage, "%")}).", $"Conservar la frecuencia recomendada ({d.Frequency ?? "no determinada"}).", "Continuar documentando los controles internos para futuras auditorías."]
+        : ["Corregir las no conformidades dentro de los plazos asignados.", "Priorizar los hallazgos de mayor criticidad y documentar cada acción.", $"Revisar la frecuencia ({d.Frequency ?? "no determinada"}) después del cierre."];
+    private static string E(string? value) => WebUtility.HtmlEncode(value ?? string.Empty);
+    private static string Number(decimal? value, string suffix = "") => value.HasValue ? value.Value.ToString("0.00", CultureInfo.InvariantCulture) + suffix : "No calculable";
+    private static string Percent(decimal? value) => Math.Clamp(value ?? 0, 0, 100).ToString("0.##", CultureInfo.InvariantCulture);
+    private static string DateRange(ReportGenerationData d) => $"{d.StartedAt?.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture) ?? "No registrada"} - {d.FinishedAt?.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture) ?? "En curso"}";
+}

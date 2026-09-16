@@ -543,6 +543,7 @@ export interface EvaluationSummary {
   frequency: string | null
   nextInspectionAt: string | null
   answeredItems: number
+  canEdit: boolean
   rowVersion: number
 }
 

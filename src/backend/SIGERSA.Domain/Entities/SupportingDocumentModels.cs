@@ -14,3 +14,12 @@ public sealed record SupportingDocumentReference(
     string SupabasePath,
     string OriginalName,
     string MimeType);
+
+public sealed record RequestSupportingDocument(
+    Guid Id,
+    string DocumentType,
+    string OriginalName,
+    long FileSize,
+    string MimeType,
+    bool Required,
+    DateTime CreatedAt);

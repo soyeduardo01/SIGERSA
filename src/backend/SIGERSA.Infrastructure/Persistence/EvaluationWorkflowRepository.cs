@@ -51,6 +51,15 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                    inspection_case.proxima_inspeccion_en AS NextInspectionAt,
                    (SELECT COUNT(*) FROM "SIGERSA"."RESPUESTA_USUARIO" response
                      WHERE response.evaluacion_id = evaluation.id)::integer AS AnsweredItems,
+                   (@CanExecute = true AND evaluation.estado = 'EN_EJECUCION' AND (
+                       evaluation.evaluador_principal_id = @ActorId
+                       OR EXISTS (
+                           SELECT 1 FROM "SIGERSA"."ASIGNACION" editable_assignment
+                            WHERE editable_assignment.programacion_id = evaluation.programacion_id
+                              AND editable_assignment.evaluador_id = @ActorId
+                              AND editable_assignment.estado = 'ACTIVA'
+                       )
+                   )) AS CanEdit,
                    evaluation.version_fila AS RowVersion
               FROM "SIGERSA"."EVALUACION" evaluation
               JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
@@ -939,10 +948,11 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         public string? Frequency { get; init; }
         public DateTime? NextInspectionAt { get; init; }
         public int AnsweredItems { get; init; }
+        public bool CanEdit { get; init; }
         public long RowVersion { get; init; }
         public EvaluationSummary ToDomain() => new(Id, Number, CaseId, CaseNumber, EstablishmentId,
             EstablishmentName, EvaluatorId, EvaluatorName, Status, Utc(ScheduledStart), Utc(ScheduledEnd),
-            CompliancePercentage, TotalRisk, RiskLevel, Frequency, Utc(NextInspectionAt), AnsweredItems, RowVersion);
+            CompliancePercentage, TotalRisk, RiskLevel, Frequency, Utc(NextInspectionAt), AnsweredItems, CanEdit, RowVersion);
         private static DateTimeOffset? Utc(DateTime? value) => value.HasValue
             ? new DateTimeOffset(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)) : null;
     }
