@@ -62,18 +62,13 @@ public sealed class OperationsController(OperationalService service) : Controlle
         CancellationToken cancellationToken = default) =>
         service.SearchFindingsAsync(search, status, page, pageSize, Actor(), cancellationToken);
 
+    [HttpGet("findings/{id:guid}")]
+    public Task<FindingDetail> Finding(Guid id, CancellationToken cancellationToken) =>
+        service.GetFindingAsync(id, Actor(), cancellationToken);
+
     [HttpGet("findings/options")]
     public Task<FindingOptions> FindingOptions(CancellationToken cancellationToken) =>
         service.GetFindingOptionsAsync(Actor(), cancellationToken);
-
-    [HttpPost("findings")]
-    [Authorize(Roles = "ADMINISTRADOR,TECNICO_EVALUADOR")]
-    public async Task<ActionResult<object>> CreateFinding(
-        FindingRequest request, CancellationToken cancellationToken)
-    {
-        var id = await service.CreateFindingAsync(request, Actor(), cancellationToken);
-        return Created($"/api/v1/findings/{id}", new { id });
-    }
 
     [HttpPost("findings/{id:guid}/close")]
     [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]

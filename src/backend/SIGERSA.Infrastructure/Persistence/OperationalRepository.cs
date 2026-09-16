@@ -553,7 +553,8 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             search.Scope.UserId,
             search.Scope.CompanyId,
             search.Scope.GlobalScope,
-            search.Scope.AssignedOnly
+            search.Scope.AssignedOnly,
+            search.Scope.OwnerOnly
         };
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -563,6 +564,58 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             var items = (await result.ReadAsync<FindingRow>()).Select(row => row.ToDomain()).ToArray();
             var total = await result.ReadSingleAsync<int>();
             return new FindingsPage(items, search.Page, search.PageSize, total);
+        }
+    }
+
+    public async Task<FindingDetail?> GetFindingAsync(
+        Guid id,
+        OperationalActorScope scope,
+        CancellationToken cancellationToken = default)
+    {
+        var sql = $"""
+            SELECT finding.id AS Id, finding.codigo AS Code,
+                   evaluation.numero AS EvaluationNumber, inspection_case.numero AS CaseNumber,
+                   company.razon_social AS CompanyName, establishment.nombre AS EstablishmentName,
+                   item.source_allitems_item AS SourceItem, item.codigo AS ItemCode,
+                   item.titulo AS ItemTitle, response.valor_texto AS Rating,
+                   criticality.nombre AS Criticality, finding.descripcion AS Description,
+                   response.observacion AS Observation, response.comentario AS TechnicalComment,
+                   finding.estado AS Status, finding.detectada_en AS DetectedAt
+              FROM "SIGERSA"."NO_CONFORMIDAD" finding
+              JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = finding.evaluacion_id
+              JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
+              JOIN "SIGERSA"."EMPRESA" company ON company.id = inspection_case.empresa_id
+              JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
+              JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = finding.item_ficha_id
+              LEFT JOIN "SIGERSA"."RESPUESTA_USUARIO" response ON response.id = finding.respuesta_usuario_id
+              JOIN "SIGERSA"."NIVEL_CRITICIDAD" criticality ON criticality.id = finding.nivel_criticidad_id
+             WHERE finding.id = @Id AND {EvaluationAccess};
+
+            SELECT evidence.id AS Id, evidence.nombre_original AS OriginalName,
+                   evidence.mime_type AS MimeType, evidence.tipo_evidencia AS EvidenceType,
+                   evidence.fecha_servidor AS UploadedAt
+              FROM "SIGERSA"."EVIDENCIA" evidence
+              JOIN "SIGERSA"."EVIDENCIA_NO_CONFORMIDAD" link ON link.evidencia_id = evidence.id
+             WHERE link.no_conformidad_id = @Id AND evidence.eliminada = false
+             ORDER BY evidence.fecha_servidor, evidence.id;
+            """;
+        var parameters = new
+        {
+            Id = id,
+            scope.UserId,
+            scope.CompanyId,
+            scope.GlobalScope,
+            scope.AssignedOnly,
+            scope.OwnerOnly
+        };
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            using var result = await connection.QueryMultipleAsync(new CommandDefinition(
+                Sql(sql), parameters, cancellationToken: cancellationToken));
+            var header = await result.ReadSingleOrDefaultAsync<FindingDetailRow>();
+            var evidences = (await result.ReadAsync<FindingEvidenceRow>()).Select(row => row.ToDomain()).ToArray();
+            return header?.ToDomain(evidences);
         }
     }
 
@@ -721,7 +774,8 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             search.Scope.UserId,
             search.Scope.CompanyId,
             search.Scope.GlobalScope,
-            search.Scope.AssignedOnly
+            search.Scope.AssignedOnly,
+            search.Scope.OwnerOnly
         };
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -789,7 +843,8 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             scope.UserId,
             scope.CompanyId,
             scope.GlobalScope,
-            scope.AssignedOnly
+            scope.AssignedOnly,
+            scope.OwnerOnly
         };
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
@@ -1009,7 +1064,7 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
         await using (connection)
         {
             return await connection.QuerySingleOrDefaultAsync<ReportFileReference>(new CommandDefinition(
-                Sql(sql), new { ReportId = reportId, scope.UserId, scope.CompanyId, scope.GlobalScope, scope.AssignedOnly },
+                Sql(sql), new { ReportId = reportId, scope.UserId, scope.CompanyId, scope.GlobalScope, scope.AssignedOnly, scope.OwnerOnly },
                 cancellationToken: cancellationToken));
         }
     }
@@ -1095,6 +1150,40 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
         public long RowVersion { get; init; }
         public FindingRecord ToDomain() => new(Id, EvaluationId, EvaluationNumber, EstablishmentName, SourceItem,
             ItemTitle, Criticality, Code, Description, Status, Utc(DetectedAt), ClosedAt.HasValue ? Utc(ClosedAt.Value) : null, RowVersion);
+    }
+
+    private sealed class FindingDetailRow
+    {
+        public Guid Id { get; init; }
+        public string Code { get; init; } = string.Empty;
+        public string EvaluationNumber { get; init; } = string.Empty;
+        public string CaseNumber { get; init; } = string.Empty;
+        public string CompanyName { get; init; } = string.Empty;
+        public string EstablishmentName { get; init; } = string.Empty;
+        public int SourceItem { get; init; }
+        public string ItemCode { get; init; } = string.Empty;
+        public string ItemTitle { get; init; } = string.Empty;
+        public string Rating { get; init; } = string.Empty;
+        public string Criticality { get; init; } = string.Empty;
+        public string Description { get; init; } = string.Empty;
+        public string? Observation { get; init; }
+        public string? TechnicalComment { get; init; }
+        public string Status { get; init; } = string.Empty;
+        public DateTime DetectedAt { get; init; }
+        public FindingDetail ToDomain(IReadOnlyList<FindingEvidence> evidences) => new(
+            Id, Code, EvaluationNumber, CaseNumber, CompanyName, EstablishmentName,
+            SourceItem, ItemCode, ItemTitle, Rating, Criticality, Description,
+            Observation, TechnicalComment, Status, Utc(DetectedAt), evidences);
+    }
+
+    private sealed class FindingEvidenceRow
+    {
+        public Guid Id { get; init; }
+        public string OriginalName { get; init; } = string.Empty;
+        public string MimeType { get; init; } = string.Empty;
+        public string EvidenceType { get; init; } = string.Empty;
+        public DateTime UploadedAt { get; init; }
+        public FindingEvidence ToDomain() => new(Id, OriginalName, MimeType, EvidenceType, Utc(UploadedAt));
     }
 
     private sealed class HistoricalRow

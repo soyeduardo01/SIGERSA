@@ -177,6 +177,14 @@ public sealed class OperationalService(
             throw new ForbiddenException("No tiene permisos para consultar este módulo.");
     }
 
+    public async Task<FindingDetail> GetFindingAsync(
+        Guid id, OperationalActor actor, CancellationToken cancellationToken)
+    {
+        EnsureRole(actor, "ADMINISTRADOR", "USUARIO_DELEGADO", "COORDINADOR", "TECNICO_EVALUADOR");
+        return await repository.GetFindingAsync(id, Scope(actor, ownerOnly: true), cancellationToken)
+            ?? throw new KeyNotFoundException("El hallazgo no existe o no está disponible para el usuario.");
+    }
+
     private static void EnsureRole(OperationalActor actor, params string[] allowedRoles)
     {
         if (!actor.Roles.Any(role => allowedRoles.Contains(role, StringComparer.Ordinal)))

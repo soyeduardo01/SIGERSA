@@ -1,20 +1,18 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
-  closeFinding,
-  createFinding,
   createSurveillance,
   downloadEvaluationReport,
   generateEvaluationReport,
   getAuditEvents,
   getEvaluationHistory,
   getEvaluationTimeline,
-  getFindingOptions,
+  getFinding,
   getFindings,
   getSurveillance,
   getSurveillanceOptions,
   updateSurveillance,
   type AuditEventRecord,
-  type FindingOptions,
+  type FindingDetail,
   type FindingRecord,
   type HistoricalEvaluation,
   type SurveillanceDraft,
@@ -510,20 +508,12 @@ function SurveillanceForm({
 
 export function FindingsManagement() {
   const [items, setItems] = useState<FindingRecord[]>([])
-  const [options, setOptions] = useState<FindingOptions | null>(null)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
-  const [modalOpen, setModalOpen] = useState(false)
-  async function load() {
-    try {
-      setItems((await getFindings({ search, status, pageSize: 100 })).items)
-      setError('')
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'No se pudieron cargar los hallazgos.')
-    }
-  }
+  const [detail, setDetail] = useState<FindingDetail | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
   useEffect(() => {
     let active = true
     void getFindings({ search, status, pageSize: 100 })
@@ -543,26 +533,14 @@ export function FindingsManagement() {
       active = false
     }
   }, [search, status])
-  useEffect(() => {
-    void getFindingOptions()
-      .then(setOptions)
-      .catch((caught) =>
-        setError(caught instanceof Error ? caught.message : 'No se pudieron cargar las opciones.'),
-      )
-  }, [])
-  async function close(item: FindingRecord) {
-    const reason = await alerts.textInput({
-      title: 'Cerrar hallazgo',
-      label: 'Justificación del cierre',
-      confirmText: 'Cerrar',
-    })
-    if (!reason) return
+  async function showDetail(item: FindingRecord) {
+    setLoadingDetail(true)
     try {
-      await closeFinding(item.id, item.rowVersion, reason)
-      await load()
-      await alerts.success('Hallazgo cerrado')
+      setDetail(await getFinding(item.id))
     } catch (caught) {
-      await alerts.error(caught, 'No se pudo cerrar el hallazgo')
+      await alerts.error(caught, 'No se pudo cargar el detalle del hallazgo')
+    } finally {
+      setLoadingDetail(false)
     }
   }
   return (
@@ -570,18 +548,7 @@ export function FindingsManagement() {
       <PageHeader
         eyebrow="Ejecución de campo"
         title="Hallazgos y no conformidades"
-        description="Registre los incumplimientos vinculados a la evaluación y al ítem exacto de la ficha."
-        action={
-          options?.canCreate && (
-            <button
-              type="button"
-              onClick={() => setModalOpen(true)}
-              className="min-h-11 rounded-xl bg-brand-700 px-5 font-bold text-white"
-            >
-              + Nuevo hallazgo
-            </button>
-          )
-        }
+        description="Consulte los incumplimientos generados automáticamente desde las respuestas de las evaluaciones."
       />
       <div className="mt-6 rounded-card bg-white p-5 shadow-card">
         <form
@@ -651,15 +618,14 @@ export function FindingsManagement() {
                   <td className="px-3 py-4">{item.criticality}</td>
                   <td className="px-3 py-4">{formatStatusLabel(item.status)}</td>
                   <td className="px-3 py-4 text-right">
-                    {item.status !== 'CERRADA' && (
-                      <button
-                        type="button"
-                        onClick={() => void close(item)}
-                        className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
-                      >
-                        Cerrar
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => void showDetail(item)}
+                      disabled={loadingDetail}
+                      className="rounded-lg border border-brand-300 px-3 py-2 font-bold text-brand-800 disabled:opacity-50"
+                    >
+                      Ver detalles
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -670,55 +636,12 @@ export function FindingsManagement() {
           )}
         </div>
       </div>
-      {modalOpen && options && (
-        <FindingForm
-          options={options}
-          onClose={() => setModalOpen(false)}
-          onSave={async (input) => {
-            try {
-              await createFinding(input)
-              setModalOpen(false)
-              await load()
-              await alerts.success('Hallazgo registrado')
-            } catch (caught) {
-              await alerts.error(caught, 'No se pudo registrar el hallazgo')
-              throw caught
-            }
-          }}
-        />
-      )}
+      {detail && <FindingDetails detail={detail} onClose={() => setDetail(null)} />}
     </section>
   )
 }
 
-function FindingForm({
-  options,
-  onClose,
-  onSave,
-}: {
-  options: FindingOptions
-  onClose: () => void
-  onSave: (input: {
-    evaluationId: string
-    sourceItem: number
-    criticalityId: string
-    description: string
-  }) => Promise<void>
-}) {
-  const [evaluationId, setEvaluationId] = useState('')
-  const [sourceItem, setSourceItem] = useState('')
-  const [criticalityId, setCriticalityId] = useState('')
-  const [description, setDescription] = useState('')
-  const [saving, setSaving] = useState(false)
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    setSaving(true)
-    try {
-      await onSave({ evaluationId, sourceItem: Number(sourceItem), criticalityId, description })
-    } finally {
-      setSaving(false)
-    }
-  }
+function FindingDetails({ detail, onClose }: { detail: FindingDetail; onClose: () => void }) {
   return (
     <div
       className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
@@ -727,90 +650,54 @@ function FindingForm({
       <section
         role="dialog"
         aria-modal="true"
-        aria-labelledby="finding-form-title"
+        aria-labelledby="finding-detail-title"
         className="sigersa-modal-panel w-full max-w-2xl p-6"
       >
         <div className="flex justify-between">
-          <h2 id="finding-form-title" className="text-xl font-extrabold">
-            Registrar hallazgo
+          <h2 id="finding-detail-title" className="text-xl font-extrabold">
+            {detail.code} · {formatStatusLabel(detail.criticality)}
           </h2>
           <button type="button" onClick={onClose} aria-label="Cerrar">
             ✕
           </button>
         </div>
-        <form onSubmit={(event) => void submit(event)} className="mt-6 grid gap-4">
-          <label className={labelClass}>
-            Evaluación
-            <select
-              required
-              value={evaluationId}
-              onChange={(event) => setEvaluationId(event.target.value)}
-              className={fieldClass}
-            >
-              <option value="">Seleccione</option>
-              {options.evaluations.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className={labelClass}>
-              Número de ítem de la ficha
-              <input
-                required
-                type="number"
-                min="1"
-                value={sourceItem}
-                onChange={(event) => setSourceItem(event.target.value)}
-                className={fieldClass}
-              />
-            </label>
-            <label className={labelClass}>
-              Criticidad
-              <select
-                required
-                value={criticalityId}
-                onChange={(event) => setCriticalityId(event.target.value)}
-                className={fieldClass}
-              >
-                <option value="">Seleccione</option>
-                {options.criticalities.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+        <div className="mt-6 grid gap-4 text-sm">
+          <div className="grid gap-3 rounded-xl bg-slate-50 p-4 md:grid-cols-2">
+            <p><strong>Evaluación:</strong> {detail.evaluationNumber}</p>
+            <p><strong>Caso:</strong> {detail.caseNumber}</p>
+            <p><strong>Empresa:</strong> {detail.companyName}</p>
+            <p><strong>Establecimiento:</strong> {detail.establishmentName}</p>
+            <p className="md:col-span-2"><strong>Ítem:</strong> {detail.itemCode} · {detail.itemTitle}</p>
+            <p><strong>Respuesta:</strong> {formatStatusLabel(detail.rating)}</p>
+            <p><strong>Estado:</strong> {formatStatusLabel(detail.status)}</p>
           </div>
-          <label className={labelClass}>
-            Descripción
-            <textarea
-              required
-              rows={4}
-              maxLength={4000}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              className={`${fieldClass} py-3`}
-            />
-          </label>
+          <div><strong>Descripción</strong><p className="mt-1 text-ink-muted">{detail.description}</p></div>
+          {detail.observation && <div><strong>Observación</strong><p className="mt-1 text-ink-muted">{detail.observation}</p></div>}
+          {detail.technicalComment && <div><strong>Comentario técnico</strong><p className="mt-1 text-ink-muted">{detail.technicalComment}</p></div>}
+          <div>
+            <strong>Evidencias ({detail.evidences.length}/3)</strong>
+            {detail.evidences.length === 0 ? (
+              <p className="mt-1 text-ink-muted">No se adjuntaron evidencias a este ítem.</p>
+            ) : (
+              <ul className="mt-2 space-y-2">
+                {detail.evidences.map((evidence) => (
+                  <li key={evidence.id} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">
+                    {evidence.originalName} · {formatStatusLabel(evidence.evidenceType)}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <div className="flex justify-end gap-3 border-t pt-5">
             <button
               type="button"
               onClick={onClose}
               className="rounded-xl border px-4 py-2.5 font-bold"
             >
-              Cancelar
-            </button>
-            <button
-              disabled={saving}
-              className="rounded-xl bg-brand-700 px-5 py-2.5 font-bold text-white"
-            >
-              {saving ? 'Guardando…' : 'Registrar'}
+              Cerrar
             </button>
           </div>
-        </form>
+        </div>
       </section>
     </div>
   )
@@ -829,6 +716,7 @@ export function HistoryManagement() {
     evaluation: HistoricalEvaluation
     events: TimelineEvent[]
   } | null>(null)
+  const [generatingReport, setGeneratingReport] = useState<string | null>(null)
   const [refresh, setRefresh] = useState(0)
   const { roles } = useAuth()
   const canReview = roles.some((role) => role === 'ADMINISTRADOR' || role === 'COORDINADOR')
@@ -863,6 +751,7 @@ export function HistoryManagement() {
     }
   }
   async function generateReport(evaluation: HistoricalEvaluation, official: boolean) {
+    setGeneratingReport(evaluation.id)
     try {
       const report = await generateEvaluationReport(evaluation.id, official)
       setRefresh((value) => value + 1)
@@ -875,6 +764,8 @@ export function HistoryManagement() {
         caught,
         official ? 'No se pudo emitir el informe' : 'No se pudo generar el informe',
       )
+    } finally {
+      setGeneratingReport(null)
     }
   }
   async function downloadReport(reportId: string, number: string) {
@@ -1010,18 +901,20 @@ export function HistoryManagement() {
                           <button
                             type="button"
                             onClick={() => void generateReport(item, false)}
+                            disabled={generatingReport !== null}
                             className="rounded border px-2 py-1 text-xs font-bold"
                           >
-                            Generar borrador
+                            {generatingReport === item.id ? 'Generando…' : 'Generar borrador'}
                           </button>
                         )}
                       {canReview && item.status === 'APROBADA' && !item.hasOfficialReport && (
                         <button
                           type="button"
                           onClick={() => void generateReport(item, true)}
+                          disabled={generatingReport !== null}
                           className="rounded bg-brand-700 px-2 py-1 text-xs font-bold text-white"
                         >
-                          Emitir oficial
+                          {generatingReport === item.id ? 'Generando…' : 'Emitir oficial'}
                         </button>
                       )}
                       {item.reportId && (
@@ -1098,6 +991,25 @@ export function HistoryManagement() {
               ))}
             </ol>
           </section>
+        </div>
+      )}
+      {generatingReport && (
+        <div
+          className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
+          role="status"
+          aria-live="polite"
+          aria-label="Generando informe"
+        >
+          <div className="sigersa-modal-panel flex max-w-sm items-center gap-4 p-6">
+            <span
+              className="size-10 animate-spin rounded-full border-4 border-brand-100 border-t-brand-700"
+              aria-hidden="true"
+            />
+            <div>
+              <strong className="block text-ink-strong">Generando informe</strong>
+              <span className="text-sm text-ink-muted">Preparando el PDF y sus anexos…</span>
+            </div>
+          </div>
         </div>
       )}
     </section>

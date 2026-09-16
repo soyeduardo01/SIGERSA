@@ -120,6 +120,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
             query.CompanyScope,
             query.GlobalScope,
             query.AssignedOnly,
+            query.CanExecute,
             Offset = (query.Page - 1) * query.PageSize,
             query.PageSize
         };
@@ -727,6 +728,44 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 throw new OptimisticConcurrencyException(staleId);
             }
             await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                INSERT INTO "SIGERSA"."NO_CONFORMIDAD"
+                    (id, evaluacion_id, item_ficha_id, respuesta_usuario_id,
+                     nivel_criticidad_id, codigo, descripcion, estado,
+                     detectada_en, creado_por, modificado_por)
+                SELECT gen_random_uuid(), response.evaluacion_id, response.item_ficha_id,
+                       response.id, response.nivel_criticidad_id,
+                       'NC-' || upper(substr(replace(response.id::text, '-', ''), 1, 10)),
+                       COALESCE(NULLIF(response.observacion, ''), NULLIF(response.comentario, ''), item.titulo),
+                       'ABIERTA', CURRENT_TIMESTAMP, @ActorId, @ActorId
+                  FROM "SIGERSA"."RESPUESTA_USUARIO" response
+                  JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                 WHERE response.id = @ResponseId
+                   AND @Rating = 'NO_CUMPLE'
+                   AND response.nivel_criticidad_id IS NOT NULL
+                ON CONFLICT (evaluacion_id, item_ficha_id) DO UPDATE
+                    SET respuesta_usuario_id = EXCLUDED.respuesta_usuario_id,
+                        nivel_criticidad_id = EXCLUDED.nivel_criticidad_id,
+                        descripcion = EXCLUDED.descripcion,
+                        estado = 'ABIERTA', cerrada_en = NULL, cierre_justificacion = NULL,
+                        modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
+                        version_fila = "SIGERSA"."NO_CONFORMIDAD".version_fila + 1;
+
+                UPDATE "SIGERSA"."NO_CONFORMIDAD"
+                   SET estado = 'CERRADA', cerrada_en = CURRENT_TIMESTAMP,
+                       cierre_justificacion = 'Cerrada automáticamente al cambiar la respuesta a cumplimiento.',
+                       modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
+                       version_fila = version_fila + 1
+                 WHERE evaluacion_id = @EvaluationId AND item_ficha_id = @ItemId
+                   AND @Rating <> 'NO_CUMPLE' AND estado <> 'CERRADA';
+                """), new
+            {
+                ResponseId = answer.Id,
+                draft.EvaluationId,
+                ItemId = itemId.Value,
+                draft.Rating,
+                ActorId = actorId
+            }, transaction, cancellationToken: cancellationToken));
+            await connection.ExecuteAsync(new CommandDefinition(Sql("""
                 UPDATE "SIGERSA"."OPERACION_SINCRONIZACION"
                 SET recurso_id = @ResourceId, estado = 'APLICADA', codigo_resultado = 'OK',
                     procesada_en = CURRENT_TIMESTAMP, modificado_por = @ActorId
@@ -972,6 +1011,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                            WHEN 'SUBMIT' THEN 'ENVIADA'
                            WHEN 'REVIEW' THEN 'EN_REVISION'
                            WHEN 'APPROVE' THEN 'APROBADA'
+                           WHEN 'REJECT' THEN 'NO_APROBADA'
                            WHEN 'CLOSE' THEN 'CERRADA'
                        END,
                        iniciada_en = CASE WHEN @Action = 'START' THEN CURRENT_TIMESTAMP ELSE iniciada_en END,
@@ -993,22 +1033,35 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                        OR (@Action = 'REVIEW' AND evaluation.estado = 'ENVIADA')
                        OR (@Action = 'APPROVE' AND evaluation.estado IN ('ENVIADA', 'EN_REVISION')
                            AND evaluation.evaluador_principal_id <> @ActorId)
-                       OR (@Action = 'CLOSE' AND evaluation.estado = 'APROBADA'
-                           AND EXISTS (
+                       OR (@Action = 'REJECT' AND evaluation.estado IN ('ENVIADA', 'EN_REVISION')
+                           AND evaluation.evaluador_principal_id <> @ActorId)
+                       OR (@Action = 'CLOSE' AND (
+                           evaluation.estado = 'NO_APROBADA'
+                           OR (evaluation.estado = 'APROBADA' AND EXISTS (
                                SELECT 1 FROM "SIGERSA"."INFORME" report
                                JOIN "SIGERSA"."INFORME_VERSION" version ON version.informe_id = report.id
-                               WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true))
+                               WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true))))
                    )
                    AND (
                        (@Action IN ('START', 'FINALIZE', 'SUBMIT')
                         AND evaluation.evaluador_principal_id = @ActorId)
-                       OR (@Action IN ('REVIEW', 'APPROVE', 'CLOSE') AND EXISTS (
+                       OR (@Action IN ('REVIEW', 'APPROVE', 'REJECT', 'CLOSE') AND EXISTS (
                             SELECT 1 FROM "SIGERSA"."USUARIO_ROL" user_role
                             JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
                             WHERE user_role.usuario_id = @ActorId AND user_role.activo = true
                               AND role.codigo = 'COORDINADOR'))
                    )
-                RETURNING evaluation.version_fila AS RowVersion, evaluation.caso_id AS CaseId
+                RETURNING evaluation.version_fila AS RowVersion, evaluation.caso_id AS CaseId,
+                          evaluation.programacion_id AS ScheduleId
+            ), request_in_progress AS (
+                UPDATE "SIGERSA"."SOLICITUD" request
+                   SET estado = 'EN_PROCESO', modificado_en = CURRENT_TIMESTAMP,
+                       modificado_por = @ActorId, version_fila = version_fila + 1
+                  FROM "SIGERSA"."CASO" inspection_case
+                 WHERE @Action = 'START' AND inspection_case.id IN (SELECT CaseId FROM updated)
+                   AND request.id = inspection_case.solicitud_id
+                   AND request.estado IN ('PENDIENTE_ASIGNACION', 'ASIGNADA')
+                RETURNING request.id
             ), closed_case AS (
                 UPDATE "SIGERSA"."CASO" inspection_case
                    SET estado = 'CERRADO', cerrado_en = CURRENT_TIMESTAMP,
@@ -1016,6 +1069,22 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                        version_fila = version_fila + 1
                  WHERE @Action = 'CLOSE' AND inspection_case.id IN (SELECT CaseId FROM updated)
                 RETURNING inspection_case.id
+            ), completed_schedule AS (
+                UPDATE "SIGERSA"."PROGRAMACION" schedule
+                   SET estado = 'COMPLETADA', modificado_en = CURRENT_TIMESTAMP,
+                       modificado_por = @ActorId, version_fila = version_fila + 1
+                 WHERE @Action = 'CLOSE' AND schedule.id IN (SELECT ScheduleId FROM updated)
+                   AND schedule.estado IN ('PROGRAMADA', 'REPROGRAMADA')
+                RETURNING schedule.id
+            ), resolved_request AS (
+                UPDATE "SIGERSA"."SOLICITUD" request
+                   SET estado = 'RESUELTA', modificado_en = CURRENT_TIMESTAMP,
+                       modificado_por = @ActorId, version_fila = version_fila + 1
+                  FROM "SIGERSA"."CASO" inspection_case
+                 WHERE @Action = 'CLOSE' AND inspection_case.id IN (SELECT CaseId FROM updated)
+                   AND request.id = inspection_case.solicitud_id
+                   AND request.estado NOT IN ('CANCELADA', 'RECHAZADA', 'RESUELTA')
+                RETURNING request.id
             )
             SELECT RowVersion FROM updated;
             """;

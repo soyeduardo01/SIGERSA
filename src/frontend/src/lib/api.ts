@@ -333,6 +333,32 @@ export interface FindingRecord {
   rowVersion: number
 }
 
+export interface FindingDetail {
+  id: string
+  code: string
+  evaluationNumber: string
+  caseNumber: string
+  companyName: string
+  establishmentName: string
+  sourceItem: number
+  itemCode: string
+  itemTitle: string
+  rating: string
+  criticality: string
+  description: string
+  observation: string | null
+  technicalComment: string | null
+  status: string
+  detectedAt: string
+  evidences: Array<{
+    id: string
+    originalName: string
+    mimeType: string
+    evidenceType: string
+    uploadedAt: string
+  }>
+}
+
 export interface FindingsPage {
   items: FindingRecord[]
   page: number
@@ -661,7 +687,14 @@ export interface InspectionRequest {
   establishmentType: string | null
   observations: string | null
   documentCount: number
-  status: 'BORRADOR' | 'PENDIENTE_ASIGNACION' | 'CANCELADA' | 'RECHAZADA'
+  status:
+    | 'BORRADOR'
+    | 'PENDIENTE_ASIGNACION'
+    | 'ASIGNADA'
+    | 'EN_PROCESO'
+    | 'RESUELTA'
+    | 'CANCELADA'
+    | 'RECHAZADA'
   createdAt: string
   submittedAt: string | null
   cancelledAt: string | null
@@ -1263,7 +1296,7 @@ export async function finalizeEvaluation(evaluationId: string, productRisk: numb
 
 export async function transitionEvaluation(
   evaluationId: string,
-  action: 'submit' | 'review' | 'approve' | 'close',
+  action: 'submit' | 'review' | 'approve' | 'reject' | 'close',
   rowVersion: number,
 ) {
   return sendJson<number>(`/api/v1/evaluations/${evaluationId}/${action}`, 'POST', { rowVersion })
@@ -1630,6 +1663,10 @@ export async function getFindings(filters: {
   if (filters.status) query.set('status', filters.status)
   query.set('pageSize', String(filters.pageSize ?? 50))
   return getJson<FindingsPage>(`/api/v1/findings?${query}`)
+}
+
+export async function getFinding(id: string) {
+  return getJson<FindingDetail>(`/api/v1/findings/${id}`)
 }
 
 export async function getFindingOptions() {

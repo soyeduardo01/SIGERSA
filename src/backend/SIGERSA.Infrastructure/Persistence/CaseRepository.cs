@@ -217,6 +217,14 @@ public sealed class CaseRepository(IDbConnectionFactory connectionFactory)
             }, transaction, cancellationToken: cancellationToken));
             if (inserted != 1) throw new ArgumentException("El origen seleccionado no está listo para crear un caso o ya fue utilizado.");
             await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                UPDATE "SIGERSA"."SOLICITUD"
+                   SET estado = 'ASIGNADA', modificado_en = CURRENT_TIMESTAMP,
+                       modificado_por = @ActorId, version_fila = version_fila + 1
+                 WHERE id = @SourceId AND @Origin = 'SOLICITUD_EMPRESA'
+                   AND estado = 'PENDIENTE_ASIGNACION';
+                """), new { draft.SourceId, draft.Origin, ActorId = actorId }, transaction,
+                cancellationToken: cancellationToken));
+            await connection.ExecuteAsync(new CommandDefinition(Sql("""
                 UPDATE "SIGERSA"."OPERACION_SINCRONIZACION"
                    SET recurso_id = @Id, estado = 'APLICADA', codigo_resultado = 'CREATED',
                        procesada_en = CURRENT_TIMESTAMP, modificado_en = CURRENT_TIMESTAMP,
@@ -288,6 +296,20 @@ public sealed class CaseRepository(IDbConnectionFactory connectionFactory)
                 TransitionId = Guid.NewGuid(), Id = id, Previous = previous,
                 Reason = reason, ActorId = actorId
             }, transaction, cancellationToken: cancellationToken));
+            await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                UPDATE "SIGERSA"."PROGRAMACION"
+                   SET estado = 'COMPLETADA', modificado_en = CURRENT_TIMESTAMP,
+                       modificado_por = @ActorId, version_fila = version_fila + 1
+                 WHERE caso_id = @Id AND estado IN ('PROGRAMADA', 'REPROGRAMADA');
+
+                UPDATE "SIGERSA"."SOLICITUD" request
+                   SET estado = 'RESUELTA', modificado_en = CURRENT_TIMESTAMP,
+                       modificado_por = @ActorId, version_fila = request.version_fila + 1
+                  FROM "SIGERSA"."CASO" inspection_case
+                 WHERE inspection_case.id = @Id AND request.id = inspection_case.solicitud_id
+                   AND request.estado NOT IN ('CANCELADA', 'RECHAZADA', 'RESUELTA');
+                """), new { Id = id, ActorId = actorId }, transaction,
+                cancellationToken: cancellationToken));
             await transaction.CommitAsync(cancellationToken);
             return true;
         }

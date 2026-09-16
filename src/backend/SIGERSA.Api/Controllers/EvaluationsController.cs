@@ -140,6 +140,15 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
             new EvaluationTransitionDraft("APPROVE", request.RowVersion),
             ActorContext(), cancellationToken);
 
+    [HttpPost("evaluations/{evaluationId:guid}/reject")]
+    [Authorize(Roles = "COORDINADOR")]
+    public Task<long> Reject(
+        Guid evaluationId, EvaluationTransitionRequest request,
+        CancellationToken cancellationToken) =>
+        service.TransitionAsync(evaluationId,
+            new EvaluationTransitionDraft("REJECT", request.RowVersion),
+            ActorContext(), cancellationToken);
+
     [HttpPost("evaluations/{evaluationId:guid}/close")]
     [Authorize(Roles = "COORDINADOR")]
     public Task<long> Close(

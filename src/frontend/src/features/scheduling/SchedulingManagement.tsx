@@ -102,10 +102,21 @@ export function SchedulingManagement() {
   }
 
   const bounds = calendarBounds(anchorDate, calendarView)
-  const visibleItems = result.items.filter((item) => {
-    const startsAt = new Date(item.startsAt)
-    return startsAt >= bounds.start && startsAt < bounds.end
-  })
+  const visibleItems = result.items
+    .filter((item) => {
+      const startsAt = new Date(item.startsAt)
+      return startsAt >= bounds.start && startsAt < bounds.end
+    })
+    .sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt))
+  const periodLabel = formatCalendarPeriod(bounds.start, bounds.end, calendarView)
+
+  function moveCalendar(direction: -1 | 1) {
+    const next = new Date(`${anchorDate}T12:00:00`)
+    if (calendarView === 'day') next.setDate(next.getDate() + direction)
+    else if (calendarView === 'week') next.setDate(next.getDate() + direction * 7)
+    else next.setMonth(next.getMonth() + direction)
+    setAnchorDate(toDateInput(next))
+  }
 
   return (
     <section aria-labelledby="scheduling-title">
@@ -118,7 +129,7 @@ export function SchedulingManagement() {
             Programación
           </h1>
           <p className="mt-2 text-sm text-ink-muted">
-            Asigne fechas y técnicos a los casos abiertos.
+            Consulte su agenda y atienda cada inspección dentro del intervalo asignado.
           </p>
         </div>
         {options?.canManage && (
@@ -173,6 +184,37 @@ export function SchedulingManagement() {
             ))}
           </div>
         </div>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => moveCalendar(-1)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-bold"
+              aria-label="Período anterior"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={() => setAnchorDate(toDateInput(new Date()))}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold"
+            >
+              Hoy
+            </button>
+            <button
+              type="button"
+              onClick={() => moveCalendar(1)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 font-bold"
+              aria-label="Período siguiente"
+            >
+              →
+            </button>
+          </div>
+          <strong className="text-sm text-ink-strong">{periodLabel}</strong>
+          <span className="text-xs font-semibold text-ink-muted">
+            {visibleItems.length} inspección(es) en esta vista
+          </span>
+        </div>
         {!scheduleStates.loading && scheduleStates.options.length === 0 && (
           <span className="mt-2 block text-xs font-normal text-amber-700">
             El catálogo ESTADO_PROGRAMACION no tiene valores activos.
@@ -199,8 +241,10 @@ export function SchedulingManagement() {
               </tr>
             </thead>
             <tbody>
-              {visibleItems.map((item) => (
-                <tr key={item.id} className="border-b border-slate-100">
+              {visibleItems.map((item) => {
+                const timing = scheduleTiming(item)
+                return (
+                <tr key={item.id} className={`border-b border-slate-100 ${timing.rowClass}`}>
                   <td className="px-3 py-4 font-bold">
                     {item.caseNumber}
                     <span className="block text-xs font-normal text-ink-muted">
@@ -221,6 +265,11 @@ export function SchedulingManagement() {
                     <span className="block text-xs text-ink-muted">
                       hasta {new Date(item.endsAt).toLocaleString()}
                     </span>
+                    {timing.label && (
+                      <span className={`mt-1 inline-flex rounded-full px-2 py-1 text-xs font-bold ${timing.badgeClass}`}>
+                        {timing.label}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-4">{item.evaluatorNames.join(', ')}</td>
                   <td className="px-3 py-4">{item.priority}</td>
@@ -249,7 +298,7 @@ export function SchedulingManagement() {
                     )}
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
           {loading && <TableSkeleton rows={5} columns={6} />}
@@ -285,6 +334,51 @@ function calendarBounds(anchor: string, view: CalendarView) {
   else if (view === 'week') end.setDate(end.getDate() + 7)
   else end.setMonth(end.getMonth() + 1)
   return { start, end }
+}
+
+function toDateInput(value: Date) {
+  const year = value.getFullYear()
+  const month = String(value.getMonth() + 1).padStart(2, '0')
+  const day = String(value.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatCalendarPeriod(start: Date, end: Date, view: CalendarView) {
+  const formatter = new Intl.DateTimeFormat('es-DO', {
+    day: view === 'month' ? undefined : 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+  if (view === 'day' || view === 'month') return formatter.format(start)
+  const inclusiveEnd = new Date(end)
+  inclusiveEnd.setDate(inclusiveEnd.getDate() - 1)
+  return `${formatter.format(start)} – ${formatter.format(inclusiveEnd)}`
+}
+
+export function scheduleTiming(item: Pick<Schedule, 'startsAt' | 'endsAt' | 'status'>, now = Date.now()) {
+  if (['CANCELADA', 'COMPLETADA'].includes(item.status))
+    return { label: '', badgeClass: '', rowClass: '' }
+  const startsAt = Date.parse(item.startsAt)
+  const endsAt = Date.parse(item.endsAt)
+  if (endsAt < now)
+    return {
+      label: 'Plazo vencido',
+      badgeClass: 'bg-red-100 text-red-800',
+      rowClass: 'bg-red-50/60',
+    }
+  if (startsAt <= now)
+    return {
+      label: 'Atender ahora',
+      badgeClass: 'bg-amber-100 text-amber-900',
+      rowClass: 'bg-amber-50/60',
+    }
+  if (startsAt - now <= 24 * 60 * 60 * 1000)
+    return {
+      label: 'Próxima en menos de 24 h',
+      badgeClass: 'bg-blue-100 text-blue-800',
+      rowClass: '',
+    }
+  return { label: '', badgeClass: '', rowClass: '' }
 }
 
 function ScheduleForm({

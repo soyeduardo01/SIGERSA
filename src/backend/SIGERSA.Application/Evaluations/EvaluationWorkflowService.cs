@@ -292,7 +292,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         var action = transition.Action.Trim().ToUpperInvariant();
         var executionAction = action is "START" or "FINALIZE";
         var submitAction = action == "SUBMIT";
-        var reviewerAction = action is "REVIEW" or "APPROVE" or "CLOSE";
+        var reviewerAction = action is "REVIEW" or "APPROVE" or "REJECT" or "CLOSE";
         if (!executionAction && !submitAction && !reviewerAction) throw new ArgumentException("La transición solicitada no es válida.");
         if (executionAction && !HasRole(actor, "TECNICO_EVALUADOR"))
             throw new ForbiddenException("La transición corresponde al técnico evaluador asignado.");
@@ -302,6 +302,8 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             throw new ForbiddenException("La transición corresponde al coordinador revisor.");
         if (action == "APPROVE")
             await EnsureApprovalCriteriaAsync(evaluationId, actor.UserId, cancellationToken);
+        if (action == "REJECT")
+            await EnsureRejectionCriteriaAsync(evaluationId, actor.UserId, cancellationToken);
         var version = await repository.TransitionAsync(
             evaluationId, transition with { Action = action }, actor.UserId, cancellationToken);
         return version ?? throw new OptimisticConcurrencyException(evaluationId);
@@ -332,6 +334,30 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         var decision = InspectionQualificationPolicy.Evaluate(policy, compliance, answers);
         if (decision.ApprovalEligible != true)
             throw new InvalidOperationException("No se puede aprobar: se requiere al menos 81 %, ninguna no conformidad crítica y menos de tres no conformidades mayores.");
+    }
+
+    private async Task EnsureRejectionCriteriaAsync(
+        Guid evaluationId,
+        Guid actorId,
+        CancellationToken cancellationToken)
+    {
+        var input = await repository.GetCalculationInputAsync(evaluationId, actorId, cancellationToken);
+        var context = await repository.GetInspectionContextAsync(evaluationId, actorId, cancellationToken);
+        var policy = InspectionQualificationPolicy.Resolve(
+            context, input.Items, input.Answers.Select(answer => answer.SourceItem).ToHashSet());
+        if (policy.ApprovalPurpose is null)
+            throw new InvalidOperationException("Esta evaluación no corresponde a una solicitud de aprobación o certificación.");
+        var required = policy.RequiredSourceItems.ToHashSet();
+        var answers = input.Answers.Where(answer => required.Contains(answer.SourceItem)).ToArray();
+        if (answers.Length != required.Count)
+            throw new InvalidOperationException("La evaluación no contiene todas las respuestas obligatorias.");
+        var bpm = RiskEngine.CalculateBpm(answers.Select(answer => ParseRating(answer.Rating)));
+        var compliance = bpm.Score.HasValue
+            ? bpm.Score.Value * 100m
+            : throw new InvalidOperationException("No se puede decidir una evaluación sin ítems calificables.");
+        var decision = InspectionQualificationPolicy.Evaluate(policy, compliance, answers);
+        if (decision.ApprovalEligible != false)
+            throw new InvalidOperationException("La evaluación cumple las condiciones de aprobación y no puede marcarse como no aprobada.");
     }
 
     private static void ValidateCoordinates(EvaluationTransitionDraft transition)

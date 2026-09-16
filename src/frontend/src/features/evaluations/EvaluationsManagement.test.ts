@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canEditInspection,
+  canCloseEvaluation,
   canExecuteInspection,
   canFinalizeReview,
   canSubmitForReview,
@@ -27,6 +28,7 @@ describe('flujo unificado de evaluaciones e inspecciones', () => {
     'ENVIADA',
     'EN_REVISION',
     'APROBADA',
+    'NO_APROBADA',
     'CERRADA',
   ])('deja la ficha en lectura para el estado %s', (status) => {
     expect(canEditInspection(status, true)).toBe(false)
@@ -53,5 +55,11 @@ describe('flujo unificado de evaluaciones e inspecciones', () => {
     expect(canFinalizeReview('ENVIADA', ['COORDINADOR'])).toBe(true)
     expect(canFinalizeReview('ENVIADA', ['ADMINISTRADOR'])).toBe(false)
     expect(canFinalizeReview('ENVIADA', ['TECNICO_EVALUADOR'])).toBe(false)
+  })
+
+  it('permite cerrar expedientes aprobados o no aprobados', () => {
+    expect(canCloseEvaluation('APROBADA', ['COORDINADOR'])).toBe(true)
+    expect(canCloseEvaluation('NO_APROBADA', ['COORDINADOR'])).toBe(true)
+    expect(canCloseEvaluation('EN_REVISION', ['COORDINADOR'])).toBe(false)
   })
 })

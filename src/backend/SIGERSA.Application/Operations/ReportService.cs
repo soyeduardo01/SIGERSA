@@ -25,6 +25,9 @@ public sealed class ReportService(
         EnsureReviewer(actor);
         var data = await repository.GetReportDataAsync(evaluationId, actor.UserId, cancellationToken)
             ?? throw new KeyNotFoundException("La evaluación no existe o todavía no está lista para generar su informe.");
+        if (official && !string.Equals(data.Status, "APROBADA", StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                "El informe solo puede emitirse como oficial después de aprobar la evaluación.");
         var mainReport = await pdfRenderer.RenderAsync(data, official, cancellationToken);
         var attachments = new List<ReportAttachment>();
         foreach (var evidence in data.Evidences)

@@ -20,6 +20,9 @@ const maximumSupportingDocumentSize = 5 * 1024 * 1024
 const statusLabels: Record<InspectionRequest['status'], string> = {
   BORRADOR: 'Borrador',
   PENDIENTE_ASIGNACION: 'Pendiente de asignación',
+  ASIGNADA: 'Asignada',
+  EN_PROCESO: 'En proceso',
+  RESUELTA: 'Resuelta',
   CANCELADA: 'Cancelada',
   RECHAZADA: 'Rechazada',
 }

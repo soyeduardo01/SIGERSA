@@ -93,7 +93,7 @@ export function DynamicInspectionForm({
   const [observations, setObservations] = useState<Record<number, string>>({})
   const [comments, setComments] = useState<Record<number, string>>({})
   const [answerStatus, setAnswerStatus] = useState<Record<number, string>>({})
-  const [evidenceStatus, setEvidenceStatus] = useState<Record<number, string>>({})
+  const [evidenceStatus, setEvidenceStatus] = useState<Record<string, string>>({})
   const [supplement, setSupplement] = useState<EvaluationSupplement>(emptySupplement)
   const [savingSupplement, setSavingSupplement] = useState(false)
   const [calculation, setCalculation] = useState<EvaluationCalculation | null>(null)
@@ -429,14 +429,23 @@ export function DynamicInspectionForm({
     }
   }
 
-  async function addEvidence(file: File | undefined, sourceItem: number) {
+  async function addEvidence(file: File | undefined, item: EvaluationFormItem, slot: number) {
     if (!file || !evaluationId) return
-    setEvidenceStatus((current) => ({ ...current, [sourceItem]: 'Preparando archivo…' }))
+    const statusKey = `${item.sourceItem}-${slot}`
+    setEvidenceStatus((current) => ({ ...current, [statusKey]: 'Guardando respuesta…' }))
     try {
+      const rating = ratings[item.sourceItem]
+      if (!rating)
+        throw new Error('Seleccione y guarde la respuesta antes de adjuntar una evidencia.')
+      const criticality = criticalities[item.sourceItem]
+      if (rating === 'NO_CUMPLE' && !criticality)
+        throw new Error('Seleccione el nivel de criticidad antes de adjuntar una evidencia.')
+      await persistAnswer(item, rating, criticality)
+      setEvidenceStatus((current) => ({ ...current, [statusKey]: 'Preparando archivo…' }))
       const location = await getOptionalLocation()
       const key = await queueEvidence({
         evaluationId,
-        sourceItem,
+        sourceItem: item.sourceItem,
         mimeType: file.type,
         fileName: file.name,
         evidenceType: 'FOTOGRAFIA',
@@ -444,19 +453,19 @@ export function DynamicInspectionForm({
         ...location,
       })
       if (navigator.onLine) {
-        setEvidenceStatus((current) => ({ ...current, [sourceItem]: 'Subiendo a Supabase…' }))
+        setEvidenceStatus((current) => ({ ...current, [statusKey]: 'Subiendo archivo…' }))
         await flushSyncQueue()
         const pending = await offlineDb.syncQueue.get(key)
         if (pending)
           throw new Error(pending.lastError ?? 'La evidencia todavía no pudo sincronizarse.')
-        setEvidenceStatus((current) => ({ ...current, [sourceItem]: 'Guardada en Supabase' }))
-        setMessage('Evidencia opcional guardada en Supabase.')
+        setEvidenceStatus((current) => ({ ...current, [statusKey]: 'Archivo guardado' }))
+        setMessage('Evidencia opcional guardada correctamente.')
       } else {
-        setEvidenceStatus((current) => ({ ...current, [sourceItem]: 'Pendiente sin conexión' }))
-        setMessage('Evidencia protegida localmente; se subirá a Supabase al recuperar conexión.')
+        setEvidenceStatus((current) => ({ ...current, [statusKey]: 'Pendiente sin conexión' }))
+        setMessage('Evidencia protegida localmente; se enviará al recuperar conexión.')
       }
     } catch (error) {
-      setEvidenceStatus((current) => ({ ...current, [sourceItem]: 'Error al guardar' }))
+      setEvidenceStatus((current) => ({ ...current, [statusKey]: 'Error al guardar' }))
       setMessage(error instanceof Error ? error.message : 'La evidencia no pudo guardarse.')
       await alerts.error(error, 'No se pudo guardar la evidencia')
     }
@@ -610,7 +619,9 @@ export function DynamicInspectionForm({
                 observation={observations[item.sourceItem] ?? ''}
                 comment={comments[item.sourceItem] ?? ''}
                 answerStatus={answerStatus[item.sourceItem]}
-                evidenceStatus={evidenceStatus[item.sourceItem]}
+                evidenceStatuses={[0, 1, 2].map(
+                  (slot) => evidenceStatus[`${item.sourceItem}-${slot}`],
+                )}
                 readOnly={readOnly}
                 headingDepth={
                   item.isEvaluable
@@ -631,7 +642,7 @@ export function DynamicInspectionForm({
                   setComments((current) => ({ ...current, [item.sourceItem]: value }))
                 }
                 onBlur={() => void saveAnswerDetails(item)}
-                onEvidence={(file) => void addEvidence(file, item.sourceItem)}
+                onEvidence={(file, slot) => void addEvidence(file, item, slot)}
               />
             ))}
           </div>
@@ -802,7 +813,7 @@ function EvaluationItemCard({
   observation,
   comment,
   answerStatus,
-  evidenceStatus,
+  evidenceStatuses,
   readOnly,
   headingDepth,
   onRating,
@@ -818,7 +829,7 @@ function EvaluationItemCard({
   observation: string
   comment: string
   answerStatus?: string
-  evidenceStatus?: string
+  evidenceStatuses: Array<string | undefined>
   readOnly: boolean
   headingDepth: number
   onRating: (rating: string) => void
@@ -826,7 +837,7 @@ function EvaluationItemCard({
   onObservation: (value: string) => void
   onComment: (value: string) => void
   onBlur: () => void
-  onEvidence: (file?: File) => void
+  onEvidence: (file: File | undefined, slot: number) => void
 }) {
   if (!item.isEvaluable) {
     const headingStyle =
@@ -920,25 +931,39 @@ function EvaluationItemCard({
             />
           </label>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <label
-            className={`inline-flex min-h-10 items-center rounded-lg border px-3 text-sm font-bold ${readOnly ? 'cursor-not-allowed border-slate-300 bg-slate-200 text-slate-500' : 'text-brand-800 cursor-pointer border-brand-200 hover:bg-brand-50'}`}
-          >
-            Adjuntar evidencia <span className="ml-1 font-normal">(opcional, máx. 5 MB)</span>
-            <input
-              type="file"
-              className="sr-only"
-              accept="image/jpeg,image/png,application/pdf,video/mp4"
-              onChange={(event) => onEvidence(event.target.files?.[0])}
-            />
-          </label>
+        <div className="mt-3">
+          <p className="text-xs font-bold text-ink-muted">
+            Evidencias opcionales (hasta 3 archivos, máx. 5 MB cada uno)
+          </p>
+          <div className="mt-2 grid gap-2 md:grid-cols-3">
+            {[0, 1, 2].map((slot) => (
+              <label
+                key={slot}
+                className={`flex min-h-10 items-center justify-center rounded-lg border px-3 text-sm font-bold transition-colors ${readOnly ? 'cursor-not-allowed border-slate-300 bg-slate-200 text-slate-500' : evidenceStatuses[slot] === 'Archivo guardado' ? 'cursor-pointer border-emerald-600 bg-emerald-100 text-emerald-900' : evidenceStatuses[slot] === 'Pendiente sin conexión' ? 'cursor-pointer border-amber-500 bg-amber-50 text-amber-900' : evidenceStatuses[slot] === 'Error al guardar' ? 'cursor-pointer border-red-500 bg-red-50 text-red-800' : 'text-brand-800 cursor-pointer border-brand-200 hover:bg-brand-50'}`}
+              >
+                {evidenceStatuses[slot] === 'Archivo guardado' ? '✓ ' : ''}Archivo {slot + 1}
+                <input
+                  type="file"
+                  className="sr-only"
+                  aria-label={`Evidencia ${slot + 1} para ${item.title}`}
+                  accept="image/jpeg,image/png,application/pdf,video/mp4"
+                  onChange={(event) => onEvidence(event.target.files?.[0], slot)}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
           {answerStatus && (
             <span className="text-xs font-semibold text-ink-muted">Respuesta: {answerStatus}</span>
           )}
-          {evidenceStatus && (
-            <span className="text-xs font-semibold text-brand-700">
-              Evidencia: {evidenceStatus}
-            </span>
+          {evidenceStatuses.map(
+            (status, slot) =>
+              status && (
+                <span key={slot} className="text-xs font-semibold text-brand-700">
+                  Archivo {slot + 1}: {status}
+                </span>
+              ),
           )}
         </div>
       </fieldset>

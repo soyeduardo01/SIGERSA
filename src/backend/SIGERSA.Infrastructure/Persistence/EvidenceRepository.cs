@@ -260,6 +260,19 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
                     if (!associationExists)
                         throw new InvalidOperationException("Debe guardar la respuesta antes de asociarle una evidencia.");
                 }
+                await connection.ExecuteAsync(new CommandDefinition(Sql("""
+                    INSERT INTO "SIGERSA"."EVIDENCIA_NO_CONFORMIDAD"
+                        (evidencia_id, no_conformidad_id, creado_por)
+                    SELECT @EvidenceId, finding.id, @UploadedBy
+                      FROM "SIGERSA"."NO_CONFORMIDAD" finding
+                      JOIN "SIGERSA"."RESPUESTA_USUARIO" response
+                        ON response.id = finding.respuesta_usuario_id
+                      JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                     WHERE response.evaluacion_id = @EvaluationId
+                       AND item.source_allitems_item = @SourceItem
+                    ON CONFLICT (evidencia_id, no_conformidad_id) DO NOTHING;
+                    """), new { EvidenceId = persistedId, evidence.UploadedBy, evidence.EvaluationId, evidence.SourceItem },
+                    transaction, cancellationToken: cancellationToken));
             }
             await transaction.CommitAsync(cancellationToken);
             return persistedId;

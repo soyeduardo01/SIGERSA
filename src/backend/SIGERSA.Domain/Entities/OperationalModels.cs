@@ -132,6 +132,32 @@ public sealed record FindingsPage(
     int PageSize,
     int Total);
 
+public sealed record FindingEvidence(
+    Guid Id,
+    string OriginalName,
+    string MimeType,
+    string EvidenceType,
+    DateTimeOffset UploadedAt);
+
+public sealed record FindingDetail(
+    Guid Id,
+    string Code,
+    string EvaluationNumber,
+    string CaseNumber,
+    string CompanyName,
+    string EstablishmentName,
+    int SourceItem,
+    string ItemCode,
+    string ItemTitle,
+    string Rating,
+    string Criticality,
+    string Description,
+    string? Observation,
+    string? TechnicalComment,
+    string Status,
+    DateTimeOffset DetectedAt,
+    IReadOnlyList<FindingEvidence> Evidences);
+
 public sealed record FindingSearch(
     string? Search,
     string? Status,

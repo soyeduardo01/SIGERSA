@@ -18,6 +18,7 @@ import { DynamicInspectionForm } from '../inspection/DynamicInspectionForm'
 import { useAuth } from '../../contexts/useAuth'
 import {
   canEditInspection,
+  canCloseEvaluation,
   canExecuteInspection,
   canFinalizeReview,
   canSubmitForReview,
@@ -92,20 +93,23 @@ export function EvaluationsManagement() {
 
   async function runTransition(
     item: EvaluationSummary,
-    action: 'start' | 'submit' | 'review' | 'approve' | 'close',
+    action: 'start' | 'submit' | 'review' | 'approve' | 'reject' | 'close',
   ) {
     const labels = {
       start: 'Iniciar evaluación',
       submit: 'Enviar a revisión',
       review: 'Comenzar revisión',
-      approve: 'Finalizar revisión',
+      approve: 'Aprobar evaluación',
+      reject: 'Marcar como no aprobada',
       close: 'Cerrar expediente',
     }
     const confirmed = await alerts.confirm({
       title: labels[action],
       text:
         action === 'close'
-          ? 'El cierre requiere que exista un informe oficial emitido.'
+          ? item.status === 'APROBADA'
+            ? 'El cierre de una evaluación aprobada requiere un informe oficial emitido.'
+            : 'La evaluación no aprobada y su caso quedarán cerrados.'
           : 'El cambio quedará registrado en la trazabilidad.',
       confirmText: labels[action],
     })
@@ -233,12 +237,30 @@ export function EvaluationsManagement() {
                         </button>
                       )}
                       {canFinalizeReview(item.status, roles) && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => void runTransition(item, 'approve')}
+                            className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white"
+                          >
+                            Aprobar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void runTransition(item, 'reject')}
+                            className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
+                          >
+                            No aprobar
+                          </button>
+                        </>
+                      )}
+                      {canCloseEvaluation(item.status, roles) && (
                         <button
                           type="button"
-                          onClick={() => void runTransition(item, 'approve')}
-                          className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white"
+                          onClick={() => void runTransition(item, 'close')}
+                          className="rounded-lg border border-slate-300 px-3 py-2 font-bold"
                         >
-                          Finalizar
+                          Cerrar expediente
                         </button>
                       )}
                       <button
