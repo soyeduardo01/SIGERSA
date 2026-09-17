@@ -68,6 +68,34 @@ public sealed class SupportingDocumentService(
             requestId, documentType.Trim().ToUpperInvariant(), required, document, actor.UserId, cancellationToken);
     }
 
+    public Task<IReadOnlyList<RequestSupportingDocument>> GetRequestDocumentsAsync(
+        Guid requestId, DocumentActor actor, CancellationToken cancellationToken)
+    {
+        EnsureRequestDocumentReader(actor);
+        var global = actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR");
+        return repository.GetRequestDocumentsAsync(
+            requestId, actor.UserId, global ? null : actor.CompanyId, global, cancellationToken);
+    }
+
+    public async Task<SupportingDocumentDownload> DownloadRequestDocumentAsync(
+        Guid requestId, Guid documentId, DocumentActor actor, CancellationToken cancellationToken)
+    {
+        EnsureRequestDocumentReader(actor);
+        var global = actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR");
+        var reference = await repository.GetRequestDocumentAsync(
+            requestId, documentId, actor.UserId, global ? null : actor.CompanyId, global, cancellationToken)
+            ?? throw new KeyNotFoundException("El documento no existe o no está disponible para el usuario.");
+        var content = await storage.DownloadAsync(reference.BucketName, reference.SupabasePath, cancellationToken);
+        return new SupportingDocumentDownload(content, reference.MimeType, reference.OriginalName);
+    }
+
+    private static void EnsureRequestDocumentReader(DocumentActor actor)
+    {
+        if (!actor.Roles.Any(role => role is "ADMINISTRADOR" or "ADMINISTRADOR_EMPRESA" or
+                "USUARIO_DELEGADO" or "COORDINADOR" or "TECNICO_EVALUADOR"))
+            throw new ForbiddenException("No tiene permisos para consultar documentos de la solicitud.");
+    }
+
     private static SupportingDocument ToDocument(StoredFile stored, string originalName) => new(
         Guid.NewGuid(), stored.BucketName, stored.SupabasePath, Path.GetFileName(originalName),
         stored.FileSize, stored.MimeType, stored.Sha256Hash);

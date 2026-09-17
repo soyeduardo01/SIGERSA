@@ -12,6 +12,5 @@ public interface IInstitutionalPdfRenderer
 
 public sealed record InstitutionalReportAssets(
     string SigersaLogoDataUri,
-    string DigemapsLogoDataUri,
     string PoppinsRegularDataUri,
     string PoppinsSemiBoldDataUri);

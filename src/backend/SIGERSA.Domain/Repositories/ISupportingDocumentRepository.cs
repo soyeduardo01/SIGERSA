@@ -15,4 +15,10 @@ public interface ISupportingDocumentRepository
     Task<SupportingDocumentReference?> GetUserAuthorizationAsync(
         Guid userId, Guid? companyScope, bool globalScope,
         CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<RequestSupportingDocument>> GetRequestDocumentsAsync(
+        Guid requestId, Guid actorId, Guid? companyScope, bool globalScope,
+        CancellationToken cancellationToken = default);
+    Task<SupportingDocumentReference?> GetRequestDocumentAsync(
+        Guid requestId, Guid documentId, Guid actorId, Guid? companyScope, bool globalScope,
+        CancellationToken cancellationToken = default);
 }

@@ -70,20 +70,8 @@ public static class DependencyInjection
         services.AddSingleton(_ => NpgsqlDataSource.Create(connectionStringBuilder.ConnectionString));
         services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
 
-        var redisConnection = configuration["Redis:ConnectionString"];
-        if (string.IsNullOrWhiteSpace(redisConnection))
-        {
-            services.AddDistributedMemoryCache();
-        }
-        else
-        {
-            services.AddStackExchangeRedisCache(options =>
-            {
-                options.Configuration = redisConnection;
-                options.InstanceName = configuration["Redis:InstanceName"] ?? "SIGERSA:";
-            });
-        }
-        services.AddSingleton<ICacheStore, DistributedCacheStore>();
+        services.AddMemoryCache();
+        services.AddSingleton<ICacheStore, InMemoryCacheStore>();
 
         var supabaseOptions = configuration
             .GetRequiredSection(SupabaseOptions.SectionName)

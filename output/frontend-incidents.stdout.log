@@ -1,0 +1,64 @@
+
+> frontend@0.1.0 dev
+> vite --host 127.0.0.1
+
+
+  VITE v8.2.2  ready in 438 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+  ➜  press h + enter to show help
+
+PWA v1.3.0
+mode      generateSW
+precache  1 entries (0.12 KiB)
+files generated
+  dev-dist/sw.js
+  dev-dist/workbox-619edae6.js
+1:35:34 AM [vite] (client) hmr update /src/index.css, /src/features/evaluations/EvaluationsManagement.tsx
+1:35:35 AM [vite] (client) hmr update /src/index.css, /src/features/inspection/DynamicInspectionForm.tsx
+1:35:36 AM [vite] (client) hmr update /src/features/operations/ModuleViews.tsx, /src/index.css
+1:35:37 AM [vite] (client) hmr update /src/index.css, /src/components/layout/Sidebar.tsx
+1:35:39 AM [vite] (client) hmr update /src/App.tsx, /src/components/routing/ProtectedRoute.tsx, /src/contexts/AuthContext.tsx, /src/components/layout/Sidebar.tsx, /src/index.css
+1:35:40 AM [vite] (client) hmr update /src/App.tsx, /src/components/layout/AccessDenied.tsx, /src/components/layout/Header.tsx, /src/components/layout/Sidebar.tsx, /src/index.css
+1:35:41 AM [vite] (client) hmr update /src/App.tsx, /src/index.css
+1:35:42 AM [vite] (client) hmr update /src/index.css
+1:35:43 AM [vite] (client) hmr update /src/index.css
+1:39:39 AM [vite] (client) hmr update /src/index.css, /src/features/inspection/DynamicInspectionForm.tsx
+1:39:58 AM [vite] (client) hmr update /src/index.css, /src/features/evaluations/EvaluationsManagement.tsx
+1:41:04 AM [vite] (client) hmr update /src/index.css, /src/features/evaluations/EvaluationsManagement.tsx
+10:22:42 AM [vite] (client) hmr update /src/index.css, /src/features/evaluations/EvaluationsManagement.tsx
+10:22:43 AM [vite] (client) hmr update /src/index.css
+10:22:44 AM [vite] (client) hmr update /src/components/layout/AppLayout.tsx, /src/index.css
+10:24:04 AM [vite] (client) hmr update /src/index.css, /src/features/corrections/CorrectionsManagement.tsx
+10:29:36 AM [vite] (client) hmr update /src/index.css, /src/features/corrections/CorrectionsManagement.tsx
+10:29:36 AM [vite] (client) hmr update /src/index.css
+10:31:35 AM [vite] (client) hmr update /src/index.css, /src/features/corrections/CorrectionsManagement.tsx
+10:32:24 AM [vite] (client) hmr update /src/App.tsx, /src/components/routing/ProtectedRoute.tsx, /src/contexts/AuthContext.tsx, /src/components/layout/Sidebar.tsx, /src/index.css
+10:32:25 AM [vite] (client) hmr update /src/index.css, /src/features/corrections/CorrectionsManagement.tsx
+10:34:16 AM [vite] (client) hmr update /src/index.css
+10:34:18 AM [vite] (client) hmr update /src/index.css, /src/features/inspection/DynamicInspectionForm.tsx
+10:34:30 AM [vite] (client) hmr update /src/index.css, /src/features/inspection/DynamicInspectionForm.tsx
+10:34:39 AM [vite] (client) hmr update /src/index.css, /src/features/inspection/DynamicInspectionForm.tsx
+10:36:53 AM [vite] (client) hmr update /src/App.tsx, /src/components/routing/ProtectedRoute.tsx, /src/contexts/AuthContext.tsx, /src/components/layout/Sidebar.tsx, /src/index.css
+10:36:54 AM [vite] (client) hmr update /src/index.css
+10:38:04 AM [vite] (client) hmr update /src/index.css
+10:38:05 AM [vite] (client) hmr update /src/index.css, /src/features/corrections/CorrectionsManagement.tsx
+10:38:14 AM [vite] (client) hmr update /src/index.css, /src/features/corrections/CorrectionsManagement.tsx
+10:51:33 AM [vite] (client) hmr update /src/features/auth/LoginPage.tsx, /src/index.css
+10:52:08 AM [vite] (client) hmr update /src/features/auth/LoginPage.tsx, /src/index.css
+11:01:09 AM [vite] (client) hmr update /src/index.css, /src/features/corrections/CorrectionsManagement.tsx
+11:22:12 AM [vite] (client) hmr update /src/components/layout/AppLayout.tsx, /src/index.css
+11:22:14 AM [vite] (client) hmr update /src/index.css, /src/features/operations/ModuleViews.tsx, /src/components/layout/AppLayout.tsx, /src/features/corrections/CorrectionsManagement.tsx, /src/features/cases/CasesManagement.tsx, /src/features/scheduling/SchedulingManagement.tsx, /src/features/evidences/EvidenceManagement.tsx, /src/features/requests/RequestsManagement.tsx, /src/features/inspection/DynamicInspectionForm.tsx
+11:22:16 AM [vite] (client) hmr update /src/index.css, /src/features/inspection/DynamicInspectionForm.tsx
+11:23:08 AM [vite] (client) hmr update /src/index.css, /src/features/auth/PasswordRecoveryPage.tsx, /src/features/admin/UsersManagement.tsx, /src/features/auth/LoginPage.tsx, /src/features/auth/RegistrationPage.tsx, /src/contexts/AuthContext.tsx, /src/features/admin/UserFormModal.tsx, /src/features/admin/AllItemsAdmin.tsx, /src/features/corrections/CorrectionsManagement.tsx, /src/features/cases/CasesManagement.tsx, /src/features/companies/CompaniesManagement.tsx, /src/features/evaluations/EvaluationsManagement.tsx and 11 more
+11:23:10 AM [vite] (client) hmr update /src/index.css, /src/features/corrections/CorrectionsManagement.tsx
+11:24:04 AM [vite] (client) hmr update /src/components/layout/AppLayout.tsx, /src/index.css
+11:24:04 AM [vite] (client) hmr update /src/index.css, /src/features/corrections/CorrectionsManagement.tsx
+11:49:05 AM [vite] (client) hmr update /src/index.css, /src/features/evaluations/EvaluationsManagement.tsx
+11:49:06 AM [vite] (client) hmr update /src/index.css, /src/features/evaluations/EvaluationsManagement.tsx
+11:49:08 AM [vite] (client) hmr update /src/index.css
+11:52:38 AM [vite] (client) hmr update /src/index.css, /src/features/evaluations/EvaluationsManagement.tsx
+11:52:39 AM [vite] (client) hmr update /src/index.css
+12:15:51 PM [vite] (client) hmr update /src/index.css, /src/features/evidences/EvidenceManagement.tsx
+12:16:40 PM [vite] (client) hmr update /src/index.css, /src/features/evidences/EvidenceManagement.tsx
+12:18:05 PM [vite] (client) hmr update /src/index.css, /src/features/evidences/EvidenceManagement.tsx

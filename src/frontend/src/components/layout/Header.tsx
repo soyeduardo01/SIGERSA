@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SessionIdentity } from '../../lib/api'
 import { moduleHref } from '../../lib/navigation'
+import { InstallPwaButton } from '../pwa/InstallPwaButton'
 
 interface HeaderProps {
   isOnline: boolean
@@ -97,6 +98,7 @@ export function Header({
         </div>
 
         <div ref={controlsRef} className="relative ml-auto flex items-center gap-2 sm:gap-3">
+          <InstallPwaButton className="hidden min-h-10 rounded-xl border border-brand-700 px-3 text-xs font-bold text-brand-800 hover:bg-brand-50 md:inline-flex md:items-center" />
           <div
             className="hidden items-center gap-2 rounded-full bg-surface-muted px-3 py-2 text-xs font-semibold text-ink-body sm:flex"
             role="status"

@@ -1,4 +1,8 @@
-import type { EvaluationFormItem, EvaluationInspectionPolicy } from '../../lib/api'
+import type {
+  EvaluationFormItem,
+  EvaluationInspectionPolicy,
+  EvaluationSavedEvidence,
+} from '../../lib/api'
 
 export interface EvaluationChapter {
   id: string
@@ -12,6 +16,20 @@ const evaluationIdPattern =
 
 export function isValidEvaluationId(value: string) {
   return evaluationIdPattern.test(value)
+}
+
+export function evidenceStatusBySlot(
+  evidences: readonly EvaluationSavedEvidence[] | null | undefined,
+) {
+  const status: Record<string, string> = {}
+  const slotBySource = new Map<number, number>()
+  for (const evidence of evidences ?? []) {
+    const slot = slotBySource.get(evidence.sourceItem) ?? 0
+    if (slot >= 3) continue
+    status[`${evidence.sourceItem}-${slot}`] = 'Archivo guardado'
+    slotBySource.set(evidence.sourceItem, slot + 1)
+  }
+  return status
 }
 
 export const qualificationOptions = [

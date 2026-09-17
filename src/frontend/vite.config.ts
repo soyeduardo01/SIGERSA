@@ -19,6 +19,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: false,
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'SIGERSA - Sistema Integral de Gestión de Riesgo y Seguridad Alimentaria',
@@ -53,30 +54,8 @@ export default defineConfig({
             urlPattern: /\.(?:js|css|woff2?|png|svg|webp|ico)$/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'sigersa-static-v3',
+              cacheName: 'sigersa-static-v4',
               expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: /\/api\/v1\//i,
-            handler: 'NetworkFirst',
-            method: 'GET',
-            options: {
-              cacheName: 'sigersa-api-v1',
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/[^/]+\.supabase\.co\/(?:rest|storage)\/v1\//i,
-            handler: 'NetworkFirst',
-            method: 'GET',
-            options: {
-              cacheName: 'sigersa-supabase-data-v1',
-              networkTimeoutSeconds: 5,
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },

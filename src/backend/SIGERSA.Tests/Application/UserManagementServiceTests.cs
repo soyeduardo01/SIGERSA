@@ -73,6 +73,20 @@ public sealed class UserManagementServiceTests
     }
 
     [Fact]
+    public async Task AdministratorCanCreateAnInstitutionalLaboratoryUser()
+    {
+        var repository = new FakeRepository();
+        var service = CreateService(repository);
+
+        await service.CreateAsync(
+            ValidRequest("LABORATORISTA", null),
+            Actor("ADMINISTRADOR"), CancellationToken.None);
+
+        Assert.Equal("LABORATORISTA", repository.Created?.Rol);
+        Assert.Null(repository.Created?.EmpresaId);
+    }
+
+    [Fact]
     public async Task CompanyAdministratorReceivesOnlyItsCompanyAndEnterpriseRoles()
     {
         var service = CreateService(new FakeRepository());
@@ -114,7 +128,8 @@ public sealed class UserManagementServiceTests
                 new("ADMINISTRADOR_EMPRESA", "Administrador Empresa"),
                 new("USUARIO_DELEGADO", "Usuario Delegado"),
                 new("COORDINADOR", "Coordinador"),
-                new("TECNICO_EVALUADOR", "Técnico Evaluador")]);
+                new("TECNICO_EVALUADOR", "Técnico Evaluador"),
+                new("LABORATORISTA", "Laboratorista")]);
 
         public Task<IReadOnlyList<CompanyOption>> GetActiveCompanyOptionsAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<CompanyOption>>([new(CompanyId, "Empresa propia"), new(Guid.NewGuid(), "Otra empresa")]);

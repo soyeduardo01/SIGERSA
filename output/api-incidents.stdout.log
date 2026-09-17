@@ -1,0 +1,1223 @@
+Using launch settings from C:\Users\teamo\.codex\.chatgpt-projects\g-p-6a9daa5acf148191acf10cc926358300\SIGERSA\src\backend\SIGERSA.Api\Properties\launchSettings.json...
+[22:35:26 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/swagger/index.html - null null
+[22:35:26 INF] HTTP GET /swagger/index.html respondió 200 en 78.6606 ms
+[22:35:26 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/swagger/index.html - 200 null text/html;charset=utf-8 127.2715ms
+[22:41:02 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/swagger/v1/swagger.json - null null
+[22:41:02 INF] HTTP GET /swagger/v1/swagger.json respondió 200 en 312.9127 ms
+[22:41:02 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/swagger/v1/swagger.json - 200 null application/json;charset=utf-8 317.556ms
+[22:45:47 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/auth/login - null null
+[22:45:47 WRN] Failed to determine the https port for redirect.
+[22:45:47 INF] CORS policy execution successful.
+[22:45:47 INF] HTTP OPTIONS /api/v1/auth/login respondió 204 en 15.1393 ms
+[22:45:47 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/auth/login - 204 null null 22.9668ms
+[22:45:47 INF] Request starting HTTP/1.1 POST http://127.0.0.1:5000/api/v1/auth/login - application/json 64
+[22:45:47 INF] CORS policy execution successful.
+[22:45:47 INF] Executing endpoint 'SIGERSA.Api.Controllers.AuthController.Login (SIGERSA.Api)'
+[22:45:47 INF] Route matched with {action = "Login", controller = "Auth"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[System.Object]] Login(SIGERSA.Api.Controllers.LoginRequest, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.AuthController (SIGERSA.Api).
+[22:45:48 INF] Executing OkObjectResult, writing value of type 'SIGERSA.Application.Authentication.AuthTokensResponse'.
+[22:45:48 INF] Executed action SIGERSA.Api.Controllers.AuthController.Login (SIGERSA.Api) in 765.3451ms
+[22:45:48 INF] Executed endpoint 'SIGERSA.Api.Controllers.AuthController.Login (SIGERSA.Api)'
+[22:45:48 INF] HTTP POST /api/v1/auth/login respondió 200 en 866.1872 ms
+[22:45:48 INF] Request finished HTTP/1.1 POST http://127.0.0.1:5000/api/v1/auth/login - 200 null application/json; charset=utf-8 874.8922ms
+[22:45:48 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/dashboard - null null
+[22:45:48 INF] CORS policy execution successful.
+[22:45:48 INF] HTTP OPTIONS /api/v1/dashboard respondió 204 en 0.7712 ms
+[22:45:48 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/dashboard - 204 null null 1.513ms
+[22:45:48 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/dashboard - null null
+[22:45:48 INF] CORS policy execution successful.
+[22:45:48 INF] HTTP OPTIONS /api/v1/dashboard respondió 204 en 0.9095 ms
+[22:45:48 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/dashboard - 204 null null 1.6466ms
+[22:45:48 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/dashboard - null null
+[22:45:48 INF] CORS policy execution successful.
+[22:45:49 INF] Executing endpoint 'SIGERSA.Api.Controllers.OperationsController.Dashboard (SIGERSA.Api)'
+[22:45:49 INF] Route matched with {action = "Dashboard", controller = "Operations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.DashboardSnapshot] Dashboard(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.OperationsController (SIGERSA.Api).
+[22:45:49 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.DashboardSnapshot'.
+[22:45:49 INF] Executed action SIGERSA.Api.Controllers.OperationsController.Dashboard (SIGERSA.Api) in 120.3615ms
+[22:45:49 INF] Executed endpoint 'SIGERSA.Api.Controllers.OperationsController.Dashboard (SIGERSA.Api)'
+[22:45:49 INF] HTTP GET /api/v1/dashboard respondió 200 en 198.9853 ms
+[22:45:49 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/dashboard - 200 null application/json; charset=utf-8 200.324ms
+[22:45:49 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/dashboard - null null
+[22:45:49 INF] CORS policy execution successful.
+[22:45:49 INF] Executing endpoint 'SIGERSA.Api.Controllers.OperationsController.Dashboard (SIGERSA.Api)'
+[22:45:49 INF] Route matched with {action = "Dashboard", controller = "Operations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.DashboardSnapshot] Dashboard(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.OperationsController (SIGERSA.Api).
+[22:45:49 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.DashboardSnapshot'.
+[22:45:49 INF] Executed action SIGERSA.Api.Controllers.OperationsController.Dashboard (SIGERSA.Api) in 29.6324ms
+[22:45:49 INF] Executed endpoint 'SIGERSA.Api.Controllers.OperationsController.Dashboard (SIGERSA.Api)'
+[22:45:49 INF] HTTP GET /api/v1/dashboard respondió 200 en 36.8850 ms
+[22:45:49 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/dashboard - 200 null application/json; charset=utf-8 38.6374ms
+[22:45:53 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/profile - null null
+[22:45:53 INF] CORS policy execution successful.
+[22:45:53 INF] HTTP OPTIONS /api/v1/profile respondió 204 en 0.6437 ms
+[22:45:53 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/profile - 204 null null 1.8347ms
+[22:45:53 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/profile - null null
+[22:45:53 INF] CORS policy execution successful.
+[22:45:53 INF] HTTP OPTIONS /api/v1/profile respondió 204 en 0.2426 ms
+[22:45:53 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/profile - 204 null null 2.8662ms
+[22:45:53 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/profile - null null
+[22:45:53 INF] CORS policy execution successful.
+[22:45:53 INF] Executing endpoint 'SIGERSA.Api.Controllers.ProfileController.Get (SIGERSA.Api)'
+[22:45:53 INF] Route matched with {action = "Get", controller = "Profile"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Application.Profiles.ProfileResponse] Get(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ProfileController (SIGERSA.Api).
+[22:45:53 INF] Executing ObjectResult, writing value of type 'SIGERSA.Application.Profiles.ProfileResponse'.
+[22:45:53 INF] Executed action SIGERSA.Api.Controllers.ProfileController.Get (SIGERSA.Api) in 32.272ms
+[22:45:53 INF] Executed endpoint 'SIGERSA.Api.Controllers.ProfileController.Get (SIGERSA.Api)'
+[22:45:53 INF] HTTP GET /api/v1/profile respondió 200 en 45.8400 ms
+[22:45:53 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/profile - 200 null application/json; charset=utf-8 46.355ms
+[22:45:53 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/profile - null null
+[22:45:53 INF] CORS policy execution successful.
+[22:45:53 INF] Executing endpoint 'SIGERSA.Api.Controllers.ProfileController.Get (SIGERSA.Api)'
+[22:45:53 INF] Route matched with {action = "Get", controller = "Profile"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Application.Profiles.ProfileResponse] Get(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ProfileController (SIGERSA.Api).
+[22:45:53 INF] Executing ObjectResult, writing value of type 'SIGERSA.Application.Profiles.ProfileResponse'.
+[22:45:53 INF] Executed action SIGERSA.Api.Controllers.ProfileController.Get (SIGERSA.Api) in 6.3589ms
+[22:45:53 INF] Executed endpoint 'SIGERSA.Api.Controllers.ProfileController.Get (SIGERSA.Api)'
+[22:45:53 INF] HTTP GET /api/v1/profile respondió 200 en 8.4531 ms
+[22:45:53 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/profile - 200 null application/json; charset=utf-8 9.4194ms
+[22:46:19 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_PROGRAMACION - null null
+[22:46:19 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/schedules?pageSize=100 - null null
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_PROGRAMACION respondió 204 en 1.0873 ms
+[22:46:19 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_PROGRAMACION - null null
+[22:46:19 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/schedules/options - null null
+[22:46:19 INF] HTTP OPTIONS /api/v1/schedules respondió 204 en 0.7708 ms
+[22:46:19 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_PROGRAMACION - 204 null null 2.644ms
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/schedules?pageSize=100 - null null
+[22:46:19 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/schedules/options - null null
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/schedules?pageSize=100 - 204 null null 3.4541ms
+[22:46:19 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_PROGRAMACION respondió 204 en 1.2865 ms
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] HTTP OPTIONS /api/v1/schedules/options respondió 204 en 1.7747 ms
+[22:46:19 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/schedules?pageSize=100 - null null
+[22:46:19 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_PROGRAMACION - null null
+[22:46:19 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_PROGRAMACION - 204 null null 3.7106ms
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] HTTP OPTIONS /api/v1/schedules/options respondió 204 en 1.7360 ms
+[22:46:19 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/schedules/options - 204 null null 4.6583ms
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] HTTP OPTIONS /api/v1/schedules respondió 204 en 1.6349 ms
+[22:46:19 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/schedules/options - 204 null null 5.0632ms
+[22:46:19 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/schedules/options - null null
+[22:46:19 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:19 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/schedules?pageSize=100 - 204 null null 6.0822ms
+[22:46:19 INF] Executing endpoint 'SIGERSA.Api.Controllers.SchedulingController.Search (SIGERSA.Api)'
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] Executing endpoint 'SIGERSA.Api.Controllers.SchedulingController.Options (SIGERSA.Api)'
+[22:46:19 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:46:19 INF] Route matched with {action = "Options", controller = "Scheduling"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.ScheduleOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.SchedulingController (SIGERSA.Api).
+[22:46:19 INF] Route matched with {action = "Search", controller = "Scheduling"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.SchedulesPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.SchedulingController (SIGERSA.Api).
+[22:46:19 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:46:19 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 49.82ms
+[22:46:19 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:19 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_PROGRAMACION - null null
+[22:46:19 INF] HTTP GET /api/v1/parameters/ESTADO_PROGRAMACION respondió 200 en 63.6148 ms
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_PROGRAMACION - 200 null application/json; charset=utf-8 66.2855ms
+[22:46:19 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:19 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:46:19 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:46:19 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 4.6293ms
+[22:46:19 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:19 INF] HTTP GET /api/v1/parameters/ESTADO_PROGRAMACION respondió 200 en 8.0912 ms
+[22:46:19 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_PROGRAMACION - 200 null application/json; charset=utf-8 9.0474ms
+[22:46:19 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ScheduleOptions'.
+[22:46:19 INF] Executed action SIGERSA.Api.Controllers.SchedulingController.Options (SIGERSA.Api) in 98.9499ms
+[22:46:19 INF] Executed endpoint 'SIGERSA.Api.Controllers.SchedulingController.Options (SIGERSA.Api)'
+[22:46:19 INF] HTTP GET /api/v1/schedules/options respondió 200 en 110.7481 ms
+[22:46:19 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/schedules/options - null null
+[22:46:19 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/schedules/options - 200 null application/json; charset=utf-8 112.5154ms
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] Executing endpoint 'SIGERSA.Api.Controllers.SchedulingController.Options (SIGERSA.Api)'
+[22:46:19 INF] Route matched with {action = "Options", controller = "Scheduling"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.ScheduleOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.SchedulingController (SIGERSA.Api).
+[22:46:19 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.SchedulesPage'.
+[22:46:19 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ScheduleOptions'.
+[22:46:19 INF] Executed action SIGERSA.Api.Controllers.SchedulingController.Options (SIGERSA.Api) in 8.5702ms
+[22:46:19 INF] Executed endpoint 'SIGERSA.Api.Controllers.SchedulingController.Options (SIGERSA.Api)'
+[22:46:19 INF] HTTP GET /api/v1/schedules/options respondió 200 en 11.8987 ms
+[22:46:19 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/schedules/options - 200 null application/json; charset=utf-8 13.1427ms
+[22:46:19 INF] Executed action SIGERSA.Api.Controllers.SchedulingController.Search (SIGERSA.Api) in 115.5169ms
+[22:46:19 INF] Executed endpoint 'SIGERSA.Api.Controllers.SchedulingController.Search (SIGERSA.Api)'
+[22:46:19 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/schedules?pageSize=100 - null null
+[22:46:19 INF] HTTP GET /api/v1/schedules respondió 200 en 130.7089 ms
+[22:46:19 INF] CORS policy execution successful.
+[22:46:19 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/schedules?pageSize=100 - 200 null application/json; charset=utf-8 133.2773ms
+[22:46:19 INF] Executing endpoint 'SIGERSA.Api.Controllers.SchedulingController.Search (SIGERSA.Api)'
+[22:46:19 INF] Route matched with {action = "Search", controller = "Scheduling"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.SchedulesPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.SchedulingController (SIGERSA.Api).
+[22:46:19 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.SchedulesPage'.
+[22:46:19 INF] Executed action SIGERSA.Api.Controllers.SchedulingController.Search (SIGERSA.Api) in 19.6928ms
+[22:46:19 INF] Executed endpoint 'SIGERSA.Api.Controllers.SchedulingController.Search (SIGERSA.Api)'
+[22:46:19 INF] HTTP GET /api/v1/schedules respondió 200 en 23.0309 ms
+[22:46:19 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/schedules?pageSize=100 - 200 null application/json; charset=utf-8 24.0131ms
+[22:46:31 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/schedules - null null
+[22:46:31 INF] CORS policy execution successful.
+[22:46:31 INF] HTTP OPTIONS /api/v1/schedules respondió 204 en 1.0184 ms
+[22:46:31 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/schedules - 204 null null 3.6669ms
+[22:46:31 INF] Request starting HTTP/1.1 POST http://127.0.0.1:5000/api/v1/schedules - application/json 305
+[22:46:31 INF] CORS policy execution successful.
+[22:46:31 INF] Executing endpoint 'SIGERSA.Api.Controllers.SchedulingController.Create (SIGERSA.Api)'
+[22:46:31 INF] Route matched with {action = "Create", controller = "Scheduling"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[System.Object]] Create(SIGERSA.Application.Scheduling.ScheduleInput, System.Nullable`1[System.Guid], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.SchedulingController (SIGERSA.Api).
+[22:46:32 INF] Executed action SIGERSA.Api.Controllers.SchedulingController.Create (SIGERSA.Api) in 113.241ms
+[22:46:32 INF] Executed endpoint 'SIGERSA.Api.Controllers.SchedulingController.Create (SIGERSA.Api)'
+[22:46:32 WRN] Solicitud rechazada con estado 409. TraceId: 0HNOIQ80490J2:00000006
+[22:46:32 INF] HTTP POST /api/v1/schedules respondió 409 en 153.7241 ms
+[22:46:32 INF] Request finished HTTP/1.1 POST http://127.0.0.1:5000/api/v1/schedules - 409 null application/problem+json 155.0164ms
+[22:46:48 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/findings?pageSize=100 - null null
+[22:46:48 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/findings/options - null null
+[22:46:48 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/findings/options - null null
+[22:46:48 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/findings?pageSize=100 - null null
+[22:46:48 INF] CORS policy execution successful.
+[22:46:48 INF] CORS policy execution successful.
+[22:46:48 INF] HTTP OPTIONS /api/v1/findings respondió 204 en 1.7608 ms
+[22:46:48 INF] CORS policy execution successful.
+[22:46:48 INF] HTTP OPTIONS /api/v1/findings/options respondió 204 en 1.1424 ms
+[22:46:48 INF] CORS policy execution successful.
+[22:46:48 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/findings?pageSize=100 - 204 null null 2.6502ms
+[22:46:48 INF] HTTP OPTIONS /api/v1/findings respondió 204 en 1.2464 ms
+[22:46:48 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/findings/options - 204 null null 2.8532ms
+[22:46:48 INF] HTTP OPTIONS /api/v1/findings/options respondió 204 en 2.0811 ms
+[22:46:48 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/findings?pageSize=100 - 204 null null 3.6957ms
+[22:46:48 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/findings/options - 204 null null 4.4246ms
+[22:46:48 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/findings/options - null null
+[22:46:48 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/findings?pageSize=100 - null null
+[22:46:48 INF] CORS policy execution successful.
+[22:46:48 INF] CORS policy execution successful.
+[22:46:48 INF] Executing endpoint 'SIGERSA.Api.Controllers.OperationsController.FindingOptions (SIGERSA.Api)'
+[22:46:48 INF] Executing endpoint 'SIGERSA.Api.Controllers.OperationsController.Findings (SIGERSA.Api)'
+[22:46:48 INF] Route matched with {action = "FindingOptions", controller = "Operations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.FindingOptions] FindingOptions(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.OperationsController (SIGERSA.Api).
+[22:46:48 INF] Route matched with {action = "Findings", controller = "Operations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.FindingsPage] Findings(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.OperationsController (SIGERSA.Api).
+[22:46:48 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.FindingOptions'.
+[22:46:48 INF] Executed action SIGERSA.Api.Controllers.OperationsController.FindingOptions (SIGERSA.Api) in 24.6198ms
+[22:46:48 INF] Executed endpoint 'SIGERSA.Api.Controllers.OperationsController.FindingOptions (SIGERSA.Api)'
+[22:46:48 INF] HTTP GET /api/v1/findings/options respondió 200 en 35.2953 ms
+[22:46:48 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/findings/options - null null
+[22:46:48 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/findings/options - 200 null application/json; charset=utf-8 36.1755ms
+[22:46:48 INF] CORS policy execution successful.
+[22:46:48 INF] Executing endpoint 'SIGERSA.Api.Controllers.OperationsController.FindingOptions (SIGERSA.Api)'
+[22:46:48 INF] Route matched with {action = "FindingOptions", controller = "Operations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.FindingOptions] FindingOptions(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.OperationsController (SIGERSA.Api).
+[22:46:48 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.FindingsPage'.
+[22:46:48 INF] Executed action SIGERSA.Api.Controllers.OperationsController.Findings (SIGERSA.Api) in 30.9704ms
+[22:46:48 INF] Executed endpoint 'SIGERSA.Api.Controllers.OperationsController.Findings (SIGERSA.Api)'
+[22:46:48 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/findings?pageSize=100 - null null
+[22:46:48 INF] HTTP GET /api/v1/findings respondió 200 en 41.5831 ms
+[22:46:48 INF] CORS policy execution successful.
+[22:46:48 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/findings?pageSize=100 - 200 null application/json; charset=utf-8 42.9136ms
+[22:46:48 INF] Executing endpoint 'SIGERSA.Api.Controllers.OperationsController.Findings (SIGERSA.Api)'
+[22:46:48 INF] Route matched with {action = "Findings", controller = "Operations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.FindingsPage] Findings(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.OperationsController (SIGERSA.Api).
+[22:46:48 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.FindingOptions'.
+[22:46:48 INF] Executed action SIGERSA.Api.Controllers.OperationsController.FindingOptions (SIGERSA.Api) in 8.985ms
+[22:46:48 INF] Executed endpoint 'SIGERSA.Api.Controllers.OperationsController.FindingOptions (SIGERSA.Api)'
+[22:46:48 INF] HTTP GET /api/v1/findings/options respondió 200 en 11.7904 ms
+[22:46:48 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/findings/options - 200 null application/json; charset=utf-8 12.8986ms
+[22:46:48 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.FindingsPage'.
+[22:46:48 INF] Executed action SIGERSA.Api.Controllers.OperationsController.Findings (SIGERSA.Api) in 9.6222ms
+[22:46:48 INF] Executed endpoint 'SIGERSA.Api.Controllers.OperationsController.Findings (SIGERSA.Api)'
+[22:46:48 INF] HTTP GET /api/v1/findings respondió 200 en 12.9132 ms
+[22:46:48 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/findings?pageSize=100 - 200 null application/json; charset=utf-8 13.7263ms
+[22:46:52 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evidences?page=1&pageSize=20 - null null
+[22:46:52 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evidences?page=1&pageSize=20 - null null
+[22:46:52 INF] CORS policy execution successful.
+[22:46:52 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=100 - null null
+[22:46:52 INF] CORS policy execution successful.
+[22:46:52 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 0.3558 ms
+[22:46:52 INF] HTTP OPTIONS /api/v1/evidences respondió 204 en 0.5402 ms
+[22:46:52 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evidences?page=1&pageSize=20 - 204 null null 3.4907ms
+[22:46:52 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=100 - null null
+[22:46:52 INF] CORS policy execution successful.
+[22:46:52 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 0.2207 ms
+[22:46:52 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=100 - 204 null null 4.5159ms
+[22:46:52 INF] CORS policy execution successful.
+[22:46:52 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=100 - 204 null null 3.227ms
+[22:46:52 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=100 - null null
+[22:46:52 INF] HTTP OPTIONS /api/v1/evidences respondió 204 en 3.6109 ms
+[22:46:52 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evidences?page=1&pageSize=20 - null null
+[22:46:52 INF] CORS policy execution successful.
+[22:46:52 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evidences?page=1&pageSize=20 - 204 null null 5.5032ms
+[22:46:52 INF] CORS policy execution successful.
+[22:46:52 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:46:52 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvidenceController.Search (SIGERSA.Api)'
+[22:46:52 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:46:52 INF] Route matched with {action = "Search", controller = "Evidence"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvidencesPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvidenceController (SIGERSA.Api).
+[22:46:52 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:46:52 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 28.3018ms
+[22:46:52 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:46:52 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=100 - null null
+[22:46:52 INF] HTTP GET /api/v1/evaluations respondió 200 en 38.5579 ms
+[22:46:52 INF] CORS policy execution successful.
+[22:46:52 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=100 - 200 null application/json; charset=utf-8 39.7148ms
+[22:46:52 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:46:52 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:46:52 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:46:52 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 8.1631ms
+[22:46:52 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:46:52 INF] HTTP GET /api/v1/evaluations respondió 200 en 11.0782 ms
+[22:46:52 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=100 - 200 null application/json; charset=utf-8 11.8338ms
+[22:46:52 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvidencesPage'.
+[22:46:52 INF] Executed action SIGERSA.Api.Controllers.EvidenceController.Search (SIGERSA.Api) in 116.0939ms
+[22:46:52 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvidenceController.Search (SIGERSA.Api)'
+[22:46:52 INF] HTTP GET /api/v1/evidences respondió 200 en 127.2555 ms
+[22:46:52 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evidences?page=1&pageSize=20 - null null
+[22:46:52 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evidences?page=1&pageSize=20 - 200 null application/json; charset=utf-8 128.337ms
+[22:46:52 INF] CORS policy execution successful.
+[22:46:52 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvidenceController.Search (SIGERSA.Api)'
+[22:46:52 INF] Route matched with {action = "Search", controller = "Evidence"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvidencesPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvidenceController (SIGERSA.Api).
+[22:46:52 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvidencesPage'.
+[22:46:52 INF] Executed action SIGERSA.Api.Controllers.EvidenceController.Search (SIGERSA.Api) in 9.0948ms
+[22:46:52 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvidenceController.Search (SIGERSA.Api)'
+[22:46:52 INF] HTTP GET /api/v1/evidences respondió 200 en 13.6290 ms
+[22:46:52 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evidences?page=1&pageSize=20 - 200 null application/json; charset=utf-8 14.5482ms
+[22:46:55 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_CORRECCION - null null
+[22:46:55 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_CORRECCION - null null
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/corrections/options - null null
+[22:46:55 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/corrections?pageSize=50 - null null
+[22:46:55 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/corrections/options - null null
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_CORRECCION respondió 204 en 1.4868 ms
+[22:46:55 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_CORRECCION respondió 204 en 0.2443 ms
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/corrections?pageSize=50 - null null
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_CORRECCION - 204 null null 4.2385ms
+[22:46:55 INF] HTTP OPTIONS /api/v1/corrections/options respondió 204 en 1.5243 ms
+[22:46:55 INF] HTTP OPTIONS /api/v1/corrections respondió 204 en 1.4345 ms
+[22:46:55 INF] HTTP OPTIONS /api/v1/corrections/options respondió 204 en 1.4316 ms
+[22:46:55 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/corrections/options - 204 null null 5.0797ms
+[22:46:55 INF] HTTP OPTIONS /api/v1/corrections respondió 204 en 0.3050 ms
+[22:46:55 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/corrections/options - 204 null null 5.5459ms
+[22:46:55 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_CORRECCION - null null
+[22:46:55 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/corrections?pageSize=50 - 204 null null 5.2738ms
+[22:46:55 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_CORRECCION - 204 null null 4.2453ms
+[22:46:55 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/corrections?pageSize=50 - 204 null null 6.6087ms
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/corrections/options - null null
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:55 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/corrections?pageSize=50 - null null
+[22:46:55 INF] Executing endpoint 'SIGERSA.Api.Controllers.CorrectionsController.Options (SIGERSA.Api)'
+[22:46:55 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] Executing endpoint 'SIGERSA.Api.Controllers.CorrectionsController.Search (SIGERSA.Api)'
+[22:46:55 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:46:55 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 6.8064ms
+[22:46:55 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:55 INF] HTTP GET /api/v1/parameters/ESTADO_CORRECCION respondió 200 en 10.5306 ms
+[22:46:55 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_CORRECCION - 200 null application/json; charset=utf-8 12.1384ms
+[22:46:55 INF] Route matched with {action = "Options", controller = "Corrections"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.CorrectionOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.CorrectionsController (SIGERSA.Api).
+[22:46:55 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_CORRECCION - null null
+[22:46:55 INF] Route matched with {action = "Search", controller = "Corrections"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.CorrectionsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.CorrectionsController (SIGERSA.Api).
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:55 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:46:55 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:46:55 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.6848ms
+[22:46:55 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:55 INF] HTTP GET /api/v1/parameters/ESTADO_CORRECCION respondió 200 en 4.0003 ms
+[22:46:55 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_CORRECCION - 200 null application/json; charset=utf-8 4.7829ms
+[22:46:55 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.CorrectionOptions'.
+[22:46:55 INF] Executed action SIGERSA.Api.Controllers.CorrectionsController.Options (SIGERSA.Api) in 27.9687ms
+[22:46:55 INF] Executed endpoint 'SIGERSA.Api.Controllers.CorrectionsController.Options (SIGERSA.Api)'
+[22:46:55 INF] HTTP GET /api/v1/corrections/options respondió 200 en 39.1696 ms
+[22:46:55 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/corrections/options - null null
+[22:46:55 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/corrections/options - 200 null application/json; charset=utf-8 39.8831ms
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] Executing endpoint 'SIGERSA.Api.Controllers.CorrectionsController.Options (SIGERSA.Api)'
+[22:46:55 INF] Route matched with {action = "Options", controller = "Corrections"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.CorrectionOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.CorrectionsController (SIGERSA.Api).
+[22:46:55 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.CorrectionsPage'.
+[22:46:55 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.CorrectionOptions'.
+[22:46:55 INF] Executed action SIGERSA.Api.Controllers.CorrectionsController.Search (SIGERSA.Api) in 36.6194ms
+[22:46:55 INF] Executed action SIGERSA.Api.Controllers.CorrectionsController.Options (SIGERSA.Api) in 5.9829ms
+[22:46:55 INF] Executed endpoint 'SIGERSA.Api.Controllers.CorrectionsController.Options (SIGERSA.Api)'
+[22:46:55 INF] Executed endpoint 'SIGERSA.Api.Controllers.CorrectionsController.Search (SIGERSA.Api)'
+[22:46:55 INF] HTTP GET /api/v1/corrections/options respondió 200 en 8.5571 ms
+[22:46:55 INF] HTTP GET /api/v1/corrections respondió 200 en 47.5216 ms
+[22:46:55 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/corrections?pageSize=50 - null null
+[22:46:55 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/corrections/options - 200 null application/json; charset=utf-8 9.8042ms
+[22:46:55 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/corrections?pageSize=50 - 200 null application/json; charset=utf-8 49.0317ms
+[22:46:55 INF] CORS policy execution successful.
+[22:46:55 INF] Executing endpoint 'SIGERSA.Api.Controllers.CorrectionsController.Search (SIGERSA.Api)'
+[22:46:55 INF] Route matched with {action = "Search", controller = "Corrections"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.CorrectionsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.CorrectionsController (SIGERSA.Api).
+[22:46:55 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.CorrectionsPage'.
+[22:46:55 INF] Executed action SIGERSA.Api.Controllers.CorrectionsController.Search (SIGERSA.Api) in 6.4377ms
+[22:46:55 INF] Executed endpoint 'SIGERSA.Api.Controllers.CorrectionsController.Search (SIGERSA.Api)'
+[22:46:55 INF] HTTP GET /api/v1/corrections respondió 200 en 9.1642 ms
+[22:46:55 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/corrections?pageSize=50 - 200 null application/json; charset=utf-8 10.2648ms
+[22:46:57 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/TIPO_RESPONSABLE_CORRECCION - null null
+[22:46:57 INF] CORS policy execution successful.
+[22:46:57 INF] HTTP OPTIONS /api/v1/parameters/TIPO_RESPONSABLE_CORRECCION respondió 204 en 0.8083 ms
+[22:46:57 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/TIPO_RESPONSABLE_CORRECCION - 204 null null 4.3329ms
+[22:46:57 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/TIPO_RESPONSABLE_CORRECCION - null null
+[22:46:57 INF] CORS policy execution successful.
+[22:46:57 INF] HTTP OPTIONS /api/v1/parameters/TIPO_RESPONSABLE_CORRECCION respondió 204 en 6.2291 ms
+[22:46:57 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/TIPO_RESPONSABLE_CORRECCION - 204 null null 14.8149ms
+[22:46:57 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/TIPO_RESPONSABLE_CORRECCION - null null
+[22:46:57 INF] CORS policy execution successful.
+[22:46:57 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:57 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:46:57 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:46:57 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 3.0993ms
+[22:46:57 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:57 INF] HTTP GET /api/v1/parameters/TIPO_RESPONSABLE_CORRECCION respondió 200 en 7.2756 ms
+[22:46:57 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/TIPO_RESPONSABLE_CORRECCION - 200 null application/json; charset=utf-8 8.4503ms
+[22:46:57 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/TIPO_RESPONSABLE_CORRECCION - null null
+[22:46:57 INF] CORS policy execution successful.
+[22:46:57 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:57 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:46:57 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:46:57 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 3.3414ms
+[22:46:57 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:46:57 INF] HTTP GET /api/v1/parameters/TIPO_RESPONSABLE_CORRECCION respondió 200 en 4.9564 ms
+[22:46:57 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/TIPO_RESPONSABLE_CORRECCION - 200 null application/json; charset=utf-8 5.6878ms
+[22:46:59 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/form - null null
+[22:46:59 INF] CORS policy execution successful.
+[22:46:59 INF] HTTP OPTIONS /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/form respondió 204 en 0.4563 ms
+[22:46:59 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/form - 204 null null 1.3484ms
+[22:46:59 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/form - null null
+[22:46:59 INF] CORS policy execution successful.
+[22:46:59 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetForm (SIGERSA.Api)'
+[22:46:59 INF] Route matched with {action = "GetForm", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.EvaluationFormItem]] GetForm(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:46:59 INF] Executing ObjectResult, writing value of type 'System.Collections.Generic.List`1[[SIGERSA.Domain.Entities.EvaluationFormItem, SIGERSA.Domain, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null]]'.
+[22:46:59 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetForm (SIGERSA.Api) in 23.0043ms
+[22:46:59 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetForm (SIGERSA.Api)'
+[22:46:59 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/form respondió 200 en 50.3726 ms
+[22:46:59 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/form - 200 null application/json; charset=utf-8 53.0958ms
+[22:47:09 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/corrections - null null
+[22:47:09 INF] CORS policy execution successful.
+[22:47:09 INF] HTTP OPTIONS /api/v1/corrections respondió 204 en 0.4564 ms
+[22:47:09 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/corrections - 204 null null 2.7496ms
+[22:47:09 INF] Request starting HTTP/1.1 POST http://127.0.0.1:5000/api/v1/corrections - application/json 268
+[22:47:09 INF] CORS policy execution successful.
+[22:47:09 INF] Executing endpoint 'SIGERSA.Api.Controllers.CorrectionsController.Create (SIGERSA.Api)'
+[22:47:09 INF] Route matched with {action = "Create", controller = "Corrections"}. Executing controller action with signature System.Threading.Tasks.Task`1[Microsoft.AspNetCore.Mvc.ActionResult`1[System.Object]] Create(SIGERSA.Application.Corrections.CorrectionInput, System.Nullable`1[System.Guid], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.CorrectionsController (SIGERSA.Api).
+[22:47:09 INF] Executed action SIGERSA.Api.Controllers.CorrectionsController.Create (SIGERSA.Api) in 50.9208ms
+[22:47:09 INF] Executed endpoint 'SIGERSA.Api.Controllers.CorrectionsController.Create (SIGERSA.Api)'
+[22:47:09 WRN] Solicitud rechazada con estado 409. TraceId: 0HNOIQ80490J1:00000009
+[22:47:09 INF] HTTP POST /api/v1/corrections respondió 409 en 71.6978 ms
+[22:47:09 INF] Request finished HTTP/1.1 POST http://127.0.0.1:5000/api/v1/corrections - 409 null application/problem+json 72.7187ms
+[22:47:26 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:47:26 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:47:26 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:47:26 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:47:26 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 0.4008 ms
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 2.2531 ms
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 4.0228 ms
+[22:47:26 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 5.6849ms
+[22:47:26 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 2.4625 ms
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 4.3124ms
+[22:47:26 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:47:26 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 2.8178ms
+[22:47:26 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 6.2795ms
+[22:47:26 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 3.8583 ms
+[22:47:26 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 7.4693ms
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 2.0593 ms
+[22:47:26 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 8.3138ms
+[22:47:26 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:47:26 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:47:26 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:47:26 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:47:26 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:26 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:47:26 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:26 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:47:26 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.7054ms
+[22:47:26 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:26 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 5.3373 ms
+[22:47:26 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:47:26 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:47:26 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 8.7072ms
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 2.9703ms
+[22:47:26 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:47:26 INF] HTTP GET /api/v1/evaluations respondió 200 en 7.9932 ms
+[22:47:26 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 10.7478ms
+[22:47:26 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:26 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:47:26 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:26 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:47:26 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:47:26 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:26 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.5113ms
+[22:47:26 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:26 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 5.3863 ms
+[22:47:26 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 6.1552ms
+[22:47:26 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:47:26 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 6.7563ms
+[22:47:26 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:47:26 INF] HTTP GET /api/v1/evaluations respondió 200 en 9.6612 ms
+[22:47:26 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 12.0035ms
+[22:47:26 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:47:26 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 16.1408ms
+[22:47:26 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:47:26 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 28.4386 ms
+[22:47:26 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 32.0638ms
+[22:47:26 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:47:26 INF] CORS policy execution successful.
+[22:47:26 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:47:26 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:26 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:47:26 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 7.8567ms
+[22:47:26 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:47:26 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 10.3388 ms
+[22:47:26 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 11.015ms
+[22:47:29 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:47:29 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:47:29 INF] CORS policy execution successful.
+[22:47:29 INF] HTTP OPTIONS /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 204 en 0.3257 ms
+[22:47:29 INF] CORS policy execution successful.
+[22:47:29 INF] HTTP OPTIONS /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 204 en 1.0817 ms
+[22:47:29 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 204 null null 2.5794ms
+[22:47:29 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 204 null null 1.8573ms
+[22:47:29 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:47:29 INF] CORS policy execution successful.
+[22:47:29 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:47:29 INF] CORS policy execution successful.
+[22:47:29 INF] HTTP OPTIONS /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 204 en 0.2102 ms
+[22:47:29 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:29 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 204 null null 0.7333ms
+[22:47:29 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:47:29 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:47:29 INF] CORS policy execution successful.
+[22:47:29 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:47:29 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:47:29 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 2.4847ms
+[22:47:29 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:29 INF] HTTP GET /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 200 en 5.6544 ms
+[22:47:29 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 200 null application/json; charset=utf-8 6.6016ms
+[22:47:29 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:47:29 INF] CORS policy execution successful.
+[22:47:29 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:29 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:47:29 INF] Route matched with {action = "GetWorkspace", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationWorkspace] GetWorkspace(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:29 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:47:29 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 4.8399ms
+[22:47:29 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:29 INF] HTTP GET /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 200 en 6.8545 ms
+[22:47:29 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 200 null application/json; charset=utf-8 7.9736ms
+[22:47:29 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationWorkspace'.
+[22:47:29 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:47:29 INF] CORS policy execution successful.
+[22:47:29 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:47:29 INF] Route matched with {action = "GetWorkspace", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationWorkspace] GetWorkspace(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:29 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationWorkspace'.
+[22:47:29 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api) in 73.6283ms
+[22:47:29 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:47:29 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api) in 5.5574ms
+[22:47:29 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:47:29 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 200 en 7.2059 ms
+[22:47:29 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 200 null application/json; charset=utf-8 7.7589ms
+[22:47:29 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 200 en 83.9632 ms
+[22:47:29 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 200 null application/json; charset=utf-8 85.4117ms
+[22:47:46 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 0.5150 ms
+[22:47:46 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 2.3341ms
+[22:47:46 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:47:46 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 0.3585 ms
+[22:47:46 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 1.2501 ms
+[22:47:46 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 3.0957ms
+[22:47:46 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 3.7479ms
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 0.9214 ms
+[22:47:46 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 4.3307ms
+[22:47:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:47:46 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:47:46 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:47:46 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 2.3413 ms
+[22:47:46 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 7.2758ms
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 2.8553 ms
+[22:47:46 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 9.4119ms
+[22:47:46 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:47:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:47:46 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:47:46 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 4.7897ms
+[22:47:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:47:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:47:46 INF] HTTP GET /api/v1/evaluations respondió 200 en 7.0315 ms
+[22:47:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:47:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:47:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 8.0627ms
+[22:47:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 2.2651ms
+[22:47:46 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 2.1444ms
+[22:47:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:47:46 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 4.6076 ms
+[22:47:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:47:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:46 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 8.5795 ms
+[22:47:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 10.4446ms
+[22:47:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 5.1111ms
+[22:47:46 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:46 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:47:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:47:46 INF] CORS policy execution successful.
+[22:47:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:47:46 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:47:46 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.8296ms
+[22:47:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:46 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 7.8616 ms
+[22:47:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 9.2447ms
+[22:47:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:47:46 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 4.891ms
+[22:47:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:47:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:47:46 INF] HTTP GET /api/v1/evaluations respondió 200 en 10.1567 ms
+[22:47:46 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 2.6913ms
+[22:47:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 11.0924ms
+[22:47:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:47:46 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 4.5492 ms
+[22:47:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 10.3956ms
+[22:47:49 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:47:49 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:47:49 INF] CORS policy execution successful.
+[22:47:49 INF] CORS policy execution successful.
+[22:47:49 INF] HTTP OPTIONS /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 204 en 1.2214 ms
+[22:47:49 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 204 null null 4.627ms
+[22:47:49 INF] HTTP OPTIONS /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 204 en 0.3274 ms
+[22:47:49 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 204 null null 8.0167ms
+[22:47:49 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:47:49 INF] CORS policy execution successful.
+[22:47:49 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:47:49 INF] HTTP OPTIONS /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 204 en 0.6753 ms
+[22:47:49 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 204 null null 2.5393ms
+[22:47:49 INF] CORS policy execution successful.
+[22:47:49 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:49 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:47:49 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:47:49 INF] CORS policy execution successful.
+[22:47:49 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:47:49 INF] Route matched with {action = "GetWorkspace", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationWorkspace] GetWorkspace(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:49 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:47:49 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 3.3182ms
+[22:47:49 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:49 INF] HTTP GET /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 200 en 7.3425 ms
+[22:47:49 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 200 null application/json; charset=utf-8 8.9367ms
+[22:47:49 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:47:49 INF] CORS policy execution successful.
+[22:47:49 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:49 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:47:49 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:47:49 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.6384ms
+[22:47:49 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:47:49 INF] HTTP GET /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 200 en 4.1719 ms
+[22:47:49 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 200 null application/json; charset=utf-8 5.3638ms
+[22:47:49 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationWorkspace'.
+[22:47:49 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api) in 12.4073ms
+[22:47:49 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:47:49 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 200 en 15.2600 ms
+[22:47:49 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 200 null application/json; charset=utf-8 16.6723ms
+[22:47:49 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:47:49 INF] CORS policy execution successful.
+[22:47:49 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:47:49 INF] Route matched with {action = "GetWorkspace", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationWorkspace] GetWorkspace(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:47:49 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationWorkspace'.
+[22:47:49 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api) in 5.4663ms
+[22:47:49 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:47:49 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 200 en 7.3152 ms
+[22:47:49 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 200 null application/json; charset=utf-8 8.2891ms
+[22:48:06 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:06 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:06 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:06 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:06 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 0.3063 ms
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 0.3864 ms
+[22:48:06 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 4.1135ms
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 1.9599 ms
+[22:48:06 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 2.9495 ms
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 2.0410 ms
+[22:48:06 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 3.8205ms
+[22:48:06 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 5.7109ms
+[22:48:06 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 6.2778ms
+[22:48:06 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 3.2873 ms
+[22:48:06 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 5.7805ms
+[22:48:06 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:06 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:06 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 4.9368ms
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:06 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:06 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:06 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:06 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:06 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:06 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:06 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.9329ms
+[22:48:06 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:06 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 3.9823 ms
+[22:48:06 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:06 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:48:06 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 5.309ms
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 2.0012ms
+[22:48:06 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:48:06 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:06 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:06 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:06 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:06 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 4.6882 ms
+[22:48:06 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:06 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 3.4523ms
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] CORS policy execution successful.
+[22:48:06 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 6.0274ms
+[22:48:06 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:06 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:06 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:06 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:06 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.0007ms
+[22:48:06 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:06 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:06 INF] HTTP GET /api/v1/evaluations respondió 200 en 8.1859 ms
+[22:48:06 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 10.4568ms
+[22:48:06 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:06 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 5.3340 ms
+[22:48:06 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 5.8232ms
+[22:48:06 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:48:06 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 2.0187ms
+[22:48:06 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:06 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 5.2260 ms
+[22:48:06 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:48:06 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 6.1392ms
+[22:48:06 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 2.7975ms
+[22:48:06 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:06 INF] HTTP GET /api/v1/evaluations respondió 200 en 6.6116 ms
+[22:48:06 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 7.0701ms
+[22:48:09 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:09 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:09 INF] CORS policy execution successful.
+[22:48:09 INF] CORS policy execution successful.
+[22:48:09 INF] HTTP OPTIONS /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 204 en 1.2620 ms
+[22:48:09 INF] HTTP OPTIONS /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 204 en 0.3096 ms
+[22:48:09 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 204 null null 3.8815ms
+[22:48:09 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 204 null null 4.0855ms
+[22:48:09 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:48:09 INF] CORS policy execution successful.
+[22:48:09 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:09 INF] HTTP OPTIONS /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 204 en 0.2791 ms
+[22:48:09 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 204 null null 1.4046ms
+[22:48:09 INF] CORS policy execution successful.
+[22:48:09 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:09 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:09 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:48:09 INF] CORS policy execution successful.
+[22:48:09 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:09 INF] Route matched with {action = "GetWorkspace", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationWorkspace] GetWorkspace(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:09 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:09 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 2.7253ms
+[22:48:09 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:09 INF] HTTP GET /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 200 en 7.5034 ms
+[22:48:09 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:09 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 200 null application/json; charset=utf-8 8.2181ms
+[22:48:09 INF] CORS policy execution successful.
+[22:48:09 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:09 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:09 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:09 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 2.1383ms
+[22:48:09 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:09 INF] HTTP GET /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 200 en 6.0647 ms
+[22:48:09 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 200 null application/json; charset=utf-8 7.3225ms
+[22:48:09 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationWorkspace'.
+[22:48:09 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api) in 10.0219ms
+[22:48:09 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:09 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 200 en 12.8494 ms
+[22:48:09 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 200 null application/json; charset=utf-8 14.2703ms
+[22:48:09 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:48:09 INF] CORS policy execution successful.
+[22:48:09 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:09 INF] Route matched with {action = "GetWorkspace", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationWorkspace] GetWorkspace(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:09 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationWorkspace'.
+[22:48:09 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api) in 7.4542ms
+[22:48:09 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:09 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 200 en 9.4183 ms
+[22:48:09 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 200 null application/json; charset=utf-8 10.1934ms
+[22:48:45 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:45 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:45 INF] CORS policy execution successful.
+[22:48:45 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:45 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:45 INF] CORS policy execution successful.
+[22:48:45 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:45 INF] CORS policy execution successful.
+[22:48:45 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 0.2232 ms
+[22:48:45 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:45 INF] CORS policy execution successful.
+[22:48:45 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 1.2414 ms
+[22:48:45 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 4.2059ms
+[22:48:45 INF] CORS policy execution successful.
+[22:48:45 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 1.9521ms
+[22:48:45 INF] CORS policy execution successful.
+[22:48:45 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 1.8742 ms
+[22:48:46 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 3.7797ms
+[22:48:46 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 2.8795 ms
+[22:48:46 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 1.6268 ms
+[22:48:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:45 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 0.6066 ms
+[22:48:46 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 7.376ms
+[22:48:46 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 5.0932ms
+[22:48:46 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 5.1275ms
+[22:48:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:46 INF] CORS policy execution successful.
+[22:48:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:46 INF] CORS policy execution successful.
+[22:48:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:46 INF] CORS policy execution successful.
+[22:48:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:46 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:46 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:46 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:46 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.4135ms
+[22:48:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:46 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 7.2544 ms
+[22:48:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:48:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 8.759ms
+[22:48:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:46 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 2.7381ms
+[22:48:46 INF] CORS policy execution successful.
+[22:48:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:46 INF] HTTP GET /api/v1/evaluations respondió 200 en 6.3271 ms
+[22:48:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:46 INF] CORS policy execution successful.
+[22:48:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 10.2993ms
+[22:48:46 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:46 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:48:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:46 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 8.3472ms
+[22:48:46 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 3.1196ms
+[22:48:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:46 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:46 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 5.9277 ms
+[22:48:46 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 12.5641 ms
+[22:48:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 15.1251ms
+[22:48:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 7.1383ms
+[22:48:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:48:46 INF] CORS policy execution successful.
+[22:48:46 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 5.0877ms
+[22:48:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:46 INF] HTTP GET /api/v1/evaluations respondió 200 en 7.6500 ms
+[22:48:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 8.5382ms
+[22:48:46 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:46 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:46 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:48:46 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 2.276ms
+[22:48:46 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:46 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 6.1727 ms
+[22:48:46 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 7.104ms
+[22:48:49 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:49 INF] CORS policy execution successful.
+[22:48:49 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:49 INF] CORS policy execution successful.
+[22:48:49 INF] HTTP OPTIONS /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 204 en 0.2500 ms
+[22:48:49 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 204 null null 3.0957ms
+[22:48:49 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:49 INF] CORS policy execution successful.
+[22:48:49 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:48:49 INF] HTTP OPTIONS /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 204 en 0.5309 ms
+[22:48:49 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 204 null null 11.3841ms
+[22:48:49 INF] CORS policy execution successful.
+[22:48:49 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:49 INF] HTTP OPTIONS /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 204 en 1.6229 ms
+[22:48:49 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:49 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 204 null null 3.9272ms
+[22:48:49 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:49 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:48:49 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.6386ms
+[22:48:49 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:49 INF] HTTP GET /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 200 en 6.1520 ms
+[22:48:49 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 200 null application/json; charset=utf-8 7.2006ms
+[22:48:49 INF] CORS policy execution successful.
+[22:48:49 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:49 INF] CORS policy execution successful.
+[22:48:49 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:49 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:49 INF] Route matched with {action = "GetWorkspace", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationWorkspace] GetWorkspace(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:49 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:49 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:49 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.642ms
+[22:48:49 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:49 INF] HTTP GET /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 200 en 4.2228 ms
+[22:48:49 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 200 null application/json; charset=utf-8 5.2976ms
+[22:48:49 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationWorkspace'.
+[22:48:49 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api) in 10.2439ms
+[22:48:49 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:49 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 200 en 14.0927 ms
+[22:48:49 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 200 null application/json; charset=utf-8 15.1026ms
+[22:48:49 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:48:49 INF] CORS policy execution successful.
+[22:48:49 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:49 INF] Route matched with {action = "GetWorkspace", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationWorkspace] GetWorkspace(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:49 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationWorkspace'.
+[22:48:49 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api) in 5.0476ms
+[22:48:49 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:49 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 200 en 7.3309 ms
+[22:48:49 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 200 null application/json; charset=utf-8 7.9595ms
+[22:48:53 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:53 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 0.3488 ms
+[22:48:53 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 3.1741ms
+[22:48:53 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 0.3791 ms
+[22:48:53 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 3.5065ms
+[22:48:53 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 0.2186 ms
+[22:48:53 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:53 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:53 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:53 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 4.6195ms
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 3.9947 ms
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:53 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 1.1030 ms
+[22:48:53 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 7.6706ms
+[22:48:53 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:53 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 1.1039 ms
+[22:48:53 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:53 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 7.0289ms
+[22:48:53 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:53 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:53 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 7.9914ms
+[22:48:53 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:53 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:48:53 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 2.8735ms
+[22:48:53 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:53 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:53 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:48:53 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:48:53 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 1.9893ms
+[22:48:53 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:53 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 7.1375 ms
+[22:48:53 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 8.2121ms
+[22:48:53 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:53 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:48:53 INF] HTTP GET /api/v1/evaluations respondió 200 en 6.3822 ms
+[22:48:53 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 2.2349ms
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:53 INF] CORS policy execution successful.
+[22:48:53 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 10.8484ms
+[22:48:53 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:53 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 7.3955 ms
+[22:48:53 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 9.1648ms
+[22:48:53 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:53 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:53 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:48:53 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 2.594ms
+[22:48:53 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:53 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:48:53 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 5.2434 ms
+[22:48:53 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 5.6099ms
+[22:48:53 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:53 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:48:53 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:53 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 2.7171ms
+[22:48:53 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.0966ms
+[22:48:53 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:48:53 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:53 INF] HTTP GET /api/v1/evaluations respondió 200 en 9.3179 ms
+[22:48:53 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 7.2401 ms
+[22:48:53 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 9.9395ms
+[22:48:53 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 8.9857ms
+[22:48:56 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:56 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:56 INF] CORS policy execution successful.
+[22:48:56 INF] HTTP OPTIONS /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 204 en 0.9805 ms
+[22:48:56 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 204 null null 3.5913ms
+[22:48:56 INF] CORS policy execution successful.
+[22:48:56 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:48:56 INF] HTTP OPTIONS /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 204 en 2.6566 ms
+[22:48:56 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:56 INF] CORS policy execution successful.
+[22:48:56 INF] CORS policy execution successful.
+[22:48:56 INF] HTTP OPTIONS /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 204 en 1.4163 ms
+[22:48:56 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 204 null null 2.5032ms
+[22:48:56 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 204 null null 4.8163ms
+[22:48:56 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:56 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:56 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:48:56 INF] CORS policy execution successful.
+[22:48:56 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:56 INF] Route matched with {action = "GetWorkspace", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationWorkspace] GetWorkspace(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:56 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:56 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 2.2942ms
+[22:48:56 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:56 INF] HTTP GET /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 200 en 5.4347 ms
+[22:48:56 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 200 null application/json; charset=utf-8 6.2068ms
+[22:48:56 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - null null
+[22:48:56 INF] CORS policy execution successful.
+[22:48:56 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:56 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:48:56 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:48:56 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.0666ms
+[22:48:56 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:48:56 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationWorkspace'.
+[22:48:56 INF] HTTP GET /api/v1/parameters/NIVEL_RIESGO_ALIMENTO respondió 200 en 3.2228 ms
+[22:48:56 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/NIVEL_RIESGO_ALIMENTO - 200 null application/json; charset=utf-8 4.3867ms
+[22:48:56 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api) in 6.0777ms
+[22:48:56 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:56 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 200 en 8.5431 ms
+[22:48:56 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 200 null application/json; charset=utf-8 9.2145ms
+[22:48:56 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - null null
+[22:48:56 INF] CORS policy execution successful.
+[22:48:56 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:56 INF] Route matched with {action = "GetWorkspace", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationWorkspace] GetWorkspace(System.Guid, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:48:56 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationWorkspace'.
+[22:48:56 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api) in 5.4111ms
+[22:48:56 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.GetWorkspace (SIGERSA.Api)'
+[22:48:56 INF] HTTP GET /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace respondió 200 en 6.9638 ms
+[22:48:56 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/workspace - 200 null application/json; charset=utf-8 7.6139ms
+[22:49:01 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 0.4015 ms
+[22:49:01 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 3.673ms
+[22:49:01 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:49:01 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 0.3620 ms
+[22:49:01 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 6.0925ms
+[22:49:01 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 0.3980 ms
+[22:49:01 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 8.3411ms
+[22:49:01 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 0.3641 ms
+[22:49:01 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 10.5936ms
+[22:49:01 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 0.3770 ms
+[22:49:01 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 11.4258ms
+[22:49:01 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 0.2991 ms
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:49:01 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:49:01 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:49:01 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:49:01 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 11.7628ms
+[22:49:01 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:49:01 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:49:01 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:49:01 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:49:01 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 4.273ms
+[22:49:01 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:49:01 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 10.8774 ms
+[22:49:01 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 11.5798ms
+[22:49:01 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[22:49:01 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:49:01 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 2.7528ms
+[22:49:01 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 3.6063ms
+[22:49:01 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:49:01 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 17.4565 ms
+[22:49:01 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 18.2641ms
+[22:49:01 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:49:01 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:49:01 INF] HTTP GET /api/v1/evaluations respondió 200 en 7.6089 ms
+[22:49:01 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 11.4583ms
+[22:49:01 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:49:01 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[22:49:01 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[22:49:01 INF] CORS policy execution successful.
+[22:49:01 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:49:01 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[22:49:01 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[22:49:01 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[22:49:01 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 2.1176ms
+[22:49:01 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 2.9659ms
+[22:49:01 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[22:49:01 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[22:49:01 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[22:49:01 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 1.5143ms
+[22:49:01 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[22:49:01 INF] HTTP GET /api/v1/evaluations respondió 200 en 8.5656 ms
+[22:49:01 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 8.8718 ms
+[22:49:01 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 3.6482 ms
+[22:49:01 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 10.733ms
+[22:49:01 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 11.4015ms
+[22:49:01 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 8.5368ms
+[23:18:15 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[23:18:15 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 0.4006 ms
+[23:18:15 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 2.8935ms
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 1.9548 ms
+[23:18:15 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 3.9728ms
+[23:18:15 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[23:18:15 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[23:18:15 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[23:18:15 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[23:18:15 INF] HTTP OPTIONS /api/v1/parameters/ESTADO_EVALUACION respondió 204 en 0.2900 ms
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 1.0565 ms
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 204 null null 4.5039ms
+[23:18:15 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[23:18:15 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 4.3611ms
+[23:18:15 INF] HTTP OPTIONS /api/v1/evaluations/options respondió 204 en 1.2679 ms
+[23:18:15 INF] HTTP OPTIONS /api/v1/evaluations respondió 204 en 1.1146 ms
+[23:18:15 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[23:18:15 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/options - 204 null null 7.1774ms
+[23:18:15 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 204 null null 6.329ms
+[23:18:15 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[23:18:15 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[23:18:15 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[23:18:15 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[23:18:15 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[23:18:15 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 61.2895ms
+[23:18:15 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[23:18:15 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - null null
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 64.6341 ms
+[23:18:15 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 67.8035ms
+[23:18:15 INF] Executing endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[23:18:15 INF] Route matched with {action = "Get", controller = "Parameters"}. Executing controller action with signature System.Threading.Tasks.Task`1[System.Collections.Generic.IReadOnlyList`1[SIGERSA.Domain.Entities.ParameterControl]] Get(System.String, System.Nullable`1[System.Int32], System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.ParametersController (SIGERSA.Api).
+[23:18:15 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.ParameterControl[]'.
+[23:18:15 INF] Executed action SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api) in 0.9975ms
+[23:18:15 INF] Executed endpoint 'SIGERSA.Api.Controllers.ParametersController.Get (SIGERSA.Api)'
+[23:18:15 INF] HTTP GET /api/v1/parameters/ESTADO_EVALUACION respondió 200 en 3.3176 ms
+[23:18:15 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/parameters/ESTADO_EVALUACION - 200 null application/json; charset=utf-8 3.8754ms
+[23:18:15 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[23:18:15 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[23:18:15 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 76.5697ms
+[23:18:15 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[23:18:15 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - null null
+[23:18:15 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 75.5009ms
+[23:18:15 INF] HTTP GET /api/v1/evaluations respondió 200 en 80.9846 ms
+[23:18:15 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 83.3574ms
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[23:18:15 INF] Request starting HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - null null
+[23:18:15 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[23:18:15 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 80.1652 ms
+[23:18:15 INF] CORS policy execution successful.
+[23:18:15 INF] Route matched with {action = "Search", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationsPage] Search(System.String, System.String, Int32, Int32, System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[23:18:15 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 81.7347ms
+[23:18:15 INF] Executing endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[23:18:15 INF] Route matched with {action = "Options", controller = "Evaluations"}. Executing controller action with signature System.Threading.Tasks.Task`1[SIGERSA.Domain.Entities.EvaluationCreateOptions] Options(System.Threading.CancellationToken) on controller SIGERSA.Api.Controllers.EvaluationsController (SIGERSA.Api).
+[23:18:15 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationCreateOptions'.
+[23:18:15 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api) in 12.578ms
+[23:18:15 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Options (SIGERSA.Api)'
+[23:18:15 INF] HTTP GET /api/v1/evaluations/options respondió 200 en 15.0537 ms
+[23:18:15 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations/options - 200 null application/json; charset=utf-8 17.2781ms
+[23:18:15 INF] Executing ObjectResult, writing value of type 'SIGERSA.Domain.Entities.EvaluationsPage'.
+[23:18:15 INF] Executed action SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api) in 20.7144ms
+[23:18:15 INF] Executed endpoint 'SIGERSA.Api.Controllers.EvaluationsController.Search (SIGERSA.Api)'
+[23:18:15 INF] HTTP GET /api/v1/evaluations respondió 200 en 24.2240 ms
+[23:18:15 INF] Request finished HTTP/1.1 GET http://127.0.0.1:5000/api/v1/evaluations?page=1&pageSize=20 - 200 null application/json; charset=utf-8 24.9547ms
+[23:20:42 INF] Request starting HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - null null
+[23:20:42 INF] CORS policy execution successful.
+[23:20:42 INF] HTTP OPTIONS /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers respondió 204 en 0.4117 ms
+[23:20:42 INF] Request finished HTTP/1.1 OPTIONS http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - 204 null null 1.9979ms
+[23:20:42 INF] Request starting HTTP/1.1 POST http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - application/json 142
+[23:20:42 INF] CORS policy execution successful.
+[23:20:42 INF] Authorization failed. These requirements were not met:
+RolesAuthorizationRequirement:User.IsInRole must be true for one of the following roles: (ADMINISTRADOR|TECNICO_EVALUADOR)
+[23:20:42 INF] AuthenticationScheme: Bearer was forbidden.
+[23:20:42 INF] HTTP POST /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers respondió 403 en 5.2051 ms
+[23:20:42 INF] Request finished HTTP/1.1 POST http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - 403 0 null 6.0094ms
+[23:20:42 INF] Request starting HTTP/1.1 POST http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - application/json 150
+[23:20:42 INF] CORS policy execution successful.
+[23:20:42 INF] Authorization failed. These requirements were not met:
+RolesAuthorizationRequirement:User.IsInRole must be true for one of the following roles: (ADMINISTRADOR|TECNICO_EVALUADOR)
+[23:20:42 INF] AuthenticationScheme: Bearer was forbidden.
+[23:20:42 INF] HTTP POST /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers respondió 403 en 1.0283 ms
+[23:20:42 INF] Request finished HTTP/1.1 POST http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - 403 0 null 1.6845ms
+[23:20:42 INF] Request starting HTTP/1.1 POST http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - application/json 142
+[23:20:42 INF] CORS policy execution successful.
+[23:20:42 INF] Authorization failed. These requirements were not met:
+RolesAuthorizationRequirement:User.IsInRole must be true for one of the following roles: (ADMINISTRADOR|TECNICO_EVALUADOR)
+[23:20:42 INF] AuthenticationScheme: Bearer was forbidden.
+[23:20:42 INF] HTTP POST /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers respondió 403 en 0.5357 ms
+[23:20:42 INF] Request finished HTTP/1.1 POST http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - 403 0 null 0.9488ms
+[23:20:42 INF] Request starting HTTP/1.1 POST http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - application/json 159
+[23:20:42 INF] CORS policy execution successful.
+[23:20:42 INF] Authorization failed. These requirements were not met:
+RolesAuthorizationRequirement:User.IsInRole must be true for one of the following roles: (ADMINISTRADOR|TECNICO_EVALUADOR)
+[23:20:42 INF] AuthenticationScheme: Bearer was forbidden.
+[23:20:42 INF] HTTP POST /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers respondió 403 en 0.4719 ms
+[23:20:42 INF] Request finished HTTP/1.1 POST http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - 403 0 null 0.9108ms
+[23:20:42 INF] Request starting HTTP/1.1 POST http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - application/json 150
+[23:20:42 INF] CORS policy execution successful.
+[23:20:42 INF] Authorization failed. These requirements were not met:
+RolesAuthorizationRequirement:User.IsInRole must be true for one of the following roles: (ADMINISTRADOR|TECNICO_EVALUADOR)
+[23:20:42 INF] AuthenticationScheme: Bearer was forbidden.
+[23:20:42 INF] HTTP POST /api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers respondió 403 en 0.5535 ms
+[23:20:42 INF] Request finished HTTP/1.1 POST http://127.0.0.1:5000/api/v1/evaluations/f902c514-5133-4d46-a8ec-f14c18a17a32/answers - 403 0 null 0.9992ms

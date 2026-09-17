@@ -12,13 +12,39 @@ public sealed class OperationalService(
     IValidator<SurveillanceRequest> surveillanceValidator,
     IValidator<FindingRequest> findingValidator)
 {
-    public Task<DashboardSnapshot> GetDashboardAsync(OperationalActor actor, CancellationToken cancellationToken)
+    public async Task<DashboardSnapshot> GetDashboardAsync(OperationalActor actor, CancellationToken cancellationToken)
     {
         EnsureRole(actor, "ADMINISTRADOR", "ADMINISTRADOR_EMPRESA", "USUARIO_DELEGADO", "COORDINADOR", "TECNICO_EVALUADOR");
         var scope = Scope(actor);
-        return cache.GetOrCreateAsync(
-            $"dashboard:{actor.UserId:N}:{actor.CompanyId:N}:{string.Join(',', actor.Roles.Order())}",
-            token => repository.GetDashboardAsync(scope, token), TimeSpan.FromSeconds(45), cancellationToken);
+        // These counters are operational state: a new alert or complaint must be
+        // visible on the very next refresh, not after a per-user cache expires.
+        var snapshot = await repository.GetDashboardAsync(scope, cancellationToken);
+        return ProjectDashboardForRole(snapshot, actor);
+    }
+
+    private static DashboardSnapshot ProjectDashboardForRole(DashboardSnapshot snapshot, OperationalActor actor)
+    {
+        if (actor.Roles.Any(role => role is "ADMINISTRADOR" or "COORDINADOR"))
+            return snapshot;
+
+        if (actor.Roles.Contains("TECNICO_EVALUADOR", StringComparer.Ordinal))
+            return new DashboardSnapshot(
+                0, snapshot.PendingEvaluations, 0, snapshot.AverageCompliance, 0,
+                snapshot.UnreadNotifications, snapshot.ScheduledEvaluations, 0, 0,
+                snapshot.PendingReports, snapshot.RecentEvaluations, snapshot.RiskDistribution,
+                snapshot.UpcomingSchedules);
+
+        if (actor.Roles.Contains("USUARIO_DELEGADO", StringComparer.Ordinal))
+            return new DashboardSnapshot(
+                0, 0, 0, null, snapshot.MyRequests, snapshot.UnreadNotifications, 0, 0, 0, 0,
+                [], [], []);
+
+        if (actor.Roles.Contains("ADMINISTRADOR_EMPRESA", StringComparer.Ordinal))
+            return new DashboardSnapshot(
+                0, 0, 0, null, 0, snapshot.UnreadNotifications, 0, 0, 0, 0,
+                [], [], []);
+
+        return new DashboardSnapshot(0, 0, 0, null, 0, 0, 0, 0, 0, 0, [], [], []);
     }
 
     public Task<IReadOnlyList<NotificationRecord>> GetNotificationsAsync(

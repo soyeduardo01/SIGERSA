@@ -1,0 +1,12 @@
+Using launch settings from C:\Users\teamo\.codex\.chatgpt-projects\g-p-6a9daa5acf148191acf10cc926358300\SIGERSA\src\backend\SIGERSA.Api\Properties\launchSettings.json...
+[16:19:40 INF] Request starting HTTP/1.1 GET http://localhost:5000/health - null null
+[16:19:41 WRN] Failed to determine the https port for redirect.
+[16:19:41 INF] Authorization failed. These requirements were not met:
+DenyAnonymousAuthorizationRequirement: Requires an authenticated user.
+ClaimsAuthorizationRequirement:Claim.Type=purpose and Claim.Value is one of the following values: (access)
+[16:19:41 INF] AuthenticationScheme: Bearer was challenged.
+[16:19:41 INF] HTTP GET /health respondió 401 en 63.6272 ms
+[16:19:41 INF] Request finished HTTP/1.1 GET http://localhost:5000/health - 401 0 null 126.6362ms
+[16:19:55 INF] Request starting HTTP/1.1 GET http://localhost:5000/swagger/index.html - null null
+[16:19:55 INF] HTTP GET /swagger/index.html respondió 200 en 54.0552 ms
+[16:19:55 INF] Request finished HTTP/1.1 GET http://localhost:5000/swagger/index.html - 200 null text/html;charset=utf-8 55.6805ms

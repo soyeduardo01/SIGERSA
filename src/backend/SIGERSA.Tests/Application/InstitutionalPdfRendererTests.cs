@@ -15,15 +15,16 @@ public sealed class InstitutionalPdfRendererTests
         var html = InstitutionalReportHtmlBuilder.Build(SampleData(), true,
             new InstitutionalReportAssets(
                 "data:image/png;base64,SIGERSA_LOGO",
-                "data:image/png;base64,DIGEMAPS_LOGO",
                 "data:font/ttf;base64,POPPINS_REGULAR",
                 "data:font/ttf;base64,POPPINS_SEMIBOLD"));
 
         Assert.Contains("SIGERSA_LOGO", html, StringComparison.Ordinal);
-        Assert.Contains("DIGEMAPS_LOGO", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("DIGEMAPS_LOGO", html, StringComparison.Ordinal);
         Assert.Contains("POPPINS_REGULAR", html, StringComparison.Ordinal);
         Assert.Contains("font-family:Poppins", html, StringComparison.Ordinal);
         Assert.Contains("Evaluación de Buenas", html, StringComparison.Ordinal);
+        Assert.Contains("Escala de clasificación de riesgo total", html, StringComparison.Ordinal);
+        Assert.Contains("Flujo de decisión sanitaria", html, StringComparison.Ordinal);
     }
 
     [Fact]

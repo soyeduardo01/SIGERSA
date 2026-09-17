@@ -33,7 +33,8 @@ public sealed class UserManagementRequestValidator : AbstractValidator<UserManag
         "ADMINISTRADOR_EMPRESA",
         "USUARIO_DELEGADO",
         "COORDINADOR",
-        "TECNICO_EVALUADOR"
+        "TECNICO_EVALUADOR",
+        "LABORATORISTA"
     ];
 
     public UserManagementRequestValidator()

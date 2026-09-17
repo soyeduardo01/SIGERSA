@@ -1,0 +1,52 @@
+npm warn Unknown project config "confirm-modules-purge". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+8:35:03 PM [vite] (client) [Unhandled error] TypeError: items.filter is not a function
+ > AllItemsAdmin src/features/admin/AllItemsAdmin.tsx:347:15
+    345 |              <option value="">Sin padre (raíz)</option>
+    346 |              {items
+    347 |                .filter((item) => item.items !== editingId)
+        |                 ^
+    348 |                .map((item) => (
+    349 |                  <option key={item.items} value={item.itemsId}>
+ > Object.react_stack_bottom_frame node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:28571:19
+ > renderWithHooks node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:8030:21
+ > updateFunctionComponent node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:10569:18
+ > beginWork node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:12205:17
+ > runWithFiberInDEV node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:1045:29
+ > performUnitOfWork node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:19176:21
+ > workLoopSync node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:19004:40
+ > renderRootSync node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:18985:10
+ > performWorkOnRoot node_modules/.pnpm/react-dom@19.3.0_react@19.3.0/node_modules/react-dom/cjs/react-dom-client.development.js:18094:34
+
+8:35:03 PM [vite] (client) [console.warn] An error occurred in the <AllItemsAdmin> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+
+9:42:20 PM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+10:03:12 PM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+10:07:53 PM [vite] (client) [Unhandled rejection] ApiError: Validation failed: 
+ -- EndsAt: 'Ends At' debe ser mayor que '12/9/2026 2:07:00 a. m. +00:00'. Severity: Error
+ > apiError src/lib/api.ts:1693:11
+    1691 |    try {
+    1692 |      const problem = (await response.json()) as { detail?: string; title?: string }
+    1693 |      return new ApiError(problem.detail || problem.title || fallback, response.status)
+         |             ^
+    1694 |    } catch {
+    1695 |      return new ApiError(fallback, response.status)
+ > createSchedule src/lib/api.ts:1492:26
+ > save src/features/scheduling/SchedulingManagement.tsx:70:33
+ > submit src/features/scheduling/SchedulingManagement.tsx:318:6
+
+10:09:53 PM [vite] (client) [Unhandled rejection] ApiError: Validation failed: 
+ -- DueAt: 'Due At' debe ser mayor que '15/9/2026 2:09:41 a. m. +00:00'. Severity: Error
+ > apiError src/lib/api.ts:1693:11
+    1691 |    try {
+    1692 |      const problem = (await response.json()) as { detail?: string; title?: string }
+    1693 |      return new ApiError(problem.detail || problem.title || fallback, response.status)
+         |             ^
+    1694 |    } catch {
+    1695 |      return new ApiError(fallback, response.status)
+ > createCorrection src/lib/api.ts:1522:26
+ > save src/features/corrections/CorrectionsManagement.tsx:61:28
+ > submit src/features/corrections/CorrectionsManagement.tsx:271:6
+

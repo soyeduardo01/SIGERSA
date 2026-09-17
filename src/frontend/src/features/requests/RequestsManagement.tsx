@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
 import {
   createInspectionRequest,
+  downloadInspectionRequestDocument,
+  getInspectionRequestDocuments,
   getInspectionRequestOptions,
   getInspectionRequests,
   transitionInspectionRequest,
@@ -11,6 +13,7 @@ import {
   type InspectionRequestDraft,
   type InspectionRequestOptions,
   type InspectionRequestsPage,
+  type RequestSupportingDocument,
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
 import { queueRequest } from '../../offline/syncQueue'
@@ -38,6 +41,7 @@ export function RequestsManagement() {
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<InspectionRequest | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [detail, setDetail] = useState<InspectionRequest | null>(null)
 
   useEffect(() => {
     let active = true
@@ -255,49 +259,58 @@ export function RequestsManagement() {
                     </span>
                   </td>
                   <td className="px-3 py-4 text-right">
-                    {options?.canManage ? (
-                      <div className="flex justify-end gap-2">
-                        {item.status === 'BORRADOR' && (
-                          <>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDetail(item)}
+                        className="rounded-lg border border-slate-300 px-3 py-2 font-bold"
+                      >
+                        Ver detalle
+                      </button>
+                      {options?.canManage ? (
+                        <>
+                          {item.status === 'BORRADOR' && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditing(item)
+                                  setModalOpen(true)
+                                }}
+                                className="rounded-lg border border-slate-300 px-3 py-2 font-bold"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void transition(item, 'submit')}
+                                disabled={item.documentCount === 0}
+                                title={
+                                  item.documentCount === 0
+                                    ? 'Adjunte la documentación obligatoria antes de enviar.'
+                                    : undefined
+                                }
+                                className="text-brand-800 rounded-lg border border-brand-700 px-3 py-2 font-bold disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Enviar
+                              </button>
+                            </>
+                          )}
+                          {(item.status === 'BORRADOR' ||
+                            item.status === 'PENDIENTE_ASIGNACION') && (
                             <button
                               type="button"
-                              onClick={() => {
-                                setEditing(item)
-                                setModalOpen(true)
-                              }}
-                              className="rounded-lg border border-slate-300 px-3 py-2 font-bold"
+                              onClick={() => void transition(item, 'cancel')}
+                              className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
                             >
-                              Editar
+                              Cancelar
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => void transition(item, 'submit')}
-                              disabled={item.documentCount === 0}
-                              title={
-                                item.documentCount === 0
-                                  ? 'Adjunte la documentación obligatoria antes de enviar.'
-                                  : undefined
-                              }
-                              className="text-brand-800 rounded-lg border border-brand-700 px-3 py-2 font-bold disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              Enviar
-                            </button>
-                          </>
-                        )}
-                        {(item.status === 'BORRADOR' ||
-                          item.status === 'PENDIENTE_ASIGNACION') && (
-                          <button
-                            type="button"
-                            onClick={() => void transition(item, 'cancel')}
-                            className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
-                          >
-                            Cancelar
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-ink-muted">Solo lectura</span>
-                    )}
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs text-ink-muted">Solo lectura</span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -345,7 +358,153 @@ export function RequestsManagement() {
           onSave={save}
         />
       )}
+      {detail && <RequestDetail request={detail} onClose={() => setDetail(null)} />}
     </section>
+  )
+}
+
+function RequestDetail({ request, onClose }: { request: InspectionRequest; onClose: () => void }) {
+  const [documents, setDocuments] = useState<RequestSupportingDocument[]>([])
+  const [loadingDocuments, setLoadingDocuments] = useState(true)
+  const [documentError, setDocumentError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    void getInspectionRequestDocuments(request.id)
+      .then((value) => active && setDocuments(value))
+      .catch((caught) => {
+        if (active)
+          setDocumentError(
+            caught instanceof Error ? caught.message : 'No se pudieron cargar los documentos.',
+          )
+      })
+      .finally(() => active && setLoadingDocuments(false))
+    return () => {
+      active = false
+    }
+  }, [request.id])
+
+  async function openDocument(document: RequestSupportingDocument, download: boolean) {
+    try {
+      const blob = await downloadInspectionRequestDocument(request.id, document.id)
+      const url = URL.createObjectURL(blob)
+      const anchor = window.document.createElement('a')
+      anchor.href = url
+      if (download) {
+        anchor.download = document.originalName
+      } else {
+        anchor.target = '_blank'
+        anchor.rel = 'noopener noreferrer'
+      }
+      anchor.click()
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (caught) {
+      await alerts.error(
+        caught,
+        download ? 'No se pudo descargar el documento' : 'No se pudo abrir el documento',
+      )
+    }
+  }
+
+  const fields = [
+    ['Número', request.number ?? 'Borrador sin número'],
+    ['Estado', statusLabels[request.status]],
+    ['Empresa', request.companyName],
+    ['Establecimiento', request.establishmentName ?? 'Sin establecimiento'],
+    ['Solicitante', request.applicantName],
+    ['Motivo', request.inspectionReasonName],
+    ['Detalle del motivo', request.reasonDetail ?? 'Sin detalle'],
+    ['Tipo de establecimiento', request.establishmentType ?? 'No especificado'],
+    ['Observaciones', request.observations ?? 'Sin observaciones'],
+    ['Fecha de registro', new Date(request.createdAt).toLocaleString('es-DO')],
+  ]
+  return (
+    <div
+      className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
+      role="presentation"
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="request-detail-title"
+        className="sigersa-modal-panel max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold tracking-[0.14em] text-brand-700 uppercase">
+              Detalle de solicitud
+            </p>
+            <h2 id="request-detail-title" className="mt-1 text-xl font-extrabold text-ink-strong">
+              {request.number ?? 'Borrador sin número'}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-ink-muted"
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+        </div>
+        <dl className="mt-6 grid gap-3 sm:grid-cols-2">
+          {fields.map(([label, value]) => (
+            <div key={label} className="rounded-xl bg-slate-50 p-3">
+              <dt className="text-xs font-bold tracking-wide text-ink-muted uppercase">{label}</dt>
+              <dd className="mt-1 text-sm font-semibold text-ink-body">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="mt-6 border-t border-slate-200 pt-5">
+          <h3 className="font-extrabold text-ink-strong">Documentos guardados</h3>
+          {loadingDocuments && (
+            <p role="status" className="mt-3 text-sm text-ink-muted">
+              Cargando documentos…
+            </p>
+          )}
+          {documentError && (
+            <p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-800">
+              {documentError}
+            </p>
+          )}
+          {!loadingDocuments && !documentError && documents.length === 0 && (
+            <p className="mt-3 text-sm text-ink-muted">Esta solicitud no tiene documentos.</p>
+          )}
+          <ul className="mt-3 space-y-2">
+            {documents.map((document) => (
+              <li
+                key={document.id}
+                className="flex flex-col gap-3 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <strong className="block text-sm text-ink-strong">{document.originalName}</strong>
+                  <span className="text-xs text-ink-muted">
+                    {document.documentType.replaceAll('_', ' ')} ·{' '}
+                    {(document.fileSize / 1024).toFixed(1)} KB
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void openDocument(document, false)}
+                    className="text-brand-800 rounded-lg border border-brand-200 px-3 py-2 text-sm font-bold"
+                  >
+                    Ver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void openDocument(document, true)}
+                    className="rounded-lg bg-brand-700 px-3 py-2 text-sm font-bold text-white"
+                  >
+                    Descargar
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    </div>
   )
 }
 
@@ -362,7 +521,11 @@ function RequestForm({
 }) {
   const [companyId, setCompanyId] = useState(request?.companyId ?? options.companies[0]?.id ?? '')
   const [applicantUserId, setApplicantUserId] = useState(
-    request?.applicantId ?? options.delegates?.find((item) => item.companyId === (request?.companyId ?? options.companies[0]?.id))?.id ?? '',
+    request?.applicantId ??
+      options.delegates?.find(
+        (item) => item.companyId === (request?.companyId ?? options.companies[0]?.id),
+      )?.id ??
+      '',
   )
   const [establishmentId, setEstablishmentId] = useState(request?.establishmentId ?? '')
   const [inspectionReasonId, setInspectionReasonId] = useState(request?.inspectionReasonId ?? '')
@@ -385,17 +548,20 @@ function RequestForm({
     event.preventDefault()
     setSaving(true)
     try {
-      await onSave({
-        companyId: companyId || null,
-        applicantUserId: applicantUserId || null,
-        establishmentId: establishmentId || null,
-        inspectionReasonId,
-        reasonDetail,
-        establishmentType,
-        observations,
-        idempotencyKey: request ? crypto.randomUUID() : crypto.randomUUID(),
-        rowVersion: request?.rowVersion ?? null,
-      }, supportingDocument)
+      await onSave(
+        {
+          companyId: companyId || null,
+          applicantUserId: applicantUserId || null,
+          establishmentId: establishmentId || null,
+          inspectionReasonId,
+          reasonDetail,
+          establishmentType,
+          observations,
+          idempotencyKey: request ? crypto.randomUUID() : crypto.randomUUID(),
+          rowVersion: request?.rowVersion ?? null,
+        },
+        supportingDocument,
+      )
     } finally {
       setSaving(false)
     }

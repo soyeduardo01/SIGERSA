@@ -59,6 +59,12 @@ public sealed record EvaluationSavedAnswer(
     string? Observation,
     string? Comment);
 
+public sealed record EvaluationSavedEvidence(
+    Guid Id,
+    int SourceItem,
+    string OriginalName,
+    DateTimeOffset UploadedAt);
+
 public sealed record EvaluationInspectionContext(
     string Origin,
     string? InspectionReasonCode,
@@ -100,11 +106,13 @@ public sealed record EvaluationSupplement(
 public sealed record EvaluationWorkspaceData(
     IReadOnlyList<EvaluationFormItem> Items,
     IReadOnlyList<EvaluationSavedAnswer> Answers,
+    IReadOnlyList<EvaluationSavedEvidence> Evidences,
     EvaluationSupplement Supplement);
 
 public sealed record EvaluationWorkspace(
     IReadOnlyList<EvaluationFormItem> Items,
     IReadOnlyList<EvaluationSavedAnswer> Answers,
+    IReadOnlyList<EvaluationSavedEvidence> Evidences,
     EvaluationSupplement Supplement,
     EvaluationInspectionPolicy Policy);
 

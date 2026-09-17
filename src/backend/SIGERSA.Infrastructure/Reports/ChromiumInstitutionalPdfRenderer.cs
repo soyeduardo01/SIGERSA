@@ -20,7 +20,6 @@ public sealed class ChromiumInstitutionalPdfRenderer(IOptions<ReportOptions> opt
         var executablePath = ResolveBrowserExecutable();
         var assets = new InstitutionalReportAssets(
             DataUri("SIGERSA.Infrastructure.Reports.Assets.sigersa-logo.png", "image/png"),
-            DataUri("SIGERSA.Infrastructure.Reports.Assets.digemaps-logo.png", "image/png"),
             DataUri("SIGERSA.Infrastructure.Reports.Assets.Poppins-Regular.ttf", "font/ttf"),
             DataUri("SIGERSA.Infrastructure.Reports.Assets.Poppins-SemiBold.ttf", "font/ttf"));
         var html = InstitutionalReportHtmlBuilder.Build(data, official, assets);

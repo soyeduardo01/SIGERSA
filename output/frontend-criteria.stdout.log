@@ -1,0 +1,21 @@
+
+> frontend@0.1.0 dev
+> vite --host 127.0.0.1 --port 5173
+
+
+  VITE v8.2.2  ready in 3024 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+  ➜  press h + enter to show help
+
+PWA v1.3.0
+mode      generateSW
+precache  1 entries (0.12 KiB)
+files generated
+  dev-dist/sw.js
+  dev-dist/workbox-619edae6.js
+8:40:28 PM [vite] (client) hmr update /src/index.css, /src/features/inspection/DynamicInspectionForm.tsx
+8:43:30 PM [vite] (client) hmr update /src/index.css, /src/features/inspection/DynamicInspectionForm.tsx
+8:45:20 PM [vite] (client) hmr update /src/index.css, /src/features/inspection/DynamicInspectionForm.tsx
+8:45:21 PM [vite] (client) hmr update /src/index.css, /src/features/inspection/DynamicInspectionForm.tsx
+8:45:22 PM [vite] (client) hmr update /src/index.css

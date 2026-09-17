@@ -434,6 +434,20 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
              WHERE response.evaluacion_id = @EvaluationId
              ORDER BY item.orden;
 
+            SELECT evidence.id AS Id, item.source_allitems_item AS SourceItem,
+                   evidence.nombre_original AS OriginalName,
+                   evidence.fecha_servidor AS UploadedAt
+              FROM "SIGERSA"."EVIDENCIA" evidence
+              JOIN "SIGERSA"."EVIDENCIA_RESPUESTA" evidence_response
+                ON evidence_response.evidencia_id = evidence.id
+              JOIN "SIGERSA"."RESPUESTA_USUARIO" response
+                ON response.id = evidence_response.respuesta_usuario_id
+              JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+             WHERE evidence.evaluacion_id = @EvaluationId
+               AND item.source_allitems_item IS NOT NULL
+               AND evidence.eliminada = false
+             ORDER BY item.source_allitems_item, evidence.fecha_servidor, evidence.id;
+
             SELECT fecha_ultima_inspeccion AS PreviousInspectionDate,
                    calificacion_ultima_inspeccion AS PreviousQualification,
                    fecha_inspeccion_actual AS CurrentInspectionDate,
@@ -454,8 +468,11 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
             using var result = await connection.QueryMultipleAsync(new CommandDefinition(
                 Sql(sql), new { EvaluationId = evaluationId }, cancellationToken: cancellationToken));
             var answers = (await result.ReadAsync<EvaluationSavedAnswer>()).AsList();
+            var evidences = (await result.ReadAsync<EvaluationSavedEvidenceRow>())
+                .Select(row => row.ToDomain()).ToArray();
             var supplement = await result.ReadSingleOrDefaultAsync<EvaluationSupplementRow>();
-            return new EvaluationWorkspaceData(items, answers, supplement?.ToDomain() ?? EmptySupplement());
+            return new EvaluationWorkspaceData(
+                items, answers, evidences, supplement?.ToDomain() ?? EmptySupplement());
         }
     }
 
@@ -931,6 +948,16 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
     private sealed class AnswerRow { public Guid Id { get; init; } public long RowVersion { get; init; } }
     private sealed class AnswerInputRow { public Guid Id { get; init; } public Guid EvaluationId { get; init; } public int SourceItem { get; init; } public string Rating { get; init; } = string.Empty; public string? CriticalityCode { get; init; } public decimal? Score { get; init; } public long RowVersion { get; init; } public EvaluationAnswer ToDomain() => new(Id, EvaluationId, SourceItem, Rating, CriticalityCode, Score, RowVersion); }
     private sealed class AnswerDetailRow { public Guid Id { get; init; } public Guid EvaluationId { get; init; } public int SourceItem { get; init; } public string Rating { get; init; } = string.Empty; public string? CriticalityCode { get; init; } public decimal? Score { get; init; } public long RowVersion { get; init; } public EvaluationAnswer ToDomain() => new(Id, EvaluationId, SourceItem, Rating, CriticalityCode, Score, RowVersion); }
+    private sealed class EvaluationSavedEvidenceRow
+    {
+        public Guid Id { get; init; }
+        public int SourceItem { get; init; }
+        public string OriginalName { get; init; } = string.Empty;
+        public DateTime UploadedAt { get; init; }
+        public EvaluationSavedEvidence ToDomain() => new(
+            Id, SourceItem, OriginalName,
+            new DateTimeOffset(DateTime.SpecifyKind(UploadedAt, DateTimeKind.Utc)));
+    }
     private sealed class InspectionContextRow
     {
         public string Origin { get; init; } = string.Empty;
@@ -1056,7 +1083,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
             ), request_in_progress AS (
                 UPDATE "SIGERSA"."SOLICITUD" request
                    SET estado = 'EN_PROCESO', modificado_en = CURRENT_TIMESTAMP,
-                       modificado_por = @ActorId, version_fila = version_fila + 1
+                       modificado_por = @ActorId, version_fila = request.version_fila + 1
                   FROM "SIGERSA"."CASO" inspection_case
                  WHERE @Action = 'START' AND inspection_case.id IN (SELECT CaseId FROM updated)
                    AND request.id = inspection_case.solicitud_id
@@ -1079,7 +1106,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
             ), resolved_request AS (
                 UPDATE "SIGERSA"."SOLICITUD" request
                    SET estado = 'RESUELTA', modificado_en = CURRENT_TIMESTAMP,
-                       modificado_por = @ActorId, version_fila = version_fila + 1
+                       modificado_por = @ActorId, version_fila = request.version_fila + 1
                   FROM "SIGERSA"."CASO" inspection_case
                  WHERE @Action = 'CLOSE' AND inspection_case.id IN (SELECT CaseId FROM updated)
                    AND request.id = inspection_case.solicitud_id

@@ -102,9 +102,25 @@ public sealed class SupabaseStorageAdapter(
     {
         ValidateLocation(bucketName, supabasePath);
 
-        var bytes = await client.Storage
-            .From(bucketName)
-            .Download(supabasePath, (EventHandler<float>?)null, cancellationToken, null);
+        byte[] bytes;
+        try
+        {
+            bytes = await client.Storage
+                .From(bucketName)
+                .Download(supabasePath, (EventHandler<float>?)null, cancellationToken, null);
+        }
+        catch (SupabaseStorageException exception)
+            when (FailureHint.DetectReason(exception) == FailureHint.Reason.NotFound)
+        {
+            throw new FileNotFoundException(
+                "El archivo solicitado ya no existe en el almacenamiento.", supabasePath, exception);
+        }
+        catch (Exception exception) when (exception is SupabaseStorageException or HttpRequestException)
+        {
+            throw new FileStorageUnavailableException(
+                "No fue posible descargar el archivo. Verifique la disponibilidad del almacenamiento e inténtelo nuevamente.",
+                exception);
+        }
 
         return new MemoryStream(bytes, writable: false);
     }

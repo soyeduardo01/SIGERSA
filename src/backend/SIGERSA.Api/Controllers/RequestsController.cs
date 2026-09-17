@@ -76,6 +76,20 @@ public sealed class RequestsController(
         return Created($"/api/v1/requests/{id}/documents/{documentId}", new { id = documentId });
     }
 
+    [HttpGet("{id:guid}/documents")]
+    public Task<IReadOnlyList<RequestSupportingDocument>> GetDocuments(
+        Guid id, CancellationToken cancellationToken) =>
+        documents.GetRequestDocumentsAsync(id, DocumentActor(), cancellationToken);
+
+    [HttpGet("{id:guid}/documents/{documentId:guid}/content")]
+    public async Task<IActionResult> DownloadDocument(
+        Guid id, Guid documentId, CancellationToken cancellationToken)
+    {
+        var download = await documents.DownloadRequestDocumentAsync(
+            id, documentId, DocumentActor(), cancellationToken);
+        return File(download.Content, download.MimeType, download.FileName, enableRangeProcessing: true);
+    }
+
     [HttpPost("{id:guid}/submit")]
     [Authorize(Roles = "ADMINISTRADOR,USUARIO_DELEGADO,COORDINADOR")]
     public async Task<IActionResult> Submit(

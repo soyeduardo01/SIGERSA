@@ -46,8 +46,7 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             SELECT COUNT(*)
               FROM "SIGERSA"."ALERTA_LAPCH" alert
               LEFT JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = alert.establecimiento_id
-             WHERE alert.prioridad <= 2 AND alert.resultado IS NULL
-               AND (@GlobalScope = true
+             WHERE (@GlobalScope = true
                     OR (@CompanyId IS NOT NULL AND COALESCE(alert.empresa_id, establishment.empresa_id) = @CompanyId)
                     OR (@AssignedOnly = true AND EXISTS (
                         SELECT 1 FROM "SIGERSA"."CASO" inspection_case
@@ -79,8 +78,7 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             SELECT COUNT(*)
               FROM "SIGERSA"."DENUNCIA" complaint
               LEFT JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = complaint.establecimiento_id
-             WHERE complaint.resultado IS NULL
-               AND (@GlobalScope = true
+             WHERE (@GlobalScope = true
                     OR (@CompanyId IS NOT NULL AND establishment.empresa_id = @CompanyId)
                     OR (@AssignedOnly = true AND EXISTS (
                         SELECT 1 FROM "SIGERSA"."CASO" inspection_case

@@ -78,7 +78,8 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             context,
             workspace.Items,
             workspace.Answers.Select(answer => answer.SourceItem).ToHashSet());
-        return new EvaluationWorkspace(workspace.Items, workspace.Answers, workspace.Supplement, policy);
+        return new EvaluationWorkspace(
+            workspace.Items, workspace.Answers, workspace.Evidences, workspace.Supplement, policy);
     }
 
     public Task<EvaluationSupplement> SaveSupplementAsync(

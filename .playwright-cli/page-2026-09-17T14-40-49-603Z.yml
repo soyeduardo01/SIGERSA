@@ -1,0 +1,182 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - navigation "Navegación principal" [ref=e5]:
+      - link "SIGERSA, inicio" [ref=e6] [cursor=pointer]:
+        - /url: "#inicio"
+        - img "SIGERSA" [ref=e7]
+      - link "Acceso institucional" [ref=e14] [cursor=pointer]:
+        - /url: /acceso.html
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - paragraph [ref=e17]: República Dominicana avanza
+        - heading "Salud segura. Gestión inteligente." [level=1] [ref=e19]: Salud segura.Gestión inteligente.
+        - paragraph [ref=e20]: Un sistema integral que conecta inspecciones, riesgos y respuesta sanitaria para cuidar lo que llega a la mesa de cada dominicano.
+        - generic [ref=e21]:
+          - button "Reportar una denuncia" [ref=e22]:
+            - text: Reportar una denuncia
+            - generic [aria-hidden] [ref=e23]: →
+          - link "Conocer SIGERSA" [ref=e24] [cursor=pointer]:
+            - /url: "#soluciones"
+            - text: Conocer SIGERSA
+            - generic [aria-hidden] [ref=e25]: ↓
+        - generic [ref=e26]:
+          - generic [ref=e27]: ✓ Canal confidencial
+          - generic [ref=e28]: ✓ Seguimiento institucional
+          - generic [ref=e29]: ✓ Disponible 24/7
+      - generic "Vistas de la plataforma SIGERSA" [ref=e30]:
+        - img "Dashboard operativo de SIGERSA" [ref=e36]
+        - img "SIGERSA en teléfono móvil" [ref=e38]
+        - generic [ref=e39]:
+          - generic [ref=e40]: ✓
+          - generic [ref=e41]:
+            - generic [ref=e42]: Operación sincronizada
+            - generic [ref=e43]: Información disponible en tiempo real
+  - generic [ref=e44]:
+    - article [ref=e45]:
+      - generic [ref=e46]: ◎
+      - generic [ref=e47]:
+        - heading "Prevención basada en riesgo" [level=2] [ref=e48]
+        - paragraph [ref=e49]: Prioriza donde más importa.
+    - article [ref=e50]:
+      - generic [ref=e51]: ⌁
+      - generic [ref=e52]:
+        - heading "Trazabilidad de principio a fin" [level=2] [ref=e53]
+        - paragraph [ref=e54]: Cada decisión queda respaldada.
+    - article [ref=e55]:
+      - generic [ref=e56]: ◉
+      - generic [ref=e57]:
+        - heading "Respuesta ciudadana directa" [level=2] [ref=e58]
+        - paragraph [ref=e59]: Un canal sencillo y confiable.
+  - generic [ref=e60]:
+    - generic [ref=e61]:
+      - paragraph [ref=e62]: Una operación integral
+      - heading "Todo el ciclo sanitario, en un mismo lugar." [level=2] [ref=e63]: Todo el ciclo sanitario,en un mismo lugar.
+      - paragraph [ref=e64]: SIGERSA reúne las herramientas que los equipos necesitan para actuar con criterio, velocidad y evidencia.
+    - generic [ref=e65]:
+      - article [ref=e66]:
+        - text: "01"
+        - heading "Solicitudes" [level=3] [ref=e67]
+        - paragraph [ref=e68]: Gestiona solicitudes de inspección con trazabilidad completa.
+        - generic [aria-hidden] [ref=e69]: ↗
+      - article [ref=e70]:
+        - text: "02"
+        - heading "Alertas y denuncias" [level=3] [ref=e71]
+        - paragraph [ref=e72]: Centraliza señales sanitarias y reportes ciudadanos.
+        - generic [aria-hidden] [ref=e73]: ↗
+      - article [ref=e74]:
+        - text: "03"
+        - heading "Evaluaciones BPM" [level=3] [ref=e75]
+        - paragraph [ref=e76]: Digitaliza inspecciones y calcula el nivel de cumplimiento.
+        - generic [aria-hidden] [ref=e77]: ↗
+      - article [ref=e78]:
+        - text: "04"
+        - heading "Programación" [level=3] [ref=e79]
+        - paragraph [ref=e80]: Coordina visitas, equipos técnicos y prioridades operativas.
+        - generic [aria-hidden] [ref=e81]: ↗
+      - article [ref=e82]:
+        - text: "05"
+        - heading "Hallazgos" [level=3] [ref=e83]
+        - paragraph [ref=e84]: Registra no conformidades y su nivel de criticidad.
+        - generic [aria-hidden] [ref=e85]: ↗
+      - article [ref=e86]:
+        - text: "06"
+        - heading "Evidencias" [level=3] [ref=e87]
+        - paragraph [ref=e88]: Conserva fotografías y documentos vinculados al expediente.
+        - generic [aria-hidden] [ref=e89]: ↗
+      - article [ref=e90]:
+        - text: "07"
+        - heading "Correcciones" [level=3] [ref=e91]
+        - paragraph [ref=e92]: Da seguimiento a medidas correctivas y compromisos.
+        - generic [aria-hidden] [ref=e93]: ↗
+      - article [ref=e94]:
+        - text: "08"
+        - heading "Informes oficiales" [level=3] [ref=e95]
+        - paragraph [ref=e96]: Genera documentos verificables para cada evaluación.
+        - generic [aria-hidden] [ref=e97]: ↗
+      - article [ref=e98]:
+        - text: "09"
+        - heading "Gestión empresarial" [level=3] [ref=e99]
+        - paragraph [ref=e100]: Conecta establecimientos, responsables y solicitudes.
+        - generic [aria-hidden] [ref=e101]: ↗
+      - article [ref=e102]:
+        - text: "10"
+        - heading "Indicadores" [level=3] [ref=e103]
+        - paragraph [ref=e104]: Convierte la operación sanitaria en decisiones oportunas.
+        - generic [aria-hidden] [ref=e105]: ↗
+  - generic [ref=e107]:
+    - generic [ref=e108]:
+      - generic [ref=e109]:
+        - paragraph [ref=e110]: Diseñado para generar impacto
+        - heading "Mejores datos. Mejores decisiones." [level=2] [ref=e111]: Mejores datos.Mejores decisiones.
+      - paragraph [ref=e112]: De la primera señal al informe oficial, la información fluye sin perder contexto, responsables ni evidencia.
+    - generic [ref=e113]:
+      - article [ref=e114]:
+        - generic [ref=e115]: 360°
+        - generic [ref=e116]: Visibilidad del proceso
+      - article [ref=e117]:
+        - generic [ref=e118]: "10"
+        - generic [ref=e119]: Módulos conectados
+      - article [ref=e120]:
+        - generic [ref=e121]: 24/7
+        - generic [ref=e122]: Canal ciudadano
+      - article [ref=e123]:
+        - generic [ref=e124]: "1"
+        - generic [ref=e125]: Expediente trazable
+  - generic [ref=e126]:
+    - generic [ref=e127]:
+      - paragraph [ref=e128]: En oficina y en campo
+      - heading "Una experiencia preparada para cada pantalla." [level=2] [ref=e129]: Una experiencia preparadapara cada pantalla.
+      - paragraph [ref=e130]: Responsiva, instalable y diseñada para acompañar el trabajo sanitario donde ocurra.
+    - generic [ref=e131]:
+      - img "Dashboard SIGERSA en computadora" [ref=e134]
+      - img "Evaluación de inspección SIGERSA en tableta" [ref=e137]
+      - img "Acceso SIGERSA desde un móvil" [ref=e138]
+  - generic [ref=e142]:
+    - generic [ref=e143]:
+      - paragraph [ref=e144]: Participación ciudadana
+      - heading "Tu alerta también protege." [level=2] [ref=e145]
+      - paragraph [ref=e146]: Reporta de forma segura cualquier situación que pueda representar un riesgo para la salud.
+    - button "Iniciar denuncia" [ref=e147]: Iniciar denuncia →
+  - generic [ref=e148]:
+    - paragraph [ref=e149]: Respaldo institucional
+    - heading "Una plataforma al servicio del país." [level=2] [ref=e150]
+    - generic [ref=e151]:
+      - img "Gobierno de la República Dominicana" [ref=e152]
+      - img "DIGEMAPS" [ref=e153]
+      - generic [ref=e154]:
+        - generic [ref=e155]: ✓
+        - generic [ref=e156]: Gestión sanitariadigital y confiable
+  - generic [ref=e158]:
+    - generic [ref=e159]:
+      - img "SIGERSA" [ref=e160]
+      - paragraph [ref=e161]: Sistema Integral de Gestión de Riesgo y Seguridad Alimentaria.
+    - generic [ref=e162]:
+      - paragraph [ref=e163]: Dirección General de Medicamentos, Alimentos y Productos Sanitarios
+      - paragraph [ref=e164]: © 2026 República Dominicana
+  - dialog [ref=e166]:
+    - generic [ref=e167]:
+      - generic [ref=e168]:
+        - paragraph [ref=e169]: Canal ciudadano · Paso 1 de 3
+        - heading "¿Dónde ocurrió?" [level=2] [ref=e170]
+      - button "Cerrar denuncia" [ref=e171]: ×
+    - generic "Paso 1 de 3" [ref=e172]
+    - generic [ref=e176]:
+      - generic [ref=e177]:
+        - generic [ref=e178]:
+          - text: Establecimiento
+          - combobox "Establecimiento" [active] [ref=e179]:
+            - option "Seleccione el establecimiento" [selected]
+        - generic [ref=e180]:
+          - text: Tipo de denuncia
+          - combobox "Tipo de denuncia" [ref=e181]:
+            - option "Seleccione el tipo" [selected]
+            - option "Condición sanitaria del establecimiento"
+            - option "Manipulación inadecuada de alimentos"
+            - option "Falta de higiene"
+            - option "Presencia de plagas"
+            - option "Producto vencido, alterado o contaminado"
+            - option "Venta sin permiso sanitario"
+            - option "Otro riesgo sanitario"
+      - generic [ref=e182]:
+        - button "Cancelar" [ref=e183]
+        - button "Continuar" [ref=e184]: Continuar →

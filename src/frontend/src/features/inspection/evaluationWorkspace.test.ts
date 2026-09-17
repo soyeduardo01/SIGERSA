@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { EvaluationFormItem, EvaluationInspectionPolicy } from '../../lib/api'
 import {
   groupItemsByChapter,
+  evidenceStatusBySlot,
   isValidEvaluationId,
   itemsForInspectionPolicy,
   qualificationForPercentage,
@@ -65,5 +66,24 @@ describe('evaluation workspace helpers', () => {
       'capítulo',
       '1.1.3',
     ])
+  })
+
+  it('restaura hasta tres indicadores de evidencia por ítem después de recargar', () => {
+    const evidences = [
+      { id: '1', sourceItem: 42, originalName: 'uno.png', uploadedAt: '2026-09-17T10:00:00Z' },
+      { id: '2', sourceItem: 42, originalName: 'dos.pdf', uploadedAt: '2026-09-17T10:01:00Z' },
+      { id: '3', sourceItem: 7, originalName: 'otro.png', uploadedAt: '2026-09-17T10:02:00Z' },
+    ]
+
+    expect(evidenceStatusBySlot(evidences)).toEqual({
+      '42-0': 'Archivo guardado',
+      '42-1': 'Archivo guardado',
+      '7-0': 'Archivo guardado',
+    })
+  })
+
+  it('tolera workspaces antiguos que no incluyen la colección de evidencias', () => {
+    expect(evidenceStatusBySlot(undefined)).toEqual({})
+    expect(evidenceStatusBySlot(null)).toEqual({})
   })
 })

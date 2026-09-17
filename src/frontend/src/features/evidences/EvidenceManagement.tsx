@@ -145,8 +145,7 @@ export function EvidenceManagement() {
             Evidencias
           </h1>
           <p className="mt-2 text-sm text-ink-muted">
-            Los binarios se conservan en Supabase Storage privado; aquí se muestran metadatos
-            autorizados.
+            Los archivos se conservan de forma privada; aquí se muestran metadatos autorizados.
           </p>
         </div>
         {canUpload && (

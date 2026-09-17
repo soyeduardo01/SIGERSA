@@ -1,0 +1,13 @@
+[    1320ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:4175/node_modules/.vite/deps/react-dom_client.js?v=45de87f1:15804
+[    1362ms] [ERROR] The script has an unsupported MIME type ('text/html'). @ :0
+[    1574ms] [ERROR] Access to fetch at 'http://127.0.0.1:5000/api/v1/public/complaints/options' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[    1575ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://127.0.0.1:5000/api/v1/public/complaints/options:0
+[    1595ms] [ERROR] Access to fetch at 'http://127.0.0.1:5000/api/v1/public/complaints/options' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[    1595ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://127.0.0.1:5000/api/v1/public/complaints/options:0
+[   46649ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:4175/node_modules/.vite/deps/react-dom_client.js?v=45de87f1:15804
+[   46674ms] [ERROR] The script has an unsupported MIME type ('text/html'). @ :0
+[   46702ms] [ERROR] Access to fetch at 'http://127.0.0.1:5000/api/v1/public/complaints/options' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[   46702ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://127.0.0.1:5000/api/v1/public/complaints/options:0
+[   46727ms] [ERROR] Access to fetch at 'http://127.0.0.1:5000/api/v1/public/complaints/options' from origin 'http://127.0.0.1:4175' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://127.0.0.1:4175/:0
+[   46727ms] [ERROR] Failed to load resource: net::ERR_FAILED @ http://127.0.0.1:5000/api/v1/public/complaints/options:0
+[   70629ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:4175/@vite/client:1002

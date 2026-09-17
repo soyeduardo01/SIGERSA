@@ -1,9 +1,15 @@
 using Dapper;
+using Microsoft.Extensions.Options;
 using Npgsql;
+using PdfSharp.Pdf.IO;
 using SIGERSA.Application.Evaluations;
+using SIGERSA.Application.Operations;
 using SIGERSA.Domain.Entities;
 using SIGERSA.Domain.Exceptions;
+using SIGERSA.Infrastructure.Configuration;
 using SIGERSA.Infrastructure.Persistence;
+using SIGERSA.Infrastructure.Reports;
+using SIGERSA.Infrastructure.Storage;
 
 var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 var localSettings = File.ReadLines(Path.Combine(root, ".env.local"))
@@ -13,13 +19,207 @@ var localSettings = File.ReadLines(Path.Combine(root, ".env.local"))
 var connectionString = localSettings["Database__ConnectionString"];
 await using var dataSource = NpgsqlDataSource.Create(connectionString);
 
-if (args.Contains("--apply-migration-022", StringComparer.Ordinal))
+if (args.Contains("--check-close-evaluation", StringComparer.Ordinal))
 {
+    await using var connection = await dataSource.OpenConnectionAsync();
+    var target = await connection.QuerySingleAsync<EvaluationTransitionTarget>("""
+        SELECT evaluation.id AS EvaluationId, evaluation.version_fila AS RowVersion,
+               (SELECT user_role.usuario_id
+                  FROM "SIGERSA"."USUARIO_ROL" user_role
+                  JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                 WHERE user_role.activo = true AND role.activo = true
+                   AND role.codigo = 'COORDINADOR'
+                 ORDER BY user_role.usuario_id LIMIT 1) AS CoordinatorId
+          FROM "SIGERSA"."EVALUACION" evaluation
+         WHERE evaluation.estado = 'NO_APROBADA'
+            OR (evaluation.estado = 'APROBADA' AND EXISTS (
+                SELECT 1 FROM "SIGERSA"."INFORME" report
+                JOIN "SIGERSA"."INFORME_VERSION" version ON version.informe_id = report.id
+                WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true))
+         ORDER BY evaluation.modificado_en DESC
+         LIMIT 1;
+        """);
+    var service = new EvaluationWorkflowService(
+        new EvaluationWorkflowRepository(new DbConnectionFactory(dataSource)));
+    var version = await service.TransitionAsync(
+        target.EvaluationId,
+        new EvaluationTransitionDraft("CLOSE", target.RowVersion),
+        new EvaluationActor(target.CoordinatorId, ["COORDINADOR"], null),
+        CancellationToken.None);
+    var result = await connection.QuerySingleAsync<EvaluationClosureResult>("""
+        SELECT evaluation.estado AS EvaluationStatus,
+               inspection_case.estado AS CaseStatus,
+               schedule.estado AS ScheduleStatus,
+               request.estado AS RequestStatus
+          FROM "SIGERSA"."EVALUACION" evaluation
+          JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
+          LEFT JOIN "SIGERSA"."PROGRAMACION" schedule ON schedule.id = evaluation.programacion_id
+          LEFT JOIN "SIGERSA"."SOLICITUD" request ON request.id = inspection_case.solicitud_id
+         WHERE evaluation.id = @EvaluationId;
+        """, new { target.EvaluationId });
+    if (result.EvaluationStatus != "CERRADA" || result.CaseStatus != "CERRADO"
+        || (result.ScheduleStatus is not null && result.ScheduleStatus != "COMPLETADA")
+        || (result.RequestStatus is not null && result.RequestStatus != "RESUELTA"))
+        throw new InvalidOperationException(
+            $"Cierre inconsistente: evaluación={result.EvaluationStatus}, caso={result.CaseStatus}, " +
+            $"programación={result.ScheduleStatus ?? "-"}, solicitud={result.RequestStatus ?? "-"}.");
+    Console.WriteLine(
+        "Evaluation closure OK: evaluation={0}, status={1}, case={2}, schedule={3}, request={4}, version={5}",
+        target.EvaluationId, result.EvaluationStatus, result.CaseStatus,
+        result.ScheduleStatus ?? "-", result.RequestStatus ?? "-", version);
+    return;
+}
+
+if (args.Contains("--check-reject-evaluation", StringComparer.Ordinal))
+{
+    await using var connection = await dataSource.OpenConnectionAsync();
+    var target = await connection.QuerySingleAsync<EvaluationTransitionTarget>("""
+        SELECT evaluation.id AS EvaluationId, evaluation.version_fila AS RowVersion,
+               (SELECT user_role.usuario_id
+                  FROM "SIGERSA"."USUARIO_ROL" user_role
+                  JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                 WHERE user_role.activo = true AND role.activo = true
+                   AND role.codigo = 'COORDINADOR'
+                 ORDER BY user_role.usuario_id LIMIT 1) AS CoordinatorId
+          FROM "SIGERSA"."EVALUACION" evaluation
+          JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
+          JOIN "SIGERSA"."MOTIVO_INSPECCION" reason ON reason.id = inspection_case.motivo_inspeccion_id
+         WHERE evaluation.estado IN ('ENVIADA', 'EN_REVISION')
+           AND reason.codigo IN ('SOLICITUD_PERMISO_SANITARIO', 'RENOVACION_PERMISO_SANITARIO', 'CERTIFICACION_BPM')
+           AND evaluation.porcentaje_cumplimiento < 81
+         ORDER BY evaluation.creado_en
+         LIMIT 1;
+        """);
+    var service = new EvaluationWorkflowService(
+        new EvaluationWorkflowRepository(new DbConnectionFactory(dataSource)));
+    var version = await service.TransitionAsync(
+        target.EvaluationId,
+        new EvaluationTransitionDraft("REJECT", target.RowVersion),
+        new EvaluationActor(target.CoordinatorId, ["COORDINADOR"], null),
+        CancellationToken.None);
+    var status = await connection.QuerySingleAsync<string>("""
+        SELECT estado FROM "SIGERSA"."EVALUACION" WHERE id = @EvaluationId;
+        """, new { target.EvaluationId });
+    if (status != "NO_APROBADA")
+        throw new InvalidOperationException($"El rechazo dejó la evaluación en estado {status}.");
+    Console.WriteLine("Evaluation rejection OK: evaluation={0}, status={1}, version={2}",
+        target.EvaluationId, status, version);
+    return;
+}
+
+if (args.Contains("--inspect-evaluations", StringComparer.Ordinal))
+{
+    await using var connection = await dataSource.OpenConnectionAsync();
+    var rows = await connection.QueryAsync("""
+        SELECT evaluation.id, evaluation.numero, evaluation.estado,
+               inspection_case.origen, reason.codigo AS motivo,
+               evaluation.porcentaje_cumplimiento, evaluation.version_fila,
+               inspection_case.estado AS caso_estado,
+               EXISTS (
+                   SELECT 1 FROM "SIGERSA"."INFORME" report
+                   JOIN "SIGERSA"."INFORME_VERSION" version ON version.informe_id = report.id
+                   WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true
+               ) AS tiene_informe_oficial
+          FROM "SIGERSA"."EVALUACION" evaluation
+          JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
+          LEFT JOIN "SIGERSA"."MOTIVO_INSPECCION" reason ON reason.id = inspection_case.motivo_inspeccion_id
+         ORDER BY evaluation.creado_en, evaluation.id;
+        """);
+    foreach (var row in rows)
+        Console.WriteLine("{0} | {1} | {2} | {3} | {4} | {5}% | v{6} | caso={7} | oficial={8}",
+            row.id, row.numero, row.estado, row.origen, row.motivo ?? "-",
+            row.porcentaje_cumplimiento ?? "-", row.version_fila, row.caso_estado,
+            row.tiene_informe_oficial);
+    return;
+}
+
+if (args.Contains("--check-official-report", StringComparer.Ordinal)
+    || args.Contains("--check-draft-report", StringComparer.Ordinal))
+{
+    var official = args.Contains("--check-official-report", StringComparer.Ordinal);
+    await using var connection = await dataSource.OpenConnectionAsync();
+    var evaluationId = await connection.QuerySingleOrDefaultAsync<Guid?>("""
+        SELECT evaluation.id
+          FROM "SIGERSA"."EVALUACION" evaluation
+         WHERE evaluation.estado IN ('FINALIZADA', 'ENVIADA', 'EN_REVISION', 'APROBADA', 'CERRADA')
+         ORDER BY (
+             SELECT COUNT(*) FROM "SIGERSA"."EVIDENCIA" evidence
+              WHERE evidence.evaluacion_id = evaluation.id AND evidence.eliminada = false
+         ) DESC, evaluation.id
+         LIMIT 1;
+        """) ?? throw new InvalidOperationException("No existe una evaluación lista para probar el informe.");
+    var reportActorId = await connection.QuerySingleAsync<Guid>("""
+        SELECT user_account.id
+          FROM "SIGERSA"."USUARIO" user_account
+          JOIN "SIGERSA"."USUARIO_ROL" user_role
+            ON user_role.usuario_id = user_account.id AND user_role.activo = true
+          JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+         WHERE role.codigo IN ('ADMINISTRADOR', 'COORDINADOR')
+           AND user_account.activo = true
+         ORDER BY CASE role.codigo WHEN 'COORDINADOR' THEN 0 ELSE 1 END, user_account.id
+         LIMIT 1;
+        """);
+    var supabaseOptions = new SupabaseOptions
+    {
+        Url = localSettings["Supabase__Url"],
+        Key = localSettings["Supabase__Key"],
+        DefaultBucketName = localSettings["Supabase__DefaultBucketName"]
+    };
+    var supabase = new Supabase.Client(
+        supabaseOptions.Url,
+        supabaseOptions.Key,
+        new Supabase.SupabaseOptions { AutoConnectRealtime = false, AutoRefreshToken = false });
+    var repository = new OperationalRepository(new DbConnectionFactory(dataSource));
+    var storage = new SupabaseStorageAdapter(supabase, Options.Create(supabaseOptions));
+    var reportOptions = new ReportOptions
+    {
+        BucketName = supabaseOptions.DefaultBucketName,
+        BrowserExecutablePath = Environment.GetEnvironmentVariable("CHROME_PATH")
+    };
+    var service = new ReportService(
+        repository,
+        storage,
+        new ChromiumInstitutionalPdfRenderer(Options.Create(reportOptions)),
+        Options.Create(reportOptions));
+    var report = await service.GenerateAsync(
+        evaluationId,
+        official,
+        new OperationalActor(reportActorId, ["COORDINADOR"], null),
+        CancellationToken.None);
+    var evidenceCount = await connection.QuerySingleAsync<int>("""
+        SELECT COUNT(*)::integer
+          FROM "SIGERSA"."EVIDENCIA"
+         WHERE evaluacion_id = @EvaluationId AND eliminada = false;
+        """, new { EvaluationId = evaluationId });
+    await using var reportContent = await storage.DownloadAsync(
+        report.BucketName, report.SupabasePath, CancellationToken.None);
+    using var reportBytes = new MemoryStream();
+    await reportContent.CopyToAsync(reportBytes);
+    reportBytes.Position = 0;
+    using var pdf = PdfReader.Open(reportBytes, PdfDocumentOpenMode.Import);
+    Console.WriteLine(
+        "{0} report OK: evaluation={1}, report={2}, version={3}, official={4}, evidences={5}, pages={6}",
+        official ? "Official" : "Draft", evaluationId, report.ReportNumber, report.Version,
+        report.IsOfficial, evidenceCount, pdf.PageCount);
+    return;
+}
+
+var requestedMigration = args.FirstOrDefault(argument =>
+    argument is "--apply-migration-022" or "--apply-migration-023" or "--apply-migration-024");
+if (requestedMigration is not null)
+{
+    var migrationNumber = requestedMigration[^3..];
+    var migrationFile = migrationNumber switch
+    {
+        "022" => "022_inspection_frequency_notifications_and_reasons.sql",
+        "023" => "023_new_requirements_roles_evidence.sql",
+        _ => "024_operational_workflow_consistency.sql"
+    };
     var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations",
-        "022_inspection_frequency_notifications_and_reasons.sql");
+        migrationFile);
     await using var command = dataSource.CreateCommand(await File.ReadAllTextAsync(migrationPath));
     await command.ExecuteNonQueryAsync();
-    Console.WriteLine("Migration 022: applied");
+    Console.WriteLine($"Migration {migrationNumber}: applied");
     return;
 }
 
@@ -107,7 +307,10 @@ if (args.Contains("--migrate-latest", StringComparer.Ordinal))
         "018_seed_establishment_types.sql",
         "019_evaluation_workspace.sql",
         "020_inspection_qualification_policy.sql",
-        "021_align_evaluation_status_catalog.sql"
+        "021_align_evaluation_status_catalog.sql",
+        "022_inspection_frequency_notifications_and_reasons.sql",
+        "023_new_requirements_roles_evidence.sql",
+        "024_operational_workflow_consistency.sql"
     })
     {
         var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations", fileName);
@@ -124,6 +327,30 @@ if (args.Contains("--check-focused-evaluation-write", StringComparer.Ordinal))
     return;
 }
 
+if (args.Contains("--check-technician-lists", StringComparer.Ordinal))
+{
+    await using var connection = await dataSource.OpenConnectionAsync();
+    var technicianId = await connection.QuerySingleAsync<Guid>("""
+        SELECT user_account.id
+          FROM "SIGERSA"."USUARIO" user_account
+          JOIN "SIGERSA"."USUARIO_ROL" user_role
+            ON user_role.usuario_id = user_account.id AND user_role.activo = true
+          JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+         WHERE role.codigo = 'TECNICO_EVALUADOR'
+           AND user_account.activo = true
+         ORDER BY user_account.nombre_completo
+         LIMIT 1;
+        """);
+    var technicianFactory = new DbConnectionFactory(dataSource);
+    var technicianEvaluations = await new EvaluationWorkflowRepository(technicianFactory).SearchAsync(
+        new EvaluationSearch(null, null, 1, 20, technicianId, null, false, true, true));
+    var technicianEvidences = await new EvidenceRepository(technicianFactory).SearchAsync(
+        new EvidenceSearch(null, null, 1, 20, technicianId, null, false, true));
+    Console.WriteLine(
+        $"Technician lists OK: evaluations={technicianEvaluations.Total}, evidences={technicianEvidences.Total}");
+    return;
+}
+
 var factory = new DbConnectionFactory(dataSource);
 var actorId = Guid.Empty;
 
@@ -135,7 +362,7 @@ var schedules = await new SchedulingRepository(factory).SearchAsync(
     new ScheduleSearch(null, null, 1, 5, actorId, false));
 var evaluationRepository = new EvaluationWorkflowRepository(factory);
 var evaluations = await evaluationRepository.SearchAsync(
-    new EvaluationSearch(null, null, 1, 5, actorId, null, true, false));
+    new EvaluationSearch(null, null, 1, 5, actorId, null, true, false, false));
 var evaluationOptions = await evaluationRepository.GetOptionsAsync(true);
 var evaluationStates = await new ParametersControlRepository(factory)
     .GetActiveAsync("ESTADO_EVALUACION", null);
@@ -152,6 +379,12 @@ if (evaluations.Items.Count > 0)
 }
 var establishmentOptions = await new EstablishmentRepository(factory).GetOptionsAsync();
 var requestOptions = await new InspectionRequestRepository(factory).GetOptionsAsync(null, true);
+AssertCatalog(
+    requestOptions.Reasons.Select(value => value.Name),
+    ["Solicitud de Permiso Sanitario", "Renovación de Permiso Sanitario",
+     "Solicitud de Certificación BPM", "Inspección programada",
+     "Inspección de control", "Investigación por denuncia"],
+    "orígenes de casos");
 AssertCatalog(
     requestOptions.EstablishmentTypes,
     ["Planta procesadora de alimentos", "Restaurante", "Supermercado", "Almacén o depósito", "Panadería", "Comedor", "Mercado", "Distribuidora", "Importadora", "Farmacia", "Otro"],
@@ -190,6 +423,14 @@ var operationalScope = new OperationalActorScope(actorId, null, true, false);
 var dashboard = await operations.GetDashboardAsync(operationalScope);
 var surveillance = await operations.SearchSurveillanceAsync(
     new SurveillanceSearch(null, null, null, 1, 5, operationalScope));
+var alerts = await operations.SearchSurveillanceAsync(
+    new SurveillanceSearch(null, "ALERTA_LAPCH", null, 1, 5, operationalScope));
+var complaints = await operations.SearchSurveillanceAsync(
+    new SurveillanceSearch(null, "DENUNCIA", null, 1, 5, operationalScope));
+if (dashboard.CriticalAlerts != alerts.Total || dashboard.OpenComplaints != complaints.Total)
+    throw new InvalidOperationException(
+        $"Los contadores del dashboard no coinciden con alertas/denuncias: " +
+        $"dashboard={dashboard.CriticalAlerts}/{dashboard.OpenComplaints}, módulo={alerts.Total}/{complaints.Total}.");
 var findings = await operations.SearchFindingsAsync(
     new FindingSearch(null, null, 1, 5, operationalScope));
 var findingOptions = await operations.GetFindingOptionsAsync(actorId, true);
@@ -197,7 +438,7 @@ var history = await operations.SearchHistoryAsync(
     new HistoricalEvaluationSearch(null, null, null, null, 1, 5, operationalScope));
 var audit = await operations.SearchAuditAsync(new AuditEventSearch(null, null, null, null, 1, 5));
 
-Console.WriteLine($"SQL smoke OK: requests={requests.Total}, cases={cases.Total}, schedules={schedules.Total}, evaluations={evaluations.Total}, evaluationStates={evaluationStates.Count}, evaluationOrigin={inspectionContext?.Origin ?? "none"}, evaluationOptions={evaluationOptions.Cases.Count + evaluationOptions.Establishments.Count + evaluationOptions.Templates.Count + evaluationOptions.RiskRules.Count + evaluationOptions.Evaluators.Count}, establishmentTypes={requestOptions.EstablishmentTypes.Count}, establishmentCatalogs={establishmentOptions.Markets.Count + establishmentOptions.Commercializations.Count + establishmentOptions.HaccpLevels.Count + establishmentOptions.SamplingApplications.Count + establishmentOptions.InabieDistributions.Count}, evidences={evidences.Total}, corrections={corrections.Total}, companies={companies.Total}, dashboard={dashboard.ActiveCases}, surveillance={surveillance.Total}, findings={findings.Total}, findingOptions={findingOptions.Evaluations.Count + findingOptions.Criticalities.Count}, history={history.Total}, audit={audit.Total}, activation={canActivateUser}, userDocument={canAttachUserDocument}, requestDocument={canAttachRequestDocument}");
+Console.WriteLine($"SQL smoke OK: requests={requests.Total}, caseOrigins={requestOptions.Reasons.Count}, cases={cases.Total}, schedules={schedules.Total}, evaluations={evaluations.Total}, evaluationStates={evaluationStates.Count}, evaluationOrigin={inspectionContext?.Origin ?? "none"}, evaluationOptions={evaluationOptions.Cases.Count + evaluationOptions.Establishments.Count + evaluationOptions.Templates.Count + evaluationOptions.RiskRules.Count + evaluationOptions.Evaluators.Count}, establishmentTypes={requestOptions.EstablishmentTypes.Count}, establishmentCatalogs={establishmentOptions.Markets.Count + establishmentOptions.Commercializations.Count + establishmentOptions.HaccpLevels.Count + establishmentOptions.SamplingApplications.Count + establishmentOptions.InabieDistributions.Count}, evidences={evidences.Total}, corrections={corrections.Total}, companies={companies.Total}, dashboard={dashboard.ActiveCases}, alerts={dashboard.CriticalAlerts}, complaints={dashboard.OpenComplaints}, surveillance={surveillance.Total}, findings={findings.Total}, findingOptions={findingOptions.Evaluations.Count + findingOptions.Criticalities.Count}, history={history.Total}, audit={audit.Total}, activation={canActivateUser}, userDocument={canAttachUserDocument}, requestDocument={canAttachRequestDocument}");
 
 static void AssertCatalog(IEnumerable<string> actual, string[] expected, string name)
 {
@@ -639,4 +880,19 @@ sealed class CorrectionFlowResult
     public string CorrectionStatus { get; init; } = string.Empty;
     public string EvaluationStatus { get; init; } = string.Empty;
     public long RowVersion { get; init; }
+}
+
+sealed class EvaluationTransitionTarget
+{
+    public Guid EvaluationId { get; init; }
+    public long RowVersion { get; init; }
+    public Guid CoordinatorId { get; init; }
+}
+
+sealed class EvaluationClosureResult
+{
+    public string EvaluationStatus { get; init; } = string.Empty;
+    public string CaseStatus { get; init; } = string.Empty;
+    public string? ScheduleStatus { get; init; }
+    public string? RequestStatus { get; init; }
 }

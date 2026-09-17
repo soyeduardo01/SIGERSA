@@ -4,6 +4,7 @@ import { RequestsManagement } from './RequestsManagement'
 
 const mocks = vi.hoisted(() => ({
   getInspectionRequests: vi.fn(),
+  getInspectionRequestDocuments: vi.fn(),
   transitionInspectionRequest: vi.fn(),
   confirm: vi.fn(async () => true),
 }))
@@ -33,9 +34,7 @@ const request = {
 vi.mock('../../lib/api', () => ({
   getInspectionRequestOptions: vi.fn(async () => ({
     companies: [{ id: 'company-1', name: 'Empresa de prueba', companyId: null }],
-    establishments: [
-      { id: 'establishment-1', name: 'Planta Norte', companyId: 'company-1' },
-    ],
+    establishments: [{ id: 'establishment-1', name: 'Planta Norte', companyId: 'company-1' }],
     reasons: [{ id: 'reason-1', name: 'Solicitud de permiso', companyId: null }],
     establishmentTypes: ['Planta procesadora de alimentos', 'Restaurante'],
     canManage: true,
@@ -45,6 +44,8 @@ vi.mock('../../lib/api', () => ({
   createInspectionRequest: vi.fn(),
   updateInspectionRequest: vi.fn(),
   uploadInspectionRequestDocument: vi.fn(),
+  getInspectionRequestDocuments: mocks.getInspectionRequestDocuments,
+  downloadInspectionRequestDocument: vi.fn(),
 }))
 
 vi.mock('../../lib/alerts', () => ({
@@ -66,6 +67,17 @@ describe('RequestsManagement', () => {
       pageSize: 10,
       total: 1,
     })
+    mocks.getInspectionRequestDocuments.mockResolvedValue([
+      {
+        id: 'document-1',
+        documentType: 'SOPORTE_BPM',
+        originalName: 'registro.pdf',
+        fileSize: 1024,
+        mimeType: 'application/pdf',
+        required: true,
+        createdAt: '2026-09-14T12:01:00Z',
+      },
+    ])
   })
 
   it('consulta la versión más reciente antes de enviar la solicitud', async () => {
@@ -97,5 +109,15 @@ describe('RequestsManagement', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('no puede superar 5 MB')
     expect(input).toHaveValue('')
+  })
+
+  it('muestra el detalle y los documentos guardados de la solicitud', async () => {
+    render(<RequestsManagement />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Ver detalle' }))
+
+    expect(await screen.findByRole('heading', { name: 'Borrador sin número' })).toBeVisible()
+    expect(screen.getAllByText('Planta Norte')).toHaveLength(2)
+    expect(await screen.findByText('registro.pdf')).toBeVisible()
+    expect(mocks.getInspectionRequestDocuments).toHaveBeenCalledWith('request-1')
   })
 })

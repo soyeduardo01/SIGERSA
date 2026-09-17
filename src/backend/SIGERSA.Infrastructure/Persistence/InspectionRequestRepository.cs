@@ -108,17 +108,16 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
              ORDER BY nombre;
 
             SELECT user_account.id AS Id, user_account.nombre_completo AS Name,
-                   user_company.empresa_id AS CompanyId
+                   COALESCE(user_role.empresa_ambito_id, user_account.empresa_id) AS CompanyId
               FROM "SIGERSA"."USUARIO" user_account
-              JOIN "SIGERSA"."USUARIO_EMPRESA" user_company
-                ON user_company.usuario_id = user_account.id AND user_company.activo = true
               JOIN "SIGERSA"."USUARIO_ROL" user_role
                 ON user_role.usuario_id = user_account.id AND user_role.activo = true
               JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
              WHERE user_account.activo = true AND user_account.estado = 'ACTIVO'
                AND role.codigo = 'USUARIO_DELEGADO' AND role.activo = true
                AND @CanManage = true
-               AND (@CompanyScope IS NULL OR user_company.empresa_id = @CompanyScope)
+               AND (@CompanyScope IS NULL
+                    OR COALESCE(user_role.empresa_ambito_id, user_account.empresa_id) = @CompanyScope)
              ORDER BY user_account.nombre_completo;
 
             SELECT id AS Id, nombre AS Name, NULL::uuid AS CompanyId
@@ -160,13 +159,11 @@ public sealed class InspectionRequestRepository(IDbConnectionFactory connectionF
             var validApplicant = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(Sql("""
                 SELECT EXISTS (
                     SELECT 1 FROM "SIGERSA"."USUARIO" user_account
-                    JOIN "SIGERSA"."USUARIO_EMPRESA" user_company
-                      ON user_company.usuario_id = user_account.id AND user_company.activo = true
                     JOIN "SIGERSA"."USUARIO_ROL" user_role
                       ON user_role.usuario_id = user_account.id AND user_role.activo = true
                     JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
                    WHERE user_account.id = @ApplicantId AND user_account.activo = true
-                     AND user_company.empresa_id = @CompanyId
+                     AND COALESCE(user_role.empresa_ambito_id, user_account.empresa_id) = @CompanyId
                      AND role.codigo = 'USUARIO_DELEGADO' AND role.activo = true);
                 """), new { ApplicantId = applicantId, draft.CompanyId }, transaction,
                 cancellationToken: cancellationToken));

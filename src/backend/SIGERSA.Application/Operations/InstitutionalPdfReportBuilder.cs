@@ -11,18 +11,31 @@ internal sealed record ReportAttachment(string Name, string MimeType, byte[] Con
 
 internal static class InstitutionalPdfReportBuilder
 {
-    private static readonly XColor DarkGreen = XColor.FromArgb(20, 86, 66);
-    private static readonly XColor MidGreen = XColor.FromArgb(34, 118, 88);
-    private static readonly XColor Lime = XColor.FromArgb(170, 214, 105);
-    private static readonly XColor Ink = XColor.FromArgb(40, 57, 53);
+    private static readonly XColor Green900 = XColor.FromArgb(15, 68, 54);
+    private static readonly XColor Green800 = XColor.FromArgb(23, 90, 71);
+    private static readonly XColor Green600 = XColor.FromArgb(35, 128, 102);
+    private static readonly XColor Leaf = XColor.FromArgb(136, 192, 97);
+    private static readonly XColor LeafLight = XColor.FromArgb(234, 245, 228);
+    private static readonly XColor Ink = XColor.FromArgb(19, 36, 32);
+    private static readonly XColor Muted = XColor.FromArgb(92, 107, 102);
+    private static readonly XColor Border = XColor.FromArgb(220, 230, 225);
+    private static readonly XColor Surface = XColor.FromArgb(243, 247, 245);
+    private static readonly XColor Amber = XColor.FromArgb(201, 138, 26);
+    private static readonly XColor Red = XColor.FromArgb(179, 56, 44);
+    private const double Left = 42;
+    private const double Right = 570;
 
     public static byte[] Build(ReportGenerationData data, bool official)
     {
         EnsureFonts();
         using var document = new PdfDocument();
         document.Info.Title = $"Informe de Evaluación BPM - {data.EvaluationNumber}";
+        document.Info.Author = "SIGERSA - DIGEMAPS";
         DrawCover(document.AddPage(), data, official);
-        DrawBody(document, data);
+        DrawOverview(document, data);
+        DrawFindings(document, data);
+        DrawEvidenceIndex(document, data);
+        DrawValidation(document, data, official);
         using var output = new MemoryStream();
         document.Save(output, closeStream: false);
         return output.ToArray();
@@ -32,113 +45,330 @@ internal static class InstitutionalPdfReportBuilder
     {
         page.Size = PdfSharp.PageSize.Letter;
         using var gfx = XGraphics.FromPdfPage(page);
-        gfx.DrawRectangle(new XSolidBrush(DarkGreen), 0, 0, page.Width.Point, page.Height.Point);
-        gfx.DrawEllipse(new XSolidBrush(XColor.FromArgb(28, 111, 83)), -170, -210, 470, 360);
-        gfx.DrawEllipse(new XSolidBrush(XColor.FromArgb(53, 137, 108)), 350, 610, 360, 360);
-        var white = XBrushes.White;
-        var muted = new XSolidBrush(XColor.FromArgb(220, 239, 232));
-        gfx.DrawString("SIGERSA", new XFont("Arial", 34, XFontStyleEx.Bold), white, 48, 76);
+        gfx.DrawRectangle(new XSolidBrush(Green900), 0, 0, page.Width.Point, page.Height.Point);
+        gfx.DrawEllipse(new XSolidBrush(XColor.FromArgb(28, 111, 83)), -165, -185, 430, 330);
+        gfx.DrawEllipse(new XSolidBrush(XColor.FromArgb(48, 132, 103)), 390, 595, 330, 330);
+        gfx.DrawRectangle(new XSolidBrush(Leaf), 0, 0, page.Width.Point, 6);
+        gfx.DrawString("SIGERSA", Font(30, true), XBrushes.White, Left, 70);
         gfx.DrawString(official ? "INFORME OFICIAL DE AUDITORÍA SANITARIA" : "BORRADOR PARA REVISIÓN",
-            new XFont("Arial", 9, XFontStyleEx.Bold), new XSolidBrush(Lime), 50, 176);
+            Font(8.5, true), new XSolidBrush(Leaf), Left, 170);
         var formatter = new XTextFormatter(gfx);
-        formatter.DrawString("Evaluación de Buenas\nPrácticas de Manufactura (BPM)",
-            new XFont("Arial", 31, XFontStyleEx.Bold), white, new XRect(48, 215, 500, 120));
-        formatter.DrawString("Reporte técnico de cumplimiento normativo, gestión de riesgo sanitario y trazabilidad.",
-            new XFont("Arial", 12), muted, new XRect(50, 350, 500, 55));
-        DrawCard(gfx, 48, 435, 160, "N.º DE EVALUACIÓN", data.EvaluationNumber);
-        DrawCard(gfx, 218, 435, 160, "N.º DE CASO", data.CaseNumber);
-        DrawCard(gfx, 388, 435, 160, "CLASIFICACIÓN", data.RiskLevel ?? "NO CALCULABLE");
-        gfx.DrawRoundedRectangle(XBrushes.White, 48, 530, 500, 150, 12, 12);
-        DrawLabelValue(gfx, 72, 562, "EMPRESA", data.CompanyName);
-        DrawLabelValue(gfx, 310, 562, "ESTABLECIMIENTO", data.EstablishmentName);
-        DrawLabelValue(gfx, 72, 625, "TÉCNICO EVALUADOR", data.EvaluatorName);
-        DrawLabelValue(gfx, 310, 625, "CUMPLIMIENTO BPM", Number(data.CompliancePercentage, "%"));
+        formatter.DrawString("Evaluación de Buenas\nPrácticas de Manufactura (BPM)", Font(34, true),
+            XBrushes.White, new XRect(Left, 200, 520, 120));
+        formatter.DrawString("Reporte técnico de cumplimiento normativo, gestión de riesgo sanitario y trazabilidad, elaborado conforme a los estándares de SIGERSA.",
+            Font(11), new XSolidBrush(XColor.FromArgb(220, 239, 232)), new XRect(Left, 325, 490, 55));
+        DrawDarkCard(gfx, Left, 398, 165, "N.º DE EVALUACIÓN", data.EvaluationNumber);
+        DrawDarkCard(gfx, 220, 398, 165, "N.º DE CASO", data.CaseNumber);
+        DrawDarkCard(gfx, 398, 398, 172, "CLASIFICACIÓN DE RIESGO", data.RiskLevel ?? "NO CALCULABLE");
+        gfx.DrawRoundedRectangle(XBrushes.White, Left, 500, 528, 158, 11, 11);
+        DrawCoverValue(gfx, 66, 532, "EMPRESA", data.CompanyName, 205);
+        DrawCoverValue(gfx, 292, 532, "ESTABLECIMIENTO", data.EstablishmentName, 250);
+        DrawCoverValue(gfx, 66, 593, "TÉCNICO EVALUADOR", data.EvaluatorName, 205);
+        DrawCoverValue(gfx, 292, 593, "CUMPLIMIENTO BPM", Number(data.CompliancePercentage, "%"), 250);
+        gfx.DrawString($"Generado el {DateTimeOffset.UtcNow:dd/MM/yyyy HH:mm} UTC", Font(7.5),
+            new XSolidBrush(XColor.FromArgb(190, 220, 203)), Left, 749);
         gfx.DrawString("DIGEMAPS · Sistema Integral de Gestión de Riesgo y Seguridad Alimentaria",
-            new XFont("Arial", 8), muted, 48, 760);
+            Font(7.5), new XSolidBrush(XColor.FromArgb(190, 220, 203)), Left, 767);
     }
 
-    private static void DrawBody(PdfDocument document, ReportGenerationData data)
+    private static void DrawOverview(PdfDocument document, ReportGenerationData data)
     {
-        var page = document.AddPage();
-        page.Size = PdfSharp.PageSize.Letter;
+        var page = AddContentPage(document, data);
+        using var gfx = XGraphics.FromPdfPage(page);
+        var y = 92d;
+        y = PageTitle(gfx, y, "1. Información General de la Evaluación",
+            "Identificación del establecimiento y datos de trazabilidad del proceso");
+        DrawInfoCell(gfx, Left, y, 264, "EMPRESA", data.CompanyName);
+        DrawInfoCell(gfx, 306, y, 264, "ESTABLECIMIENTO", data.EstablishmentName);
+        y += 51;
+        DrawInfoCell(gfx, Left, y, 528, "DIRECCIÓN DEL ESTABLECIMIENTO", data.Address);
+        y += 51;
+        DrawInfoCell(gfx, Left, y, 264, "TÉCNICO EVALUADOR", data.EvaluatorName);
+        DrawInfoCell(gfx, 306, y, 264, "FECHA Y HORA DE EJECUCIÓN", DateRange(data));
+        y += 51;
+        DrawInfoCell(gfx, Left, y, 264, "N.º DE EVALUACIÓN", data.EvaluationNumber);
+        DrawInfoCell(gfx, 306, y, 264, "N.º DE CASO", data.CaseNumber);
+        y += 76;
+        y = SectionTitle(gfx, y, "2", "Resumen Ejecutivo");
+        DrawKpi(gfx, Left, y, 126, "RIESGO DEL PRODUCTO", Number(data.ProductRisk), "Índice sanitario");
+        DrawKpi(gfx, 177, y, 126, "RIESGO DEL ESTABLECIMIENTO", Number(data.EstablishmentRisk), "Índice sanitario");
+        DrawKpi(gfx, 312, y, 126, "RIESGO TOTAL", Number(data.TotalRisk), data.RiskLevel ?? "No calculable");
+        DrawKpi(gfx, 447, y, 123, "FRECUENCIA", data.Frequency ?? "No aplica", "Próxima inspección");
+        y += 88;
+        DrawComplianceGauge(gfx, y, data.CompliancePercentage);
+        DrawRiskScale(gfx, y + 126, data.TotalRisk);
+    }
+
+    private static void DrawFindings(PdfDocument document, ReportGenerationData data)
+    {
+        var page = AddContentPage(document, data);
         var gfx = XGraphics.FromPdfPage(page);
-        var y = 42d;
-        Header(gfx, data, 2);
-        y = Section(gfx, y + 48, "1", "Información general");
-        y = Paragraph(gfx, y, $"Empresa: {data.CompanyName}\nEstablecimiento: {data.EstablishmentName}\nDirección: {data.Address}\nTécnico evaluador: {data.EvaluatorName}");
-        y = Section(gfx, y + 8, "2", "Resumen ejecutivo");
-        y = Paragraph(gfx, y,
-            $"Cumplimiento BPM: {Number(data.CompliancePercentage, "%")}   |   Riesgo total: {Number(data.TotalRisk)}   |   Clasificación: {data.RiskLevel ?? "No calculable"}\nFrecuencia recomendada: {data.Frequency ?? "No aplica"}");
-        y = Section(gfx, y + 8, "3", "Hallazgos y no conformidades");
-        if (data.Findings.Count == 0) y = Paragraph(gfx, y, "No se registraron no conformidades.");
-        foreach (var finding in data.Findings)
+        var y = SectionTitle(gfx, 96, "3", "Hallazgos y No Conformidades");
+        if (data.Findings.Count == 0)
         {
-            if (y > 700) { gfx.Dispose(); page = document.AddPage(); gfx = XGraphics.FromPdfPage(page); Header(gfx, data, document.PageCount); y = 92; }
-            y = Paragraph(gfx, y, $"{finding.Code} · {finding.Criticality} · {finding.Description} ({finding.Status})", 9);
+            gfx.DrawRoundedRectangle(new XSolidBrush(LeafLight), Left, y, 528, 62, 8, 8);
+            gfx.DrawRectangle(new XSolidBrush(Green600), Left, y, 5, 62);
+            gfx.DrawEllipse(new XSolidBrush(Green600), 58, y + 13, 34, 34);
+            gfx.DrawString("✓", Font(17, true), XBrushes.White, new XRect(58, y + 15, 34, 25), XStringFormats.Center);
+            gfx.DrawString("No se registraron no conformidades", Font(10.5, true), new XSolidBrush(Green800), 108, y + 23);
+            gfx.DrawString("La evaluación no identificó desviaciones respecto a los criterios BPM verificados.", Font(8.5), new XSolidBrush(Muted), 108, y + 43);
+            y += 86;
         }
-        y = Section(gfx, y + 8, "4", "Listado de anexos");
-        if (data.Evidences.Count == 0) y = Paragraph(gfx, y, "No se adjuntaron evidencias.");
-        for (var index = 0; index < data.Evidences.Count; index++)
+        else
         {
-            if (y > 705) { gfx.Dispose(); page = document.AddPage(); gfx = XGraphics.FromPdfPage(page); Header(gfx, data, document.PageCount); y = 92; }
-            var evidence = data.Evidences[index];
-            y = Paragraph(gfx, y, $"Anexo {index + 1:00} · {evidence.Name} · {evidence.MimeType}", 9);
+            DrawFindingHeader(gfx, y);
+            y += 28;
+            foreach (var finding in data.Findings)
+            {
+                var rowHeight = Math.Max(42, EstimateHeight(finding.Description, 270, 8) + 16);
+                if (y + rowHeight > 695)
+                {
+                    gfx.Dispose();
+                    page = AddContentPage(document, data);
+                    gfx = XGraphics.FromPdfPage(page);
+                    y = SectionTitle(gfx, 96, "3", "Hallazgos y No Conformidades (continuación)");
+                    DrawFindingHeader(gfx, y);
+                    y += 28;
+                }
+                gfx.DrawRectangle(new XSolidBrush(Surface), Left, y, 528, rowHeight);
+                gfx.DrawString(finding.Code, Font(8, true), new XSolidBrush(Green800), 51, y + 18);
+                gfx.DrawString(finding.Criticality, Font(7.5, true), new XSolidBrush(Red), 124, y + 18);
+                DrawWrapped(gfx, finding.Description, Font(8), new XSolidBrush(Ink), 215, y + 10, 270, rowHeight - 12);
+                gfx.DrawString(finding.Status, Font(7.5, true), new XSolidBrush(Muted), 497, y + 18);
+                y += rowHeight + 2;
+            }
         }
-        y = Section(gfx, y + 8, "5", "Validación y trazabilidad");
-        _ = Paragraph(gfx, y, $"Documento generado por SIGERSA el {DateTimeOffset.UtcNow:dd/MM/yyyy HH:mm} UTC. Identificador: {data.CaseNumber} · {data.EvaluationNumber}", 9);
+        if (y > 555)
+        {
+            gfx.Dispose();
+            page = AddContentPage(document, data);
+            gfx = XGraphics.FromPdfPage(page);
+            y = 96;
+        }
+        y = SectionTitle(gfx, y + 12, "4", "Recomendaciones");
+        var recommendations = data.Findings.Count == 0
+            ? new[] {
+                $"Mantener los controles BPM implementados y el nivel de cumplimiento alcanzado ({Number(data.CompliancePercentage, "%")}).",
+                $"Conservar la frecuencia de inspección recomendada ({data.Frequency ?? "no determinada"}), sujeta a cambios en el perfil de riesgo.",
+                "Continuar documentando los controles internos como respaldo de trazabilidad para futuras auditorías." }
+            : new[] {
+                "Corregir las no conformidades dentro de los plazos asignados y conservar evidencia verificable.",
+                "Priorizar los hallazgos de mayor criticidad y documentar la validación de cada acción correctiva.",
+                $"Revisar la frecuencia recomendada ({data.Frequency ?? "no determinada"}) después del cierre de los hallazgos." };
+        for (var index = 0; index < recommendations.Length; index++)
+        {
+            gfx.DrawEllipse(new XSolidBrush(Green800), Left, y, 22, 22);
+            gfx.DrawString((index + 1).ToString(CultureInfo.InvariantCulture), Font(8, true), XBrushes.White,
+                new XRect(Left, y + 2, 22, 16), XStringFormats.Center);
+            DrawWrapped(gfx, recommendations[index], Font(8.7), new XSolidBrush(Ink), 76, y + 2, 490, 38);
+            y += 42;
+        }
+        gfx.DrawRoundedRectangle(new XSolidBrush(Surface), Left, y + 4, 528, 49, 6, 6);
+        gfx.DrawRectangle(new XSolidBrush(Green600), Left, y + 4, 4, 49);
+        DrawWrapped(gfx, "Nota técnica: la clasificación y la frecuencia se calculan automáticamente a partir de los índices de riesgo del producto y del establecimiento.",
+            Font(8), new XSolidBrush(Muted), 56, y + 15, 500, 28);
         gfx.Dispose();
     }
 
-    private static void Header(XGraphics gfx, ReportGenerationData data, int pageNumber)
+    private static void DrawEvidenceIndex(PdfDocument document, ReportGenerationData data)
     {
-        gfx.DrawString("INFORME DE EVALUACIÓN BPM", new XFont("Arial", 13, XFontStyleEx.Bold), new XSolidBrush(DarkGreen), 42, 38);
-        gfx.DrawString($"{data.EvaluationNumber} · {data.CaseNumber}", new XFont("Arial", 8), XBrushes.Gray, 42, 54);
-        gfx.DrawString($"Página {pageNumber}", new XFont("Arial", 8), XBrushes.Gray, 520, 44);
-        gfx.DrawLine(new XPen(MidGreen, 1), 42, 66, 570, 66);
+        var page = AddContentPage(document, data);
+        var gfx = XGraphics.FromPdfPage(page);
+        var y = SectionTitle(gfx, 96, "5", "Anexo de Evidencias");
+        DrawWrapped(gfx, "Registro documental asociado a la evaluación. Los archivos originales se incorporan a continuación de este índice.",
+            Font(8.5), new XSolidBrush(Muted), Left, y, 528, 30);
+        y += 39;
+        if (data.Evidences.Count == 0)
+        {
+            gfx.DrawRoundedRectangle(new XSolidBrush(Surface), Left, y, 528, 55, 8, 8);
+            gfx.DrawString("No se adjuntaron evidencias a esta evaluación.", Font(9), new XSolidBrush(Muted), 60, y + 31);
+        }
+        for (var index = 0; index < data.Evidences.Count; index++)
+        {
+            if (y + 68 > 700)
+            {
+                gfx.Dispose();
+                page = AddContentPage(document, data);
+                gfx = XGraphics.FromPdfPage(page);
+                y = SectionTitle(gfx, 96, "5", "Anexo de Evidencias (continuación)");
+            }
+            var evidence = data.Evidences[index];
+            gfx.DrawRoundedRectangle(new XPen(Border), XBrushes.White, Left, y, 528, 56, 7, 7);
+            gfx.DrawRoundedRectangle(new XSolidBrush(Green800), 54, y + 12, 35, 32, 5, 5);
+            gfx.DrawString((index + 1).ToString("00", CultureInfo.InvariantCulture), Font(10, true), XBrushes.White,
+                new XRect(54, y + 20, 35, 16), XStringFormats.Center);
+            gfx.DrawString(evidence.Name, Font(9, true), new XSolidBrush(Ink), 104, y + 22);
+            gfx.DrawString($"{evidence.Type} · {evidence.MimeType}", Font(7.5), new XSolidBrush(Muted), 104, y + 40);
+            y += 65;
+        }
+        gfx.Dispose();
     }
 
-    private static double Section(XGraphics gfx, double y, string number, string title)
+    private static void DrawValidation(PdfDocument document, ReportGenerationData data, bool official)
     {
-        gfx.DrawEllipse(new XSolidBrush(MidGreen), 42, y - 12, 24, 24);
-        gfx.DrawString(number, new XFont("Arial", 10, XFontStyleEx.Bold), XBrushes.White, new XRect(42, y - 10, 24, 20), XStringFormats.Center);
-        gfx.DrawString(title, new XFont("Arial", 15, XFontStyleEx.Bold), new XSolidBrush(DarkGreen), 76, y + 3);
-        return y + 24;
+        var page = AddContentPage(document, data);
+        using var gfx = XGraphics.FromPdfPage(page);
+        var y = SectionTitle(gfx, 96, "6", "Validación y Trazabilidad del Informe");
+        DrawSignature(gfx, Left, y + 8, 254, data.EvaluatorName, "Técnico Evaluador · SIGERSA");
+        DrawSignature(gfx, 316, y + 8, 254, official ? "Supervisión Técnica" : "Pendiente de validación", "DIGEMAPS · Validación de Caso");
+        y += 137;
+        gfx.DrawString("TRAZABILIDAD DOCUMENTAL", Font(8, true), new XSolidBrush(Green800), Left, y);
+        y += 17;
+        DrawInfoCell(gfx, Left, y, 264, "EVALUACIÓN", data.EvaluationNumber);
+        DrawInfoCell(gfx, 306, y, 264, "CASO", data.CaseNumber);
+        y += 51;
+        DrawInfoCell(gfx, Left, y, 264, "ESTADO", data.Status);
+        DrawInfoCell(gfx, 306, y, 264, "TIPO DE DOCUMENTO", official ? "Informe oficial" : "Borrador para revisión");
+        y += 80;
+        gfx.DrawString("Aviso de confidencialidad y control documental", Font(9, true), new XSolidBrush(Ink), Left, y);
+        DrawWrapped(gfx,
+            $"Este informe fue generado automáticamente por SIGERSA el {DateTimeOffset.UtcNow:dd/MM/yyyy 'a las' HH:mm} UTC. Su contenido refleja el estado de cumplimiento del establecimiento en la fecha de ejecución y se conserva como documento institucional trazable. La reproducción o divulgación debe realizarse conforme a las políticas vigentes de DIGEMAPS.",
+            Font(8), new XSolidBrush(Muted), Left, y + 18, 528, 85);
     }
 
-    private static double Paragraph(XGraphics gfx, double y, string text, double size = 10)
+    private static PdfPage AddContentPage(PdfDocument document, ReportGenerationData data)
     {
-        var lines = text.Split('\n').Sum(line => Math.Max(1, (int)Math.Ceiling(line.Length / 92d)));
-        var height = lines * (size + 5) + 10;
-        new XTextFormatter(gfx).DrawString(text, new XFont("Arial", size), new XSolidBrush(Ink), new XRect(48, y, 510, height));
-        return y + height;
+        var page = document.AddPage();
+        page.Size = PdfSharp.PageSize.Letter;
+        using var gfx = XGraphics.FromPdfPage(page);
+        gfx.DrawString("SIGERSA", Font(13, true), new XSolidBrush(Green800), Left, 35);
+        gfx.DrawString("INFORME DE EVALUACIÓN BPM", Font(8.5, true), new XSolidBrush(Green800), 116, 30);
+        gfx.DrawString($"{data.EvaluationNumber} · {data.CaseNumber}", Font(7), new XSolidBrush(Muted), 116, 43);
+        gfx.DrawLine(new XPen(Green600, 1.5), Left, 58, Right, 58);
+        gfx.DrawLine(new XPen(Border, 1), Left, 747, Right, 747);
+        gfx.DrawString("SIGERSA © 2026 · Documento institucional", Font(7), new XSolidBrush(Muted), Left, 765);
+        gfx.DrawString($"Página {document.PageCount}", Font(7), new XSolidBrush(Muted), 522, 765);
+        return page;
     }
 
-    private static void DrawCard(XGraphics gfx, double x, double y, double width, string label, string value)
+    private static double PageTitle(XGraphics gfx, double y, string title, string kicker)
     {
-        gfx.DrawRoundedRectangle(new XSolidBrush(XColor.FromArgb(45, 122, 94)), x, y, width, 70, 8, 8);
-        gfx.DrawString(label, new XFont("Arial", 7, XFontStyleEx.Bold), new XSolidBrush(Lime), x + 12, y + 21);
-        gfx.DrawString(value, new XFont("Arial", 10, XFontStyleEx.Bold), XBrushes.White, x + 12, y + 45);
+        gfx.DrawString(title, Font(16, true), new XSolidBrush(Green900), Left, y);
+        gfx.DrawString(kicker.ToUpperInvariant(), Font(7, true), new XSolidBrush(Green600), Left, y + 22);
+        gfx.DrawLine(new XPen(Border, 1.5), Left, y + 35, Right, y + 35);
+        return y + 49;
     }
 
-    private static void DrawLabelValue(XGraphics gfx, double x, double y, string label, string value)
+    private static double SectionTitle(XGraphics gfx, double y, string number, string title)
     {
-        gfx.DrawString(label, new XFont("Arial", 7, XFontStyleEx.Bold), XBrushes.Gray, x, y);
-        gfx.DrawString(value, new XFont("Arial", 10, XFontStyleEx.Bold), new XSolidBrush(DarkGreen), x, y + 21);
+        gfx.DrawRoundedRectangle(new XSolidBrush(Green800), Left, y - 15, 27, 27, 5, 5);
+        gfx.DrawString(number, Font(10, true), XBrushes.White, new XRect(Left, y - 10, 27, 18), XStringFormats.Center);
+        gfx.DrawString(title, Font(13, true), new XSolidBrush(Green900), 80, y + 4);
+        gfx.DrawLine(new XPen(Border, 1), 80 + Math.Min(300, title.Length * 7), y, Right, y);
+        return y + 25;
+    }
+
+    private static void DrawInfoCell(XGraphics gfx, double x, double y, double width, string label, string value)
+    {
+        gfx.DrawRectangle(new XPen(Border), new XSolidBrush(Surface), x, y, width, 48);
+        gfx.DrawString(label, Font(6.8, true), new XSolidBrush(Muted), x + 12, y + 16);
+        DrawWrapped(gfx, value, Font(8.8, true), new XSolidBrush(Ink), x + 12, y + 24, width - 24, 20);
+    }
+
+    private static void DrawKpi(XGraphics gfx, double x, double y, double width, string label, string value, string note)
+    {
+        gfx.DrawRoundedRectangle(new XPen(Border), new XSolidBrush(Surface), x, y, width, 72, 7, 7);
+        gfx.DrawRectangle(new XSolidBrush(Green600), x, y, width, 3);
+        gfx.DrawString(label, Font(6.2, true), new XSolidBrush(Muted), x + 9, y + 17);
+        gfx.DrawString(value, Font(value.Length > 10 ? 11 : 16, true), new XSolidBrush(Green800), x + 9, y + 43);
+        gfx.DrawString(note, Font(6.3), new XSolidBrush(Muted), x + 9, y + 61);
+    }
+
+    private static void DrawComplianceGauge(XGraphics gfx, double y, decimal? compliance)
+    {
+        gfx.DrawRoundedRectangle(new XPen(Border), XBrushes.White, Left, y, 528, 108, 8, 8);
+        const double cx = 98;
+        var cy = y + 54;
+        gfx.DrawEllipse(new XPen(Border, 10), cx - 39, cy - 39, 78, 78);
+        var value = Math.Clamp((double)(compliance ?? 0), 0, 100);
+        if (value > 0) gfx.DrawArc(new XPen(Green600, 10), cx - 39, cy - 39, 78, 78, -90, value * 3.6);
+        gfx.DrawEllipse(XBrushes.White, cx - 29, cy - 29, 58, 58);
+        gfx.DrawString(compliance.HasValue ? $"{compliance:0.#}%" : "N/D", Font(14, true), new XSolidBrush(Green800),
+            new XRect(cx - 30, cy - 9, 60, 18), XStringFormats.Center);
+        gfx.DrawString("Cumplimiento de Buenas Prácticas de Manufactura", Font(10.2, true), new XSolidBrush(Ink), 157, y + 30);
+        DrawWrapped(gfx, $"El establecimiento alcanzó {Number(compliance, "%")} de cumplimiento sobre los criterios BPM aplicables.",
+            Font(8.2), new XSolidBrush(Muted), 157, y + 42, 376, 30);
+        gfx.DrawRoundedRectangle(new XSolidBrush(Border), 157, y + 80, 365, 7, 3, 3);
+        gfx.DrawRoundedRectangle(new XSolidBrush(Green600), 157, y + 80, 365 * value / 100d, 7, 3, 3);
+    }
+
+    private static void DrawRiskScale(XGraphics gfx, double y, decimal? risk)
+    {
+        gfx.DrawRoundedRectangle(new XPen(Border), XBrushes.White, Left, y, 528, 78, 8, 8);
+        gfx.DrawString("Escala de Clasificación de Riesgo Total", Font(9, true), new XSolidBrush(Ink), 58, y + 20);
+        const double trackX = 62;
+        const double trackWidth = 488;
+        gfx.DrawRectangle(new XSolidBrush(Leaf), trackX, y + 35, trackWidth * .4, 13);
+        gfx.DrawRectangle(new XSolidBrush(Amber), trackX + trackWidth * .4, y + 35, trackWidth * .3, 13);
+        gfx.DrawRectangle(new XSolidBrush(Red), trackX + trackWidth * .7, y + 35, trackWidth * .3, 13);
+        var normalized = Math.Clamp((double)(risk ?? 0) / 5d, 0, 1);
+        var markerX = trackX + trackWidth * normalized;
+        gfx.DrawLine(new XPen(Ink, 2), markerX, y + 29, markerX, y + 54);
+        gfx.DrawString(Number(risk), Font(7, true), new XSolidBrush(Ink), markerX - 10, y + 27);
+        gfx.DrawString("Bajo (0-2.0)", Font(6.5), new XSolidBrush(Muted), trackX, y + 65);
+        gfx.DrawString("Medio (2.0-3.5)", Font(6.5), new XSolidBrush(Muted), 260, y + 65);
+        gfx.DrawString("Alto (3.5-5.0)", Font(6.5), new XSolidBrush(Muted), 463, y + 65);
+    }
+
+    private static void DrawFindingHeader(XGraphics gfx, double y)
+    {
+        gfx.DrawRectangle(new XSolidBrush(Green800), Left, y, 528, 26);
+        gfx.DrawString("CÓDIGO", Font(7, true), XBrushes.White, 51, y + 17);
+        gfx.DrawString("CRITICIDAD", Font(7, true), XBrushes.White, 124, y + 17);
+        gfx.DrawString("DESCRIPCIÓN", Font(7, true), XBrushes.White, 215, y + 17);
+        gfx.DrawString("ESTADO", Font(7, true), XBrushes.White, 497, y + 17);
+    }
+
+    private static void DrawSignature(XGraphics gfx, double x, double y, double width, string name, string role)
+    {
+        gfx.DrawRoundedRectangle(new XPen(Border), XBrushes.White, x, y, width, 104, 8, 8);
+        gfx.DrawLine(new XPen(Muted, 1), x + 28, y + 58, x + width - 28, y + 58);
+        gfx.DrawString(name, Font(9, true), new XSolidBrush(Ink), new XRect(x + 8, y + 69, width - 16, 15), XStringFormats.Center);
+        gfx.DrawString(role, Font(7), new XSolidBrush(Muted), new XRect(x + 8, y + 86, width - 16, 12), XStringFormats.Center);
+    }
+
+    private static void DrawDarkCard(XGraphics gfx, double x, double y, double width, string label, string value)
+    {
+        gfx.DrawRoundedRectangle(new XSolidBrush(XColor.FromArgb(45, 122, 94)), x, y, width, 68, 8, 8);
+        gfx.DrawString(label, Font(6.5, true), new XSolidBrush(Leaf), x + 11, y + 20);
+        DrawWrapped(gfx, value, Font(9.2, true), XBrushes.White, x + 11, y + 30, width - 22, 28);
+    }
+
+    private static void DrawCoverValue(XGraphics gfx, double x, double y, string label, string value, double width)
+    {
+        gfx.DrawString(label, Font(6.5, true), new XSolidBrush(Muted), x, y);
+        DrawWrapped(gfx, value, Font(10, true), new XSolidBrush(Green800), x, y + 10, width, 35);
+    }
+
+    private static void DrawWrapped(XGraphics gfx, string text, XFont font, XBrush brush,
+        double x, double y, double width, double height) =>
+        new XTextFormatter(gfx).DrawString(text, font, brush, new XRect(x, y, width, height));
+
+    private static double EstimateHeight(string text, double width, double size) =>
+        Math.Ceiling(Math.Max(1, text.Length / Math.Max(20, width / (size * .55)))) * (size + 4);
+
+    private static string DateRange(ReportGenerationData data)
+    {
+        if (!data.StartedAt.HasValue && !data.FinishedAt.HasValue) return "No registrada";
+        var start = data.StartedAt?.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture) ?? "No registrada";
+        var end = data.FinishedAt?.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
+        return end is null ? start : $"{start} - {end}";
     }
 
     private static string Number(decimal? value, string suffix = "") =>
         value.HasValue ? value.Value.ToString("0.00", CultureInfo.InvariantCulture) + suffix : "No calculable";
 
-    private static void EnsureFonts()
-    {
-        PdfSharp.Fonts.GlobalFontSettings.UseWindowsFontsUnderWindows = true;
-    }
+    private static XFont Font(double size, bool bold = false) =>
+        new("Arial", size, bold ? XFontStyleEx.Bold : XFontStyleEx.Regular);
+
+    private static void EnsureFonts() => PdfSharp.Fonts.GlobalFontSettings.UseWindowsFontsUnderWindows = true;
 }
 
 internal static class PdfAttachmentMerger
 {
     public static byte[] Merge(byte[] mainReport, IReadOnlyList<ReportAttachment> attachments)
     {
+        PdfSharp.Fonts.GlobalFontSettings.UseWindowsFontsUnderWindows = true;
         using var result = new PdfDocument();
         using (var input = PdfReader.Open(new MemoryStream(mainReport), PdfDocumentOpenMode.Import))
             for (var index = 0; index < input.PageCount; index++) result.AddPage(input.Pages[index]);

@@ -1,0 +1,5 @@
+
+> frontend@0.1.0 dev
+> vite --host 127.0.0.1 --port 5173
+
+3:55:01 PM [vite] (client) Re-optimizing dependencies because vite config has changed

@@ -1,0 +1,169 @@
+- main [ref=f1e3]:
+  - generic [ref=f1e4]:
+    - navigation "Navegación principal" [ref=f1e5]:
+      - link "SIGERSA, inicio" [ref=f1e6] [cursor=pointer]:
+        - /url: "#inicio"
+        - img "SIGERSA" [ref=f1e7]
+      - generic [ref=f1e8]:
+        - link "Soluciones" [ref=f1e9] [cursor=pointer]:
+          - /url: "#soluciones"
+        - link "Nuestro impacto" [ref=f1e10] [cursor=pointer]:
+          - /url: "#impacto"
+        - link "La plataforma" [ref=f1e11] [cursor=pointer]:
+          - /url: "#plataforma"
+        - link "Aliados" [ref=f1e12] [cursor=pointer]:
+          - /url: "#aliados"
+      - link "Acceso institucional" [ref=f1e14] [cursor=pointer]:
+        - /url: /acceso.html
+    - generic [ref=f1e15]:
+      - generic [ref=f1e16]:
+        - paragraph [ref=f1e17]: República Dominicana avanza
+        - heading "Salud segura. Gestión inteligente." [level=1] [ref=f1e19]: Salud segura.Gestión inteligente.
+        - paragraph [ref=f1e20]: Un sistema integral que conecta inspecciones, riesgos y respuesta sanitaria para cuidar lo que llega a la mesa de cada dominicano.
+        - generic [ref=f1e21]:
+          - button "Reportar una denuncia" [ref=f1e22]:
+            - text: Reportar una denuncia
+            - generic [aria-hidden] [ref=f1e23]: →
+          - link "Conocer SIGERSA" [ref=f1e24] [cursor=pointer]:
+            - /url: "#soluciones"
+            - text: Conocer SIGERSA
+            - generic [aria-hidden] [ref=f1e25]: ↓
+        - generic [ref=f1e26]:
+          - generic [ref=f1e27]: ✓ Canal confidencial
+          - generic [ref=f1e28]: ✓ Seguimiento institucional
+          - generic [ref=f1e29]: ✓ Disponible 24/7
+      - generic "Vistas de la plataforma SIGERSA" [ref=f1e30]:
+        - img "Dashboard operativo de SIGERSA" [ref=f1e37]
+        - img "SIGERSA en teléfono móvil" [ref=f1e39]
+        - generic [ref=f1e40]:
+          - generic [ref=f1e41]: ✓
+          - generic [ref=f1e42]:
+            - generic [ref=f1e43]: Operación sincronizada
+            - generic [ref=f1e44]: Información disponible en tiempo real
+  - generic [ref=f1e45]:
+    - article [ref=f1e46]:
+      - generic [ref=f1e47]: ◎
+      - generic [ref=f1e48]:
+        - heading "Prevención basada en riesgo" [level=2] [ref=f1e49]
+        - paragraph [ref=f1e50]: Prioriza donde más importa.
+    - article [ref=f1e51]:
+      - generic [ref=f1e52]: ⌁
+      - generic [ref=f1e53]:
+        - heading "Trazabilidad de principio a fin" [level=2] [ref=f1e54]
+        - paragraph [ref=f1e55]: Cada decisión queda respaldada.
+    - article [ref=f1e56]:
+      - generic [ref=f1e57]: ◉
+      - generic [ref=f1e58]:
+        - heading "Respuesta ciudadana directa" [level=2] [ref=f1e59]
+        - paragraph [ref=f1e60]: Un canal sencillo y confiable.
+  - generic [ref=f1e61]:
+    - generic [ref=f1e62]:
+      - paragraph [ref=f1e63]: Una operación integral
+      - heading "Todo el ciclo sanitario, en un mismo lugar." [level=2] [ref=f1e64]: Todo el ciclo sanitario,en un mismo lugar.
+      - paragraph [ref=f1e65]: SIGERSA reúne las herramientas que los equipos necesitan para actuar con criterio, velocidad y evidencia.
+    - generic [ref=f1e66]:
+      - article [ref=f1e67]:
+        - text: "01"
+        - heading "Solicitudes" [level=3] [ref=f1e68]
+        - paragraph [ref=f1e69]: Gestiona solicitudes de inspección con trazabilidad completa.
+        - generic [aria-hidden] [ref=f1e70]: ↗
+      - article [ref=f1e71]:
+        - text: "02"
+        - heading "Alertas y denuncias" [level=3] [ref=f1e72]
+        - paragraph [ref=f1e73]: Centraliza señales sanitarias y reportes ciudadanos.
+        - generic [aria-hidden] [ref=f1e74]: ↗
+      - article [ref=f1e75]:
+        - text: "03"
+        - heading "Evaluaciones BPM" [level=3] [ref=f1e76]
+        - paragraph [ref=f1e77]: Digitaliza inspecciones y calcula el nivel de cumplimiento.
+        - generic [aria-hidden] [ref=f1e78]: ↗
+      - article [ref=f1e79]:
+        - text: "04"
+        - heading "Programación" [level=3] [ref=f1e80]
+        - paragraph [ref=f1e81]: Coordina visitas, equipos técnicos y prioridades operativas.
+        - generic [aria-hidden] [ref=f1e82]: ↗
+      - article [ref=f1e83]:
+        - text: "05"
+        - heading "Hallazgos" [level=3] [ref=f1e84]
+        - paragraph [ref=f1e85]: Registra no conformidades y su nivel de criticidad.
+        - generic [aria-hidden] [ref=f1e86]: ↗
+      - article [ref=f1e87]:
+        - text: "06"
+        - heading "Evidencias" [level=3] [ref=f1e88]
+        - paragraph [ref=f1e89]: Conserva fotografías y documentos vinculados al expediente.
+        - generic [aria-hidden] [ref=f1e90]: ↗
+      - article [ref=f1e91]:
+        - text: "07"
+        - heading "Correcciones" [level=3] [ref=f1e92]
+        - paragraph [ref=f1e93]: Da seguimiento a medidas correctivas y compromisos.
+        - generic [aria-hidden] [ref=f1e94]: ↗
+      - article [ref=f1e95]:
+        - text: "08"
+        - heading "Informes oficiales" [level=3] [ref=f1e96]
+        - paragraph [ref=f1e97]: Genera documentos verificables para cada evaluación.
+        - generic [aria-hidden] [ref=f1e98]: ↗
+      - article [ref=f1e99]:
+        - text: "09"
+        - heading "Gestión empresarial" [level=3] [ref=f1e100]
+        - paragraph [ref=f1e101]: Conecta establecimientos, responsables y solicitudes.
+        - generic [aria-hidden] [ref=f1e102]: ↗
+      - article [ref=f1e103]:
+        - text: "10"
+        - heading "Indicadores" [level=3] [ref=f1e104]
+        - paragraph [ref=f1e105]: Convierte la operación sanitaria en decisiones oportunas.
+        - generic [aria-hidden] [ref=f1e106]: ↗
+  - generic [ref=f1e108]:
+    - generic [ref=f1e109]:
+      - generic [ref=f1e110]:
+        - paragraph [ref=f1e111]: Diseñado para generar impacto
+        - heading "Mejores datos. Mejores decisiones." [level=2] [ref=f1e112]: Mejores datos.Mejores decisiones.
+      - paragraph [ref=f1e113]: De la primera señal al informe oficial, la información fluye sin perder contexto, responsables ni evidencia.
+    - generic [ref=f1e114]:
+      - article [ref=f1e115]:
+        - generic [ref=f1e116]: 360°
+        - generic [ref=f1e117]: Visibilidad del proceso
+      - article [ref=f1e118]:
+        - generic [ref=f1e119]: "10"
+        - generic [ref=f1e120]: Módulos conectados
+      - article [ref=f1e121]:
+        - generic [ref=f1e122]: 24/7
+        - generic [ref=f1e123]: Canal ciudadano
+      - article [ref=f1e124]:
+        - generic [ref=f1e125]: "1"
+        - generic [ref=f1e126]: Expediente trazable
+  - generic [ref=f1e127]:
+    - generic [ref=f1e128]:
+      - paragraph [ref=f1e129]: En oficina y en campo
+      - heading "Una experiencia preparada para cada pantalla." [level=2] [ref=f1e130]: Una experiencia preparadapara cada pantalla.
+      - paragraph [ref=f1e131]: Responsiva, instalable y diseñada para acompañar el trabajo sanitario donde ocurra.
+    - generic [ref=f1e132]:
+      - img "Dashboard SIGERSA en computadora" [ref=f1e135]
+      - img "Evaluación de inspección SIGERSA en tableta" [ref=f1e138]
+      - img "Acceso SIGERSA desde un móvil" [ref=f1e139]
+      - generic [ref=f1e140]: PWA instalable
+      - generic [ref=f1e141]: Trabajo responsivo
+  - generic [ref=f1e143]:
+    - generic [ref=f1e144]:
+      - paragraph [ref=f1e145]: Participación ciudadana
+      - heading "Tu alerta también protege." [level=2] [ref=f1e146]
+      - paragraph [ref=f1e147]: Reporta de forma segura cualquier situación que pueda representar un riesgo para la salud.
+    - button "Iniciar denuncia" [ref=f1e148]: Iniciar denuncia →
+  - generic [ref=f1e149]:
+    - paragraph [ref=f1e150]: Respaldo institucional
+    - heading "Una plataforma al servicio del país." [level=2] [ref=f1e151]
+    - generic [ref=f1e152]:
+      - figure "Gobierno de la República Dominicana" [ref=f1e153]:
+        - img "Gobierno de la República Dominicana" [ref=f1e154]
+      - figure "Ministerio de Salud Pública" [ref=f1e156]:
+        - img "Ministerio de Salud Pública" [ref=f1e157]
+      - figure "DIGEMAPS" [ref=f1e159]:
+        - img "DIGEMAPS" [ref=f1e160]
+      - figure "Certificación BPM" [ref=f1e162]:
+        - img "Certificación BPM" [ref=f1e163]
+  - generic [ref=f1e166]:
+    - generic [ref=f1e167]:
+      - img "SIGERSA" [ref=f1e168]
+      - paragraph [ref=f1e169]: Sistema Integral de Gestión de Riesgo y Seguridad Alimentaria.
+    - generic [ref=f1e170]:
+      - paragraph [ref=f1e171]: Dirección General de Medicamentos, Alimentos y Productos Sanitarios
+      - paragraph [ref=f1e172]: © 2026 República Dominicana

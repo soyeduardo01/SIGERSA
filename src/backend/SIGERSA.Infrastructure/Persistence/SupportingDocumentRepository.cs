@@ -110,4 +110,60 @@ public sealed class SupportingDocumentRepository(IDbConnectionFactory connection
                 new CommandDefinition(Sql(sql), new { UserId = userId, CompanyScope = companyScope, GlobalScope = globalScope },
                     cancellationToken: cancellationToken));
     }
+
+    public async Task<IReadOnlyList<RequestSupportingDocument>> GetRequestDocumentsAsync(
+        Guid requestId, Guid actorId, Guid? companyScope, bool globalScope,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT document.id AS Id, document.tipo_documento AS DocumentType,
+                   document.nombre_original AS OriginalName, document.file_size AS FileSize,
+                   document.mime_type AS MimeType, document.obligatorio AS Required,
+                   document.creado_en AS CreatedAt
+              FROM "SIGERSA"."SOLICITUD_DOCUMENTO" document
+              JOIN "SIGERSA"."SOLICITUD" request ON request.id = document.solicitud_id
+             WHERE document.solicitud_id = @RequestId AND document.activo = true
+               AND (@GlobalScope = true OR request.solicitante_id = @ActorId
+                    OR (@CompanyScope IS NOT NULL AND request.empresa_id = @CompanyScope)
+                    OR EXISTS (
+                        SELECT 1 FROM "SIGERSA"."CASO" inspection_case
+                        JOIN "SIGERSA"."EVALUACION" evaluation
+                          ON evaluation.caso_id = inspection_case.id
+                       WHERE inspection_case.solicitud_id = request.id
+                         AND evaluation.evaluador_principal_id = @ActorId))
+             ORDER BY document.creado_en, document.id;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+            return (await connection.QueryAsync<RequestSupportingDocument>(new CommandDefinition(
+                Sql(sql), new { RequestId = requestId, ActorId = actorId, CompanyScope = companyScope, GlobalScope = globalScope },
+                cancellationToken: cancellationToken))).ToArray();
+    }
+
+    public async Task<SupportingDocumentReference?> GetRequestDocumentAsync(
+        Guid requestId, Guid documentId, Guid actorId, Guid? companyScope, bool globalScope,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT document.bucket_name AS BucketName, document.supabase_path AS SupabasePath,
+                   document.nombre_original AS OriginalName, document.mime_type AS MimeType
+              FROM "SIGERSA"."SOLICITUD_DOCUMENTO" document
+              JOIN "SIGERSA"."SOLICITUD" request ON request.id = document.solicitud_id
+             WHERE document.id = @DocumentId AND document.solicitud_id = @RequestId
+               AND document.activo = true
+               AND (@GlobalScope = true OR request.solicitante_id = @ActorId
+                    OR (@CompanyScope IS NOT NULL AND request.empresa_id = @CompanyScope)
+                    OR EXISTS (
+                        SELECT 1 FROM "SIGERSA"."CASO" inspection_case
+                        JOIN "SIGERSA"."EVALUACION" evaluation
+                          ON evaluation.caso_id = inspection_case.id
+                       WHERE inspection_case.solicitud_id = request.id
+                         AND evaluation.evaluador_principal_id = @ActorId));
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+            return await connection.QuerySingleOrDefaultAsync<SupportingDocumentReference>(new CommandDefinition(
+                Sql(sql), new { RequestId = requestId, DocumentId = documentId, ActorId = actorId, CompanyScope = companyScope, GlobalScope = globalScope },
+                cancellationToken: cancellationToken));
+    }
 }

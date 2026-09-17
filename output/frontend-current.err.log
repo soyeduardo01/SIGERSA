@@ -1,0 +1,8 @@
+npm warn Unknown project config "confirm-modules-purge". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+error when starting dev server:
+Error: Port 5173 is already in use
+    at httpServerStart (file:///C:/Users/teamo/.codex/.chatgpt-projects/g-p-6a9daa5acf148191acf10cc926358300/SIGERSA/src/frontend/node_modules/.pnpm/vite@8.2.2_@types+node@24.13.4_jiti@2.7.0_terser@5.51.2/node_modules/vite/dist/node/chunks/node.js:11681:10)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async startServer (file:///C:/Users/teamo/.codex/.chatgpt-projects/g-p-6a9daa5acf148191acf10cc926358300/SIGERSA/src/frontend/node_modules/.pnpm/vite@8.2.2_@types+node@24.13.4_jiti@2.7.0_terser@5.51.2/node_modules/vite/dist/node/chunks/node.js:26694:30)
+    at async Object.listen (file:///C:/Users/teamo/.codex/.chatgpt-projects/g-p-6a9daa5acf148191acf10cc926358300/SIGERSA/src/frontend/node_modules/.pnpm/vite@8.2.2_@types+node@24.13.4_jiti@2.7.0_terser@5.51.2/node_modules/vite/dist/node/chunks/node.js:26511:4)
+    at async CAC.<anonymous> (file:///C:/Users/teamo/.codex/.chatgpt-projects/g-p-6a9daa5acf148191acf10cc926358300/SIGERSA/src/frontend/node_modules/.pnpm/vite@8.2.2_@types+node@24.13.4_jiti@2.7.0_terser@5.51.2/node_modules/vite/dist/node/cli.js:721:3)

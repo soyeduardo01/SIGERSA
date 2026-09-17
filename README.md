@@ -253,7 +253,7 @@ Puertos predeterminados:
 CREATE DATABASE sigersa_db;
 ```
 
-Aplique, en orden alfabético, las migraciones de `src/backend/Database/Migrations`. Actualmente existen 22, desde `001_initial_schema_sigersa.sql` hasta `022_inspection_frequency_notifications_and_reasons.sql`. La API no las ejecuta automáticamente.
+Aplique, en orden alfabético, las migraciones de `src/backend/Database/Migrations`. Actualmente existen 23, desde `001_initial_schema_sigersa.sql` hasta `023_new_requirements_roles_evidence.sql`. La API no las ejecuta automáticamente.
 
 ### 2. Backend
 

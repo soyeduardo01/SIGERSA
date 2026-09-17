@@ -1,0 +1,36 @@
+npm warn Unknown project config "confirm-modules-purge". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+10:46:45 PM [vite] (client) [Unhandled rejection] ApiError: Toda sentencia Dapper debe calificar el objeto 'unnest' con el esquema "SIGERSA".
+ > apiError src/lib/api.ts:1693:11
+    1691 |    try {
+    1692 |      const problem = (await response.json()) as { detail?: string; title?: string }
+    1693 |      return new ApiError(problem.detail || problem.title || fallback, response.status)
+         |             ^
+    1694 |    } catch {
+    1695 |      return new ApiError(fallback, response.status)
+ > createSchedule src/lib/api.ts:1492:26
+ > save src/features/scheduling/SchedulingManagement.tsx:71:33
+ > submit src/features/scheduling/SchedulingManagement.tsx:317:6
+
+10:47:21 PM [vite] (client) [Unhandled rejection] ApiError: Toda sentencia Dapper debe calificar el objeto ')' con el esquema "SIGERSA".
+ > apiError src/lib/api.ts:1693:11
+    1691 |    try {
+    1692 |      const problem = (await response.json()) as { detail?: string; title?: string }
+    1693 |      return new ApiError(problem.detail || problem.title || fallback, response.status)
+         |             ^
+    1694 |    } catch {
+    1695 |      return new ApiError(fallback, response.status)
+ > createCorrection src/lib/api.ts:1522:26
+ > save src/features/corrections/CorrectionsManagement.tsx:66:28
+ > submit src/features/corrections/CorrectionsManagement.tsx:276:6
+
+9:47:54 AM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+9:48:36 AM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+10:08:40 AM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+11:07:50 AM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+11:08:52 AM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+11:12:34 AM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+11:34:21 AM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+11:34:39 AM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+12:06:36 PM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+12:09:34 PM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts
+12:12:15 PM [vite] (client) [console.warn] SweetAlert2: The parameter "heightAuto" is incompatible with toasts

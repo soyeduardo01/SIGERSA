@@ -28,18 +28,11 @@ public sealed class ReportService(
         if (official && !string.Equals(data.Status, "APROBADA", StringComparison.Ordinal))
             throw new InvalidOperationException(
                 "El informe solo puede emitirse como oficial después de aprobar la evaluación.");
+        // Resolve every remote attachment first. This lets Supabase finish serving
+        // newly confirmed objects before the immutable PDF version is rendered.
+        var attachments = await DownloadAvailableAttachmentsAsync(
+            data.Evidences, storage, cancellationToken);
         var mainReport = await pdfRenderer.RenderAsync(data, official, cancellationToken);
-        var attachments = new List<ReportAttachment>();
-        foreach (var evidence in data.Evidences)
-        {
-            if (string.IsNullOrWhiteSpace(evidence.BucketName) || string.IsNullOrWhiteSpace(evidence.SupabasePath))
-                continue;
-            await using var evidenceStream = await storage.DownloadAsync(
-                evidence.BucketName, evidence.SupabasePath, cancellationToken);
-            using var buffer = new MemoryStream();
-            await evidenceStream.CopyToAsync(buffer, cancellationToken);
-            attachments.Add(new ReportAttachment(evidence.Name, evidence.MimeType, buffer.ToArray()));
-        }
         var content = PdfAttachmentMerger.Merge(mainReport, attachments);
         var path = $"informes/{evaluationId:N}/{Guid.NewGuid():N}.pdf";
         await using var stream = new MemoryStream(content, writable: false);
@@ -49,6 +42,54 @@ public sealed class ReportService(
             evaluationId, stored.BucketName, stored.SupabasePath, stored.FileSize,
             stored.Sha256Hash, official, actor.UserId, cancellationToken);
     }
+
+    internal static async Task<IReadOnlyList<ReportAttachment>> DownloadAvailableAttachmentsAsync(
+        IReadOnlyList<ReportEvidence> evidences,
+        IFileStorage storage,
+        CancellationToken cancellationToken,
+        int maxAttempts = 4,
+        Func<TimeSpan, CancellationToken, Task>? delay = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxAttempts, 1);
+        delay ??= static (duration, token) => Task.Delay(duration, token);
+        var attachments = new List<ReportAttachment>();
+        foreach (var evidence in evidences)
+        {
+            if (string.IsNullOrWhiteSpace(evidence.BucketName) || string.IsNullOrWhiteSpace(evidence.SupabasePath))
+                continue;
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                try
+                {
+                    await using var evidenceStream = await storage.DownloadAsync(
+                        evidence.BucketName, evidence.SupabasePath, cancellationToken);
+                    using var buffer = new MemoryStream();
+                    await evidenceStream.CopyToAsync(buffer, cancellationToken);
+                    attachments.Add(new ReportAttachment(
+                        evidence.Name, evidence.MimeType, buffer.ToArray()));
+                    break;
+                }
+                catch (FileNotFoundException) when (attempt < maxAttempts)
+                {
+                    await delay(RetryDelay(attempt), cancellationToken);
+                }
+                catch (FileStorageUnavailableException) when (attempt < maxAttempts)
+                {
+                    await delay(RetryDelay(attempt), cancellationToken);
+                }
+                catch (FileNotFoundException)
+                {
+                    // A remote object deleted permanently remains documented in the
+                    // evidence index, while every available attachment is still appended.
+                    break;
+                }
+            }
+        }
+        return attachments;
+    }
+
+    private static TimeSpan RetryDelay(int attempt) =>
+        TimeSpan.FromMilliseconds(500 * Math.Pow(2, attempt - 1));
 
     public async Task<ReportDownload> DownloadAsync(
         Guid reportId,

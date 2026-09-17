@@ -24,6 +24,7 @@ import { getOptionalLocation } from '../../lib/geolocation'
 import { formatStatusLabel } from '../../lib/formatters'
 import {
   groupItemsByChapter,
+  evidenceStatusBySlot,
   inspectionCriteria,
   isValidEvaluationId,
   itemsForInspectionPolicy,
@@ -126,13 +127,19 @@ export function DynamicInspectionForm({
       const cached = await offlineDb.inspectionTemplates.get(cacheKey)
       if (cached) {
         const cachedDefinition = cached.definition as
-          EvaluationFormItem[] | { items: EvaluationFormItem[]; policy: EvaluationInspectionPolicy }
+          | EvaluationFormItem[]
+          | {
+              items: EvaluationFormItem[]
+              policy: EvaluationInspectionPolicy
+              evidences?: Parameters<typeof evidenceStatusBySlot>[0]
+            }
         if (Array.isArray(cachedDefinition)) {
           setItems(cachedDefinition)
           setPolicy(null)
         } else {
           setItems(cachedDefinition.items)
           setPolicy(cachedDefinition.policy)
+          setEvidenceStatus(evidenceStatusBySlot(cachedDefinition.evidences ?? []))
         }
         setMessage('Ficha disponible desde el almacenamiento local.')
       }
@@ -177,6 +184,7 @@ export function DynamicInspectionForm({
         setAnswerStatus(
           Object.fromEntries(workspace.answers.map((answer) => [answer.sourceItem, 'Guardado'])),
         )
+        setEvidenceStatus(evidenceStatusBySlot(workspace.evidences))
         setActiveChapter(0)
         setCalculation(null)
         setMessage('Ficha y respuestas actualizadas desde la base de datos.')
@@ -186,7 +194,11 @@ export function DynamicInspectionForm({
           code: 'EVALUATION_SNAPSHOT',
           version: 1,
           status: 'PUBLICADA',
-          definition: { items: workspace.items, policy: workspace.policy },
+          definition: {
+            items: workspace.items,
+            policy: workspace.policy,
+            evidences: workspace.evidences ?? [],
+          },
           updatedAt: new Date().toISOString(),
         })
       } catch (error) {
@@ -939,7 +951,7 @@ function EvaluationItemCard({
             {[0, 1, 2].map((slot) => (
               <label
                 key={slot}
-                className={`flex min-h-10 items-center justify-center rounded-lg border px-3 text-sm font-bold transition-colors ${readOnly ? 'cursor-not-allowed border-slate-300 bg-slate-200 text-slate-500' : evidenceStatuses[slot] === 'Archivo guardado' ? 'cursor-pointer border-emerald-600 bg-emerald-100 text-emerald-900' : evidenceStatuses[slot] === 'Pendiente sin conexión' ? 'cursor-pointer border-amber-500 bg-amber-50 text-amber-900' : evidenceStatuses[slot] === 'Error al guardar' ? 'cursor-pointer border-red-500 bg-red-50 text-red-800' : 'text-brand-800 cursor-pointer border-brand-200 hover:bg-brand-50'}`}
+                className={`flex min-h-10 items-center justify-center rounded-lg border px-3 text-sm font-bold transition-colors ${evidenceStatuses[slot] === 'Archivo guardado' ? `${readOnly ? 'cursor-default' : 'cursor-pointer'} border-emerald-600 bg-emerald-100 text-emerald-900` : readOnly ? 'cursor-not-allowed border-slate-300 bg-slate-200 text-slate-500' : evidenceStatuses[slot] === 'Pendiente sin conexión' ? 'cursor-pointer border-amber-500 bg-amber-50 text-amber-900' : evidenceStatuses[slot] === 'Error al guardar' ? 'cursor-pointer border-red-500 bg-red-50 text-red-800' : 'text-brand-800 cursor-pointer border-brand-200 hover:bg-brand-50'}`}
               >
                 {evidenceStatuses[slot] === 'Archivo guardado' ? '✓ ' : ''}Archivo {slot + 1}
                 <input

@@ -486,6 +486,13 @@ export interface EvaluationSavedAnswer {
   comment: string | null
 }
 
+export interface EvaluationSavedEvidence {
+  id: string
+  sourceItem: number
+  originalName: string
+  uploadedAt: string
+}
+
 export interface EvaluationFollowUpItem {
   detail: string
   dueDate: string | null
@@ -508,6 +515,7 @@ export interface EvaluationSupplement {
 export interface EvaluationWorkspace {
   items: EvaluationFormItem[]
   answers: EvaluationSavedAnswer[]
+  evidences?: EvaluationSavedEvidence[]
   supplement: EvaluationSupplement
   policy: EvaluationInspectionPolicy
 }
@@ -706,6 +714,16 @@ export interface InspectionRequestsPage {
   page: number
   pageSize: number
   total: number
+}
+
+export interface RequestSupportingDocument {
+  id: string
+  documentType: string
+  originalName: string
+  fileSize: number
+  mimeType: string
+  required: boolean
+  createdAt: string
 }
 
 export interface InspectionRequestOptions {
@@ -1487,6 +1505,16 @@ export async function uploadInspectionRequestDocument(
   })
   if (!response.ok) throw await apiError(response)
   return (await response.json()) as { id: string }
+}
+
+export async function getInspectionRequestDocuments(id: string) {
+  return getJson<RequestSupportingDocument[]>(`/api/v1/requests/${id}/documents`)
+}
+
+export async function downloadInspectionRequestDocument(id: string, documentId: string) {
+  const response = await apiFetch(`/api/v1/requests/${id}/documents/${documentId}/content`)
+  if (!response.ok) throw await apiError(response)
+  return response.blob()
 }
 
 export async function transitionInspectionRequest(

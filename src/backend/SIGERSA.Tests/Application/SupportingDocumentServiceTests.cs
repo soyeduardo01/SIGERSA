@@ -114,5 +114,11 @@ public sealed class SupportingDocumentServiceTests
         public Task<SupportingDocumentReference?> GetUserAuthorizationAsync(Guid userId, Guid? companyScope,
             bool globalScope, CancellationToken cancellationToken = default) =>
             Task.FromResult<SupportingDocumentReference?>(null);
+        public Task<IReadOnlyList<RequestSupportingDocument>> GetRequestDocumentsAsync(Guid requestId,
+            Guid actorId, Guid? companyScope, bool globalScope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<RequestSupportingDocument>>([]);
+        public Task<SupportingDocumentReference?> GetRequestDocumentAsync(Guid requestId, Guid documentId,
+            Guid actorId, Guid? companyScope, bool globalScope, CancellationToken cancellationToken = default) =>
+            Task.FromResult<SupportingDocumentReference?>(null);
     }
 }

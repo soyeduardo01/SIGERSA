@@ -9,7 +9,7 @@
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
-    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.12" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="PuppeteerSharp" Version="25.10.0" />
     <PackageReference Include="Supabase" Version="8.1.0" />
@@ -23,7 +23,6 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Reports\Assets\sigersa-logo.png" />
-    <EmbeddedResource Include="Reports\Assets\digemaps-logo.png" />
     <EmbeddedResource Include="Reports\Assets\Poppins-Regular.ttf" />
     <EmbeddedResource Include="Reports\Assets\Poppins-SemiBold.ttf" />
   </ItemGroup>

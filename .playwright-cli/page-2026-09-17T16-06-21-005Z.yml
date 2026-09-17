@@ -1,0 +1,169 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - navigation "Navegación principal" [ref=e5]:
+      - link "SIGERSA, inicio" [ref=e6] [cursor=pointer]:
+        - /url: "#inicio"
+        - img "SIGERSA" [ref=e7]
+      - generic [ref=e8]:
+        - link "Soluciones" [ref=e9] [cursor=pointer]:
+          - /url: "#soluciones"
+        - link "Nuestro impacto" [ref=e10] [cursor=pointer]:
+          - /url: "#impacto"
+        - link "La plataforma" [ref=e11] [cursor=pointer]:
+          - /url: "#plataforma"
+        - link "Aliados" [ref=e12] [cursor=pointer]:
+          - /url: "#aliados"
+      - link "Acceso institucional" [ref=e14] [cursor=pointer]:
+        - /url: /acceso.html
+    - generic [ref=e15]:
+      - generic [ref=e16]:
+        - paragraph [ref=e17]: República Dominicana avanza
+        - heading "Salud segura. Gestión inteligente." [level=1] [ref=e19]: Salud segura.Gestión inteligente.
+        - paragraph [ref=e20]: Un sistema integral que conecta inspecciones, riesgos y respuesta sanitaria para cuidar lo que llega a la mesa de cada dominicano.
+        - generic [ref=e21]:
+          - button "Reportar una denuncia" [ref=e22]:
+            - text: Reportar una denuncia
+            - generic [aria-hidden] [ref=e23]: →
+          - link "Conocer SIGERSA" [ref=e24] [cursor=pointer]:
+            - /url: "#soluciones"
+            - text: Conocer SIGERSA
+            - generic [aria-hidden] [ref=e25]: ↓
+        - generic [ref=e26]:
+          - generic [ref=e27]: ✓ Canal confidencial
+          - generic [ref=e28]: ✓ Seguimiento institucional
+          - generic [ref=e29]: ✓ Disponible 24/7
+      - generic "Vistas de la plataforma SIGERSA" [ref=e30]:
+        - img "Dashboard operativo de SIGERSA" [ref=e37]
+        - img "SIGERSA en teléfono móvil" [ref=e39]
+        - generic [ref=e40]:
+          - generic [ref=e41]: ✓
+          - generic [ref=e42]:
+            - generic [ref=e43]: Operación sincronizada
+            - generic [ref=e44]: Información disponible en tiempo real
+  - generic [ref=e45]:
+    - article [ref=e46]:
+      - generic [ref=e47]: ◎
+      - generic [ref=e48]:
+        - heading "Prevención basada en riesgo" [level=2] [ref=e49]
+        - paragraph [ref=e50]: Prioriza donde más importa.
+    - article [ref=e51]:
+      - generic [ref=e52]: ⌁
+      - generic [ref=e53]:
+        - heading "Trazabilidad de principio a fin" [level=2] [ref=e54]
+        - paragraph [ref=e55]: Cada decisión queda respaldada.
+    - article [ref=e56]:
+      - generic [ref=e57]: ◉
+      - generic [ref=e58]:
+        - heading "Respuesta ciudadana directa" [level=2] [ref=e59]
+        - paragraph [ref=e60]: Un canal sencillo y confiable.
+  - generic [ref=e61]:
+    - generic [ref=e62]:
+      - paragraph [ref=e63]: Una operación integral
+      - heading "Todo el ciclo sanitario, en un mismo lugar." [level=2] [ref=e64]: Todo el ciclo sanitario,en un mismo lugar.
+      - paragraph [ref=e65]: SIGERSA reúne las herramientas que los equipos necesitan para actuar con criterio, velocidad y evidencia.
+    - generic [ref=e66]:
+      - article [ref=e67]:
+        - text: "01"
+        - heading "Solicitudes" [level=3] [ref=e68]
+        - paragraph [ref=e69]: Gestiona solicitudes de inspección con trazabilidad completa.
+        - generic [aria-hidden] [ref=e70]: ↗
+      - article [ref=e71]:
+        - text: "02"
+        - heading "Alertas y denuncias" [level=3] [ref=e72]
+        - paragraph [ref=e73]: Centraliza señales sanitarias y reportes ciudadanos.
+        - generic [aria-hidden] [ref=e74]: ↗
+      - article [ref=e75]:
+        - text: "03"
+        - heading "Evaluaciones BPM" [level=3] [ref=e76]
+        - paragraph [ref=e77]: Digitaliza inspecciones y calcula el nivel de cumplimiento.
+        - generic [aria-hidden] [ref=e78]: ↗
+      - article [ref=e79]:
+        - text: "04"
+        - heading "Programación" [level=3] [ref=e80]
+        - paragraph [ref=e81]: Coordina visitas, equipos técnicos y prioridades operativas.
+        - generic [aria-hidden] [ref=e82]: ↗
+      - article [ref=e83]:
+        - text: "05"
+        - heading "Hallazgos" [level=3] [ref=e84]
+        - paragraph [ref=e85]: Registra no conformidades y su nivel de criticidad.
+        - generic [aria-hidden] [ref=e86]: ↗
+      - article [ref=e87]:
+        - text: "06"
+        - heading "Evidencias" [level=3] [ref=e88]
+        - paragraph [ref=e89]: Conserva fotografías y documentos vinculados al expediente.
+        - generic [aria-hidden] [ref=e90]: ↗
+      - article [ref=e91]:
+        - text: "07"
+        - heading "Correcciones" [level=3] [ref=e92]
+        - paragraph [ref=e93]: Da seguimiento a medidas correctivas y compromisos.
+        - generic [aria-hidden] [ref=e94]: ↗
+      - article [ref=e95]:
+        - text: "08"
+        - heading "Informes oficiales" [level=3] [ref=e96]
+        - paragraph [ref=e97]: Genera documentos verificables para cada evaluación.
+        - generic [aria-hidden] [ref=e98]: ↗
+      - article [ref=e99]:
+        - text: "09"
+        - heading "Gestión empresarial" [level=3] [ref=e100]
+        - paragraph [ref=e101]: Conecta establecimientos, responsables y solicitudes.
+        - generic [aria-hidden] [ref=e102]: ↗
+      - article [ref=e103]:
+        - text: "10"
+        - heading "Indicadores" [level=3] [ref=e104]
+        - paragraph [ref=e105]: Convierte la operación sanitaria en decisiones oportunas.
+        - generic [aria-hidden] [ref=e106]: ↗
+  - generic [ref=e108]:
+    - generic [ref=e109]:
+      - generic [ref=e110]:
+        - paragraph [ref=e111]: Diseñado para generar impacto
+        - heading "Mejores datos. Mejores decisiones." [level=2] [ref=e112]: Mejores datos.Mejores decisiones.
+      - paragraph [ref=e113]: De la primera señal al informe oficial, la información fluye sin perder contexto, responsables ni evidencia.
+    - generic [ref=e114]:
+      - article [ref=e115]:
+        - generic [ref=e116]: 360°
+        - generic [ref=e117]: Visibilidad del proceso
+      - article [ref=e118]:
+        - generic [ref=e119]: "10"
+        - generic [ref=e120]: Módulos conectados
+      - article [ref=e121]:
+        - generic [ref=e122]: 24/7
+        - generic [ref=e123]: Canal ciudadano
+      - article [ref=e124]:
+        - generic [ref=e125]: "1"
+        - generic [ref=e126]: Expediente trazable
+  - generic [ref=e127]:
+    - generic [ref=e128]:
+      - paragraph [ref=e129]: En oficina y en campo
+      - heading "Una experiencia preparada para cada pantalla." [level=2] [ref=e130]: Una experiencia preparadapara cada pantalla.
+      - paragraph [ref=e131]: Responsiva, instalable y diseñada para acompañar el trabajo sanitario donde ocurra.
+    - generic [ref=e132]:
+      - img "Dashboard SIGERSA en computadora" [ref=e135]
+      - img "Evaluación de inspección SIGERSA en tableta" [ref=e138]
+      - img "Acceso SIGERSA desde un móvil" [ref=e139]
+      - generic [ref=e140]: PWA instalable
+      - generic [ref=e141]: Trabajo responsivo
+  - generic [ref=e143]:
+    - generic [ref=e144]:
+      - paragraph [ref=e145]: Participación ciudadana
+      - heading "Tu alerta también protege." [level=2] [ref=e146]
+      - paragraph [ref=e147]: Reporta de forma segura cualquier situación que pueda representar un riesgo para la salud.
+    - button "Iniciar denuncia" [ref=e148]: Iniciar denuncia →
+  - generic [ref=e149]:
+    - paragraph [ref=e150]: Respaldo institucional
+    - heading "Una plataforma al servicio del país." [level=2] [ref=e151]
+    - generic [ref=e152]:
+      - figure "Gobierno de la República Dominicana" [ref=e153]:
+        - img "Gobierno de la República Dominicana" [ref=e154]
+      - figure "Ministerio de Salud Pública" [ref=e156]:
+        - img "Ministerio de Salud Pública" [ref=e157]
+      - figure "DIGEMAPS" [ref=e159]:
+        - img "DIGEMAPS" [ref=e160]
+      - figure "Certificación BPM" [ref=e162]:
+        - img "Certificación BPM" [ref=e163]
+  - generic [ref=e166]:
+    - generic [ref=e167]:
+      - img "SIGERSA" [ref=e168]
+      - paragraph [ref=e169]: Sistema Integral de Gestión de Riesgo y Seguridad Alimentaria.
+    - generic [ref=e170]:
+      - paragraph [ref=e171]: Dirección General de Medicamentos, Alimentos y Productos Sanitarios
+      - paragraph [ref=e172]: © 2026 República Dominicana
