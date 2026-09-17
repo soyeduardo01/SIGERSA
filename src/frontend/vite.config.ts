@@ -48,13 +48,13 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         navigateFallback: null,
         ignoreURLParametersMatching: [/^utm_/, /^module$/],
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2,mp3}'],
         runtimeCaching: [
           {
-            urlPattern: /\.(?:js|css|woff2?|png|svg|webp|ico)$/i,
+            urlPattern: /\.(?:js|css|woff2?|png|svg|webp|ico|mp3)$/i,
             handler: 'CacheFirst',
             options: {
-              cacheName: 'sigersa-static-v4',
+              cacheName: 'sigersa-static-v5',
               expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
             },

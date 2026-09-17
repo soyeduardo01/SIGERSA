@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useSoundEnabled } from 'react-sounds'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
 import { useAuth } from '../../contexts/useAuth'
 import {
@@ -20,6 +21,7 @@ type MfaMode = 'enable' | 'disable'
 
 export function ProfileManagement() {
   const { roleLabel, roles } = useAuth()
+  const [soundsEnabled, setSoundsEnabled] = useSoundEnabled()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -313,6 +315,35 @@ export function ProfileManagement() {
             </form>
 
             <div className="grid content-start gap-5">
+              <article className="rounded-card bg-white/95 p-6 shadow-card">
+                <div className="flex items-center justify-between gap-4">
+                  <SectionTitle
+                    icon={<SpeakerIcon />}
+                    title="Sonidos de notificación"
+                    subtitle="Reproduzca un sonido acorde al resultado de cada alerta."
+                  />
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={soundsEnabled}
+                    aria-label="Sonidos de notificación"
+                    onClick={() => setSoundsEnabled(!soundsEnabled)}
+                    className={`relative h-8 w-14 shrink-0 rounded-full transition-colors ${soundsEnabled ? 'bg-brand-700' : 'bg-slate-300'}`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`absolute top-1 left-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${soundsEnabled ? 'translate-x-6' : 'translate-x-0'}`}
+                    />
+                  </button>
+                </div>
+                <p className="mt-4 text-sm font-semibold text-ink-body" aria-live="polite">
+                  {soundsEnabled ? 'Sonidos activados' : 'Sonidos desactivados'}
+                </p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  Esta preferencia se guarda automáticamente en este dispositivo.
+                </p>
+              </article>
+
               <article className="rounded-card bg-white/95 p-6 shadow-card">
                 <SectionTitle
                   icon={<LockIcon />}
@@ -756,6 +787,21 @@ function ShieldIcon() {
     >
       <path d="M12 3 20 6v5c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10V6l8-3Z" />
       <path d="m9 12 2 2 4-5" />
+    </svg>
+  )
+}
+function SpeakerIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-6 w-6"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      aria-hidden="true"
+    >
+      <path d="M5 9v6h4l5 4V5L9 9H5Z" />
+      <path d="M17 9.5a4 4 0 0 1 0 5M19.5 7a7.5 7.5 0 0 1 0 10" />
     </svg>
   )
 }

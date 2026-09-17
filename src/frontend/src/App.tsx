@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { SoundProvider } from 'react-sounds'
 import { AccessDenied } from './components/layout/AccessDenied'
 import { AppLayout } from './components/layout/AppLayout'
 import { RequireAuthentication, RequireRoles } from './components/routing/ProtectedRoute'
@@ -69,12 +70,19 @@ function Redirect({ href }: { href: string }) {
 
 function LoginEntry() {
   const { session, authenticate } = useAuth()
-  if (session) return <Redirect href={moduleHref(session.roles.includes('LABORATORISTA') ? 'alertas-denuncias' : 'resumen')} />
+  if (session)
+    return (
+      <Redirect
+        href={moduleHref(session.roles.includes('LABORATORISTA') ? 'alertas-denuncias' : 'resumen')}
+      />
+    )
   return (
     <LoginPage
       onAuthenticated={(value) => {
         authenticate(value)
-        window.location.assign(moduleHref(value.roles.includes('LABORATORISTA') ? 'alertas-denuncias' : 'resumen'))
+        window.location.assign(
+          moduleHref(value.roles.includes('LABORATORISTA') ? 'alertas-denuncias' : 'resumen'),
+        )
       }}
       onRecover={() => window.location.assign(recoveryHref)}
       onRegister={() => window.location.assign(registrationHref)}
@@ -119,19 +127,28 @@ function ModuleEntry() {
 function App() {
   const entry = document.documentElement.dataset.entry ?? 'login'
   return (
-    <AuthProvider>
-      {entry === 'landing' ? (
-        <LandingPage />
-      ) : entry === 'module' ? (
-        <ModuleEntry />
-      ) : entry === 'registration' ? (
-        <RegistrationEntry />
-      ) : entry === 'recovery' ? (
-        <RecoveryEntry />
-      ) : (
-        <LoginEntry />
-      )}
-    </AuthProvider>
+    <SoundProvider
+      preload={[
+        '/sounds/notification/success.mp3',
+        '/sounds/notification/error.mp3',
+        '/sounds/notification/warning.mp3',
+        '/sounds/notification/info.mp3',
+      ]}
+    >
+      <AuthProvider>
+        {entry === 'landing' ? (
+          <LandingPage />
+        ) : entry === 'module' ? (
+          <ModuleEntry />
+        ) : entry === 'registration' ? (
+          <RegistrationEntry />
+        ) : entry === 'recovery' ? (
+          <RecoveryEntry />
+        ) : (
+          <LoginEntry />
+        )}
+      </AuthProvider>
+    </SoundProvider>
   )
 }
 

@@ -1,9 +1,24 @@
+import { playSound } from 'react-sounds'
 import Swal from 'sweetalert2'
 
 const brandColor = '#0d563f'
+const alertVolume = 0.55
+const alertSounds = {
+  success: '/sounds/notification/success.mp3',
+  error: '/sounds/notification/error.mp3',
+  warning: '/sounds/notification/warning.mp3',
+  info: '/sounds/notification/info.mp3',
+} as const
+
+function playAlertSound(sound: (typeof alertSounds)[keyof typeof alertSounds]) {
+  void playSound(sound, { volume: alertVolume }).catch(() => {
+    // An alert must remain usable if audio is blocked or unavailable.
+  })
+}
 
 export const alerts = {
   success(title: string, text?: string) {
+    playAlertSound(alertSounds.success)
     return Swal.fire({
       toast: true,
       position: 'top-end',
@@ -31,6 +46,7 @@ export const alerts = {
     ) {
       return Promise.resolve()
     }
+    playAlertSound(alertSounds.error)
     return Swal.fire({
       icon: 'error',
       title,
@@ -45,6 +61,7 @@ export const alerts = {
   },
 
   async confirm(options: { title: string; text: string; confirmText?: string }) {
+    playAlertSound(alertSounds.warning)
     const result = await Swal.fire({
       icon: 'warning',
       title: options.title,
@@ -62,6 +79,7 @@ export const alerts = {
   },
 
   async textInput(options: { title: string; label: string; confirmText?: string }) {
+    playAlertSound(alertSounds.info)
     const result = await Swal.fire({
       title: options.title,
       input: 'textarea',

@@ -2,6 +2,12 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ProfileManagement } from './ProfileManagement'
 
+const setSoundsEnabled = vi.fn()
+
+vi.mock('react-sounds', () => ({
+  useSoundEnabled: () => [true, setSoundsEnabled],
+}))
+
 vi.mock('../../contexts/useAuth', () => ({
   useAuth: () => ({ roleLabel: 'Administrador', roles: ['ADMINISTRADOR'] }),
 }))
@@ -53,5 +59,17 @@ describe('ProfileManagement', () => {
     fireEvent.change(phone, { target: { value: '8095550123 texto' } })
 
     expect(phone).toHaveValue('(809) 555-0123')
+  })
+
+  it('permite desactivar los sonidos de las alertas', async () => {
+    render(<ProfileManagement />)
+
+    await screen.findByDisplayValue('Ana Administradora')
+    const soundToggle = screen.getByRole('switch', { name: 'Sonidos de notificación' })
+
+    expect(soundToggle).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(soundToggle)
+
+    expect(setSoundsEnabled).toHaveBeenCalledWith(false)
   })
 })
