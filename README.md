@@ -20,15 +20,12 @@ SIGERSA centraliza solicitudes, alertas y denuncias, casos, programación, inspe
 
 ![Panel de resumen operativo de SIGERSA](src/frontend/public/assets/dashboard-screen.png)
 
-### Inspección BPM
-
-![Ficha dinámica de inspección BPM](src/frontend/public/assets/inspection-screen.png)
-
 ## Capacidades principales
 
 - Autenticación JWT con renovación de sesión, bloqueo por intentos y recuperación de contraseña mediante OTP.
 - MFA TOTP opcional integrado con Supabase Auth.
 - Registro público de Administradores de Empresa y Usuarios Delegados con carta de autorización.
+- Portal público para que el Ciudadano registre alertas y denuncias sanitarias.
 - Control de acceso por rol, empresa, asignación y propiedad del recurso.
 - Gestión de empresas, establecimientos, usuarios, parámetros y catálogos.
 - Operación conectada de solicitudes, alertas, casos, programación, evaluaciones, hallazgos, evidencias y correcciones.
@@ -40,32 +37,33 @@ SIGERSA centraliza solicitudes, alertas y denuncias, casos, programación, inspe
 
 ## Módulos y acceso por rol
 
-Las páginas públicas son **Inicio**, **Inicio de sesión**, **Registro** y **Recuperación de contraseña**. Los módulos autenticados se habilitan según la siguiente matriz; además, cada endpoint vuelve a validar el ámbito y la propiedad del recurso.
+El **Ciudadano** accede desde el portal público y puede registrar alertas o denuncias sin entrar a los módulos internos. Las demás páginas públicas son **Inicio de sesión**, **Registro** y **Recuperación de contraseña**. Los módulos autenticados se habilitan según la siguiente matriz; además, cada endpoint vuelve a validar el ámbito y la propiedad del recurso.
 
-| Módulo | Administrador | Administrador de empresa | Usuario delegado | Coordinador | Técnico evaluador | Laboratorista |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: |
-| Resumen | ✓ | ✓ | ✓ | ✓ | ✓ |  |
-| Solicitudes | ✓ |  | ✓ | ✓ |  |  |
-| Alertas y denuncias | ✓ |  |  | ✓ |  | ✓ |
-| Casos |  |  |  | ✓ |  |  |
-| Programación |  |  |  | ✓ | ✓ |  |
-| Evaluaciones | ✓ |  |  | ✓ | ✓ |  |
-| Establecimientos | ✓ |  |  |  |  |  |
-| Hallazgos | ✓ |  |  | ✓ | ✓ |  |
-| Evidencias | ✓ |  |  | ✓ | ✓ |  |
-| Correcciones | ✓ |  |  | ✓ | ✓ |  |
-| Fichas BPM | ✓ |  |  |  |  |  |
-| Reportes | ✓ |  | ✓ | ✓ | ✓ |  |
-| Empresas | ✓ |  |  |  |  |  |
-| Gestión de usuarios | ✓ | ✓* |  |  |  |  |
-| Parámetros | ✓ |  |  |  |  |  |
-| Auditoría | ✓ |  |  |  |  |  |
-| Mi perfil | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Notificaciones y sincronización | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Módulo o canal | Ciudadano | Administrador | Administrador de empresa | Usuario delegado | Coordinador | Técnico evaluador | Laboratorista |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Portal público y registro de denuncias | ✓ |  |  |  |  |  |  |
+| Resumen |  | ✓ | ✓ | ✓ | ✓ | ✓ |  |
+| Solicitudes |  | ✓ |  | ✓ | ✓ |  |  |
+| Alertas y denuncias |  | ✓ |  |  | ✓ |  | ✓ |
+| Casos |  |  |  |  | ✓ |  |  |
+| Programación |  |  |  |  | ✓ | ✓ |  |
+| Evaluaciones |  | ✓ |  |  | ✓ | ✓ |  |
+| Establecimientos |  | ✓ |  |  |  |  |  |
+| Hallazgos |  | ✓ |  |  | ✓ | ✓ |  |
+| Evidencias |  | ✓ |  |  | ✓ | ✓ |  |
+| Correcciones |  | ✓ |  |  | ✓ | ✓ |  |
+| Fichas BPM |  | ✓ |  |  |  |  |  |
+| Reportes |  | ✓ |  | ✓ | ✓ | ✓ |  |
+| Empresas |  | ✓ |  |  |  |  |  |
+| Gestión de usuarios |  | ✓ | ✓* |  |  |  |  |
+| Parámetros |  | ✓ |  |  |  |  |  |
+| Auditoría |  | ✓ |  |  |  |  |  |
+| Mi perfil |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Notificaciones y sincronización |  | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 \* El Administrador de Empresa solo administra usuarios de su propia empresa y no puede asignar roles internos o globales.
 
-Los códigos canónicos son `ADMINISTRADOR`, `ADMINISTRADOR_EMPRESA`, `USUARIO_DELEGADO`, `COORDINADOR`, `TECNICO_EVALUADOR` y `LABORATORISTA`.
+El Ciudadano funciona como perfil del portal público y no necesita un código de rol autenticado. Los códigos canónicos de los usuarios internos son `ADMINISTRADOR`, `ADMINISTRADOR_EMPRESA`, `USUARIO_DELEGADO`, `COORDINADOR`, `TECNICO_EVALUADOR` y `LABORATORISTA`.
 
 ### Evaluaciones e inspecciones: un solo espacio de trabajo
 
