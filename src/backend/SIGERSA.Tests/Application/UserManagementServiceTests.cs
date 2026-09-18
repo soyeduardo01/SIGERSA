@@ -56,7 +56,7 @@ public sealed class UserManagementServiceTests
     }
 
     [Fact]
-    public async Task EnterpriseUserStartsPendingAndCannotBeApprovedWithoutAuthorizationLetter()
+    public async Task AdministrativelyCreatedEnterpriseUserStartsActiveButPublicApprovalRequiresLetter()
     {
         var repository = new FakeRepository { CanActivate = false };
         var service = CreateService(repository);
@@ -65,7 +65,7 @@ public sealed class UserManagementServiceTests
             ValidRequest("USUARIO_DELEGADO", CompanyId),
             Actor("ADMINISTRADOR", null), CancellationToken.None);
 
-        Assert.Equal("PENDIENTE_VALIDACION", repository.Created?.Estado);
+        Assert.Equal("ACTIVO", repository.Created?.Estado);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.UpdateAsync(
             Guid.NewGuid(),
             ValidRequest("USUARIO_DELEGADO", CompanyId) with { VersionFila = 1 },

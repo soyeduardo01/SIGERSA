@@ -132,6 +132,7 @@ FROM (VALUES
     ('CAT-13', 'SUB-099', 'Bebidas alcohólicas aromatizadas (p. ej. cerveza, vino y bebidas espirituosas tipo refresco, refrescos con bajo contenido de alcohol)', 1, 99),
     ('CAT-14', 'SUB-100', 'Aperitivos a base de patatas (papas), cereales, harina o almidón (derivados de raíces y tubérculos, legumbres y leguminosas)', 1, 100),
     ('CAT-14', 'SUB-101', 'Nueces elaboradas, incluidas las nueces revestidas y mezclas de nueces (p. ej. con frutas secas)', 1, 101),
+    ('CAT-15', 'SUB-102', 'Alimentos preparados', 1, 102),
     ('CAT-16', 'SUB-103', 'Postres a base de leche', 1, 103),
     ('CAT-16', 'SUB-104', 'Postres a base de huevo', 1, 104),
     ('CAT-16', 'SUB-105', 'Postres a base de grasas, excluidos los postres lácteos (como pudines, yogur aromatizado o con fruta)', 1, 105),

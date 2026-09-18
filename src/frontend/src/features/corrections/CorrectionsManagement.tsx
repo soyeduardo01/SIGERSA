@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
+import { Pagination } from '../../components/ui/Pagination'
 import { useAuth } from '../../contexts/useAuth'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 import {
@@ -24,7 +25,7 @@ import {
 } from '../../lib/dateTime'
 import { queueCorrection } from '../../offline/syncQueue'
 
-const emptyPage: CorrectionsPage = { items: [], page: 1, pageSize: 50, total: 0 }
+const emptyPage: CorrectionsPage = { items: [], page: 1, pageSize: 20, total: 0 }
 
 export function CorrectionsManagement() {
   const correctionStates = useParameterOptions('ESTADO_CORRECCION')
@@ -38,12 +39,13 @@ export function CorrectionsManagement() {
   const [error, setError] = useState('')
   const [open, setOpen] = useState(false)
   const [selectedCorrection, setSelectedCorrection] = useState<Correction | null>(null)
+  const [pageNumber, setPageNumber] = useState(1)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const [page, choices] = await Promise.all([
-        getCorrections({ status }),
+        getCorrections({ status, page: pageNumber, pageSize: 20 }),
         getCorrectionOptions(),
       ])
       setResult(page)
@@ -54,7 +56,7 @@ export function CorrectionsManagement() {
     } finally {
       setLoading(false)
     }
-  }, [status])
+  }, [pageNumber, status])
   useEffect(() => {
     queueMicrotask(() => void load())
   }, [load])
@@ -137,7 +139,10 @@ export function CorrectionsManagement() {
           Estado
           <select
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
+            onChange={(e) => {
+              setStatus(e.target.value)
+              setPageNumber(1)
+            }}
             className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
           >
             <option value="">Todos</option>
@@ -280,6 +285,14 @@ export function CorrectionsManagement() {
             </p>
           )}
         </div>
+        <Pagination
+          page={pageNumber}
+          pageSize={result.pageSize}
+          total={result.total}
+          disabled={loading}
+          label="correcciones"
+          onChange={setPageNumber}
+        />
       </div>
       {open && options && (
         <CorrectionForm options={options} onClose={() => setOpen(false)} onSave={save} />

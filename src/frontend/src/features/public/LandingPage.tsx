@@ -1,4 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { gsap } from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { InstallPwaButton } from '../../components/pwa/InstallPwaButton'
 import { alerts } from '../../lib/alerts'
 import { createPublicComplaint, getPublicComplaintOptions } from '../../lib/api'
@@ -21,6 +23,7 @@ const operations = [
 const Arrow = () => <span aria-hidden="true">→</span>
 
 export function LandingPage() {
+  const pageRef = useRef<HTMLElement>(null)
   const [options, setOptions] = useState<Array<{ id: string; name: string }>>([])
   const [establishmentId, setEstablishmentId] = useState('')
   const [complaintType, setComplaintType] = useState('')
@@ -46,6 +49,56 @@ export function LandingPage() {
       window.removeEventListener('keydown', close)
     }
   }, [dialogOpen])
+
+  useEffect(() => {
+    if (
+      !pageRef.current ||
+      typeof window.matchMedia !== 'function' ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    )
+      return
+    gsap.registerPlugin(ScrollTrigger)
+    const context = gsap.context(() => {
+      gsap.from('.landing-hero .landing-reveal', {
+        opacity: 0,
+        y: 36,
+        duration: 0.9,
+        ease: 'power3.out',
+      })
+      gsap.utils.toArray<HTMLElement>('.landing-scroll-reveal').forEach((element) => {
+        gsap.from(element, {
+          opacity: 0,
+          y: 44,
+          duration: 0.8,
+          ease: 'power3.out',
+          scrollTrigger: { trigger: element, start: 'top 86%', once: true },
+        })
+      })
+      gsap.utils
+        .toArray<HTMLElement>('.landing-operation-card, .landing-stat, .landing-ally-card')
+        .forEach((element, index) => {
+          gsap.from(element, {
+            opacity: 0,
+            y: 28,
+            duration: 0.55,
+            delay: (index % 5) * 0.06,
+            ease: 'power2.out',
+            scrollTrigger: { trigger: element, start: 'top 90%', once: true },
+          })
+        })
+      gsap.to('.landing-device-stage', {
+        yPercent: -6,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: '#plataforma',
+          start: 'top bottom',
+          end: 'bottom top',
+          scrub: 0.8,
+        },
+      })
+    }, pageRef)
+    return () => context.revert()
+  }, [])
 
   function openComplaint() {
     setStep(1)
@@ -77,7 +130,7 @@ export function LandingPage() {
   }
 
   return (
-    <main className="landing min-h-dvh overflow-hidden bg-[#f7faf7] text-[#18342b]">
+    <main ref={pageRef} className="landing min-h-dvh overflow-hidden bg-[#f7faf7] text-[#18342b]">
       <section className="landing-hero relative text-white">
         <div className="landing-orb landing-orb-one" />
         <div className="landing-orb landing-orb-two" />
@@ -192,7 +245,10 @@ export function LandingPage() {
         ))}
       </section>
 
-      <section id="soluciones" className="mx-auto max-w-7xl px-5 py-24 lg:px-8 lg:py-32">
+      <section
+        id="soluciones"
+        className="landing-scroll-reveal mx-auto max-w-7xl px-5 py-24 lg:px-8 lg:py-32"
+      >
         <div className="max-w-3xl">
           <p className="landing-eyebrow">Una operación integral</p>
           <h2 className="landing-heading">
@@ -217,7 +273,10 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section id="impacto" className="landing-impact px-5 py-24 text-white lg:px-8 lg:py-32">
+      <section
+        id="impacto"
+        className="landing-impact landing-scroll-reveal px-5 py-24 text-white lg:px-8 lg:py-32"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-end">
             <div>
@@ -249,7 +308,10 @@ export function LandingPage() {
         </div>
       </section>
 
-      <section id="plataforma" className="relative mx-auto max-w-7xl px-5 py-24 lg:px-8 lg:py-36">
+      <section
+        id="plataforma"
+        className="landing-scroll-reveal relative mx-auto max-w-7xl px-5 py-24 lg:px-8 lg:py-36"
+      >
         <div className="mx-auto max-w-3xl text-center">
           <p className="landing-eyebrow">En oficina y en campo</p>
           <h2 className="landing-heading">
@@ -349,18 +411,60 @@ export function LandingPage() {
         </div>
       </section>
 
-      <footer className="bg-[#052f25] px-5 py-12 text-white lg:px-8">
-        <div className="mx-auto flex max-w-7xl flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
+      <footer className="landing-scroll-reveal relative overflow-hidden bg-[#052f25] px-5 pt-16 pb-8 text-white lg:px-8">
+        <span
+          className="pointer-events-none absolute -top-32 right-0 size-80 rounded-full bg-emerald-400/10 blur-3xl"
+          aria-hidden="true"
+        />
+        <div className="relative mx-auto grid max-w-7xl gap-10 border-b border-white/10 pb-12 md:grid-cols-[1.3fr_.7fr_.7fr]">
           <div>
             <img src="/assets/logo-white.png" alt="SIGERSA" className="h-11 w-auto" />
             <p className="mt-4 max-w-md text-sm leading-6 text-emerald-50/55">
               Sistema Integral de Gestión de Riesgo y Seguridad Alimentaria.
             </p>
+            <button
+              type="button"
+              onClick={openComplaint}
+              className="mt-6 rounded-full bg-[#b8ee45] px-5 py-3 text-sm font-black text-[#073f30] transition hover:-translate-y-0.5 hover:bg-white"
+            >
+              Reportar una denuncia <Arrow />
+            </button>
           </div>
+          <nav aria-label="Enlaces del pie" className="text-sm">
+            <strong className="text-xs tracking-widest text-[#b8ee45] uppercase">Explorar</strong>
+            <div className="mt-4 grid gap-3 text-emerald-50/65">
+              <a href="#soluciones" className="hover:text-white">
+                Soluciones
+              </a>
+              <a href="#impacto" className="hover:text-white">
+                Nuestro impacto
+              </a>
+              <a href="#plataforma" className="hover:text-white">
+                La plataforma
+              </a>
+              <a href="#aliados" className="hover:text-white">
+                Aliados
+              </a>
+            </div>
+          </nav>
           <div className="text-sm text-emerald-50/55">
-            <p>Dirección General de Medicamentos, Alimentos y Productos Sanitarios</p>
-            <p className="mt-2">© {new Date().getFullYear()} República Dominicana</p>
+            <strong className="text-xs tracking-widest text-[#b8ee45] uppercase">
+              Institución
+            </strong>
+            <p className="mt-4 leading-6">
+              Dirección General de Medicamentos, Alimentos y Productos Sanitarios
+            </p>
+            <a
+              href={loginHref}
+              className="mt-4 inline-block font-bold text-white hover:text-[#b8ee45]"
+            >
+              Acceso institucional →
+            </a>
           </div>
+        </div>
+        <div className="relative mx-auto flex max-w-7xl flex-col gap-2 pt-6 text-xs text-emerald-50/45 sm:flex-row sm:justify-between">
+          <p>© {new Date().getFullYear()} República Dominicana</p>
+          <p>Salud pública respaldada por datos y trazabilidad.</p>
         </div>
       </footer>
 

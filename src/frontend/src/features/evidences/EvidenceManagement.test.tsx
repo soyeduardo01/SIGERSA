@@ -4,6 +4,7 @@ import { EvidenceManagement } from './EvidenceManagement'
 
 const mocks = vi.hoisted(() => ({
   downloadEvidence: vi.fn(),
+  getEvidences: vi.fn(),
   createObjectURL: vi.fn(() => 'blob:preview-internal'),
   revokeObjectURL: vi.fn(),
 }))
@@ -31,7 +32,7 @@ vi.mock('../../contexts/useAuth', () => ({
 }))
 
 vi.mock('../../lib/api', () => ({
-  getEvidences: vi.fn(async () => ({ items: [evidence], page: 1, pageSize: 20, total: 1 })),
+  getEvidences: mocks.getEvidences,
   getEvaluations: vi.fn(async () => ({ items: [], page: 1, pageSize: 100, total: 0 })),
   downloadEvidence: mocks.downloadEvidence,
 }))
@@ -52,6 +53,7 @@ vi.mock('../../hooks/useParameterOptions', () => ({
 describe('EvidenceManagement', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.getEvidences.mockResolvedValue({ items: [evidence], page: 1, pageSize: 20, total: 1 })
     mocks.downloadEvidence.mockResolvedValue(new Blob(['image'], { type: 'image/jpeg' }))
     vi.stubGlobal('URL', {
       ...URL,
@@ -74,5 +76,20 @@ describe('EvidenceManagement', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar vista previa' }))
     await waitFor(() => expect(mocks.revokeObjectURL).toHaveBeenCalledWith('blob:preview-internal'))
+  })
+
+  it('solicita la página siguiente y conserva el tamaño de página', async () => {
+    mocks.getEvidences.mockResolvedValue({ items: [evidence], page: 1, pageSize: 20, total: 21 })
+    render(<EvidenceManagement />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Siguiente' }))
+
+    await waitFor(() =>
+      expect(mocks.getEvidences).toHaveBeenLastCalledWith({
+        evaluationId: undefined,
+        page: 2,
+        pageSize: 20,
+      }),
+    )
   })
 })

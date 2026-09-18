@@ -1,4 +1,5 @@
 using FluentValidation;
+using SIGERSA.Application.Common;
 
 namespace SIGERSA.Application.Profiles;
 
@@ -41,7 +42,8 @@ public sealed class UpdateProfileRequestValidator : AbstractValidator<UpdateProf
     {
         RuleFor(request => request.FullName).NotEmpty().MaximumLength(250);
         RuleFor(request => request.Email).NotEmpty().EmailAddress().MaximumLength(320);
-        RuleFor(request => request.Phone).MaximumLength(40);
+        RuleFor(request => request.Phone).MaximumLength(40).Must(DominicanPhone.IsValid)
+            .WithMessage("El teléfono debe tener 10 dígitos y comenzar con 809, 829 o 849.");
         RuleFor(request => request.RowVersion).GreaterThan(0);
     }
 }

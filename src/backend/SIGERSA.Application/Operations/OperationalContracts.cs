@@ -26,6 +26,8 @@ public sealed record FindingRequest(
 
 public sealed record CloseFindingRequest(long RowVersion, string Reason);
 
+public sealed record UpdateFindingStatusRequest(long RowVersion, string Status, string? Reason);
+
 public sealed class SurveillanceRequestValidator : AbstractValidator<SurveillanceRequest>
 {
     private static readonly string[] AlertResults = ["PROCEDE_EVALUACION", "NO_PROCEDE", "REQUIERE_INFORMACION"];

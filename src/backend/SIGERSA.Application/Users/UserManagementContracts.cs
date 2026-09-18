@@ -1,4 +1,5 @@
 using FluentValidation;
+using SIGERSA.Application.Common;
 
 namespace SIGERSA.Application.Users;
 
@@ -43,7 +44,8 @@ public sealed class UserManagementRequestValidator : AbstractValidator<UserManag
         RuleFor(request => request.Correo).NotEmpty().EmailAddress().MaximumLength(320);
         RuleFor(request => request.TipoIdentificacion).NotEmpty().MaximumLength(30);
         RuleFor(request => request.Identificacion).NotEmpty().MaximumLength(100);
-        RuleFor(request => request.Telefono).MaximumLength(40);
+        RuleFor(request => request.Telefono).MaximumLength(40).Must(DominicanPhone.IsValid)
+            .WithMessage("El teléfono debe tener 10 dígitos y comenzar con 809, 829 o 849.");
         RuleFor(request => request.Rol).Must(role => AllowedRoles.Contains(role, StringComparer.OrdinalIgnoreCase))
             .WithMessage("El rol indicado no es válido.");
         RuleFor(request => request.Estado).Must(status => status is

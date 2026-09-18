@@ -46,6 +46,7 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
               JOIN "SIGERSA"."USUARIO" uploader ON uploader.id = evidence.subida_por
              WHERE evidence.eliminada = false
+               AND (@EvaluationId IS NULL OR evidence.evaluacion_id = @EvaluationId)
                AND (@EvidenceType IS NULL OR evidence.tipo_evidencia = @EvidenceType)
                AND (@Search IS NULL OR lower(evidence.nombre_original) LIKE '%' || @Search || '%'
                     OR lower(evaluation.numero) LIKE '%' || @Search || '%'
@@ -69,6 +70,7 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
               JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = evidence.evaluacion_id
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
              WHERE evidence.eliminada = false
+               AND (@EvaluationId IS NULL OR evidence.evaluacion_id = @EvaluationId)
                AND (@EvidenceType IS NULL OR evidence.tipo_evidencia = @EvidenceType)
                AND (@Search IS NULL OR lower(evidence.nombre_original) LIKE '%' || @Search || '%'
                     OR lower(evaluation.numero) LIKE '%' || @Search || '%'
@@ -87,7 +89,7 @@ public sealed class EvidenceRepository(IDbConnectionFactory connectionFactory)
             """;
         var parameters = new
         {
-            query.Search, query.EvidenceType, query.ActorId, query.CompanyScope,
+            query.Search, query.EvidenceType, query.EvaluationId, query.ActorId, query.CompanyScope,
             query.GlobalScope, query.AssignedOnly,
             Offset = (query.Page - 1) * query.PageSize, query.PageSize
         };

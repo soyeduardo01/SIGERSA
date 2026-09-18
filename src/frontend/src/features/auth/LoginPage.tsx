@@ -62,7 +62,12 @@ export function LoginPage({
         onAuthenticated(result)
       }
     } catch (reason) {
-      await alerts.error(reason, 'No se pudo iniciar sesión', { showUnauthorized: true })
+      const error = twoFactorRequired
+        ? new Error(
+            'El código ingresado no es válido o ya venció. Verifíquelo e inténtelo nuevamente.',
+          )
+        : reason
+      await alerts.error(error, 'No se pudo iniciar sesión', { showUnauthorized: true })
     } finally {
       setLoading(false)
     }

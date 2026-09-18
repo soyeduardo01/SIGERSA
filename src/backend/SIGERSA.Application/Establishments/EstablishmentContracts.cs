@@ -1,4 +1,5 @@
 using FluentValidation;
+using SIGERSA.Application.Common;
 using SIGERSA.Domain.Entities;
 
 namespace SIGERSA.Application.Establishments;
@@ -42,14 +43,24 @@ public sealed class EstablishmentRequestValidator : AbstractValidator<Establishm
         RuleFor(request => request.Name).NotEmpty().MaximumLength(250);
         RuleFor(request => request.Street).MaximumLength(250);
         RuleFor(request => request.AddressNumber).MaximumLength(50);
-        RuleFor(request => request.Phone).MaximumLength(40);
+        RuleFor(request => request.Phone).MaximumLength(40).Must(DominicanPhone.IsValid)
+            .WithMessage("El teléfono debe tener 10 dígitos y comenzar con 809, 829 o 849.");
         RuleFor(request => request.Email).EmailAddress().MaximumLength(320)
             .When(request => !string.IsNullOrWhiteSpace(request.Email));
         RuleFor(request => request.SanitaryPermitNumber).MaximumLength(100);
-        RuleFor(request => request.AnnualProduction).GreaterThanOrEqualTo(0).When(request => request.AnnualProduction.HasValue);
+        RuleFor(request => request.AnnualProduction).NotNull().GreaterThanOrEqualTo(0)
+            .WithMessage("La producción anual es obligatoria para calcular el riesgo.");
         RuleFor(request => request.FemaleEmployees).GreaterThanOrEqualTo(0).When(request => request.FemaleEmployees.HasValue);
         RuleFor(request => request.MaleEmployees).GreaterThanOrEqualTo(0).When(request => request.MaleEmployees.HasValue);
         RuleFor(request => request.MicrobiologicalRejectionsLastFiveYears).GreaterThanOrEqualTo(0);
+        RuleFor(request => request.HaccpImplemented).NotNull()
+            .WithMessage("Indique si el establecimiento tiene HACCP implementado.");
+        RuleFor(request => request.MicrobiologicalSamplingPlan).NotNull()
+            .WithMessage("Indique si el establecimiento tiene un plan de muestreo microbiológico.");
+        RuleFor(request => request.IsInabieSupplier).NotNull()
+            .WithMessage("Indique si el establecimiento es suplidor del INABIE.");
+        RuleFor(request => request.Products).NotNull().Must(products => products is { Count: > 0 })
+            .WithMessage("Registre al menos un producto con su subcategoría para calcular el riesgo.");
         RuleFor(request => request.Status).Must(value => value is "ACTIVO" or "INACTIVO" or "SUSPENDIDO");
         RuleFor(request => request.HaccpPercentage)
             .Must(value => value is 25 or 75 or 100)
@@ -75,7 +86,8 @@ public sealed class EstablishmentRequestValidator : AbstractValidator<Establishm
             contact.RuleFor(value => value.Type).Must(value => value is "PRINCIPAL" or "LEGAL");
             contact.RuleFor(value => value.FullName).NotEmpty().MaximumLength(250);
             contact.RuleFor(value => value.Identification).MaximumLength(100);
-            contact.RuleFor(value => value.Phone).MaximumLength(40);
+            contact.RuleFor(value => value.Phone).MaximumLength(40).Must(DominicanPhone.IsValid)
+                .WithMessage("El teléfono debe tener 10 dígitos y comenzar con 809, 829 o 849.");
             contact.RuleFor(value => value.Email).EmailAddress().MaximumLength(320)
                 .When(value => !string.IsNullOrWhiteSpace(value.Email));
         });

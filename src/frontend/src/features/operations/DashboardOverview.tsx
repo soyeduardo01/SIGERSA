@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/useAuth'
 import { getDashboard, type DashboardSnapshot } from '../../lib/api'
 import { formatStatusLabel } from '../../lib/formatters'
 import { canAccessModule } from '../../lib/rbac'
+import { Pagination, useClientPagination } from '../../components/ui/Pagination'
 
 const emptyDashboard: DashboardSnapshot = {
   activeCases: 0,
@@ -109,6 +110,7 @@ export function DashboardOverview() {
   const canSeeEvaluations = canAccessModule(roles, 'evaluaciones')
   const canSeeSchedules = canAccessModule(roles, 'programacion')
   const viewData = data
+  const evaluationPagination = useClientPagination(viewData.recentEvaluations, 5)
   const viewRiskTotal = viewData.riskDistribution.reduce((sum, item) => sum + item.total, 0)
   const now = new Date()
   const displayDate = new Intl.DateTimeFormat('es-DO', {
@@ -329,7 +331,7 @@ export function DashboardOverview() {
                   </tr>
                 </thead>
                 <tbody>
-                  {viewData.recentEvaluations.map((item) => (
+                  {evaluationPagination.visibleItems.map((item) => (
                     <tr key={item.id} className="border-b border-slate-100">
                       <td className="px-5 py-3 font-bold">{item.number}</td>
                       <td className="px-5 py-3">{item.establishmentName}</td>
@@ -353,6 +355,16 @@ export function DashboardOverview() {
                   No hay evaluaciones registradas.
                 </p>
               )}
+            </div>
+            <div className="px-5 pb-4">
+              <Pagination
+                page={evaluationPagination.page}
+                pageSize={evaluationPagination.pageSize}
+                total={viewData.recentEvaluations.length}
+                disabled={loading}
+                label="evaluaciones recientes"
+                onChange={evaluationPagination.setPage}
+              />
             </div>
           </article>
 

@@ -79,6 +79,15 @@ public sealed class OperationsController(OperationalService service) : Controlle
         return NoContent();
     }
 
+    [HttpPut("findings/{id:guid}/status")]
+    [Authorize(Roles = "ADMINISTRADOR,COORDINADOR")]
+    public async Task<IActionResult> UpdateFindingStatus(
+        Guid id, UpdateFindingStatusRequest request, CancellationToken cancellationToken)
+    {
+        await service.UpdateFindingStatusAsync(id, request, Actor(), cancellationToken);
+        return NoContent();
+    }
+
     [HttpGet("history/evaluations")]
     public Task<HistoricalEvaluationsPage> History(
         string? search, string? status, DateTimeOffset? from, DateTimeOffset? to,

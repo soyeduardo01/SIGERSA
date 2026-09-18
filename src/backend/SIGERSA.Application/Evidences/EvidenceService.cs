@@ -10,7 +10,7 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
     public const long MaximumFileSize = 5 * 1024 * 1024;
 
     public Task<EvidencesPage> SearchAsync(
-        string? search, string? evidenceType, int page, int pageSize,
+        string? search, string? evidenceType, Guid? evaluationId, int page, int pageSize,
         EvidenceActor actor, CancellationToken cancellationToken)
     {
         EnsureReader(actor);
@@ -20,7 +20,7 @@ public sealed class EvidenceService(IFileStorage storage, IEvidenceRepository re
             ?? throw new ForbiddenException("El usuario no tiene un ámbito empresarial válido.");
         return repository.SearchAsync(new EvidenceSearch(
             Normalize(search)?.ToLowerInvariant(), Normalize(evidenceType)?.ToUpperInvariant(),
-            Math.Max(page, 1), Math.Clamp(pageSize, 5, 100), actor.UserId,
+            evaluationId, Math.Max(page, 1), Math.Clamp(pageSize, 5, 100), actor.UserId,
             company, global, assigned), cancellationToken);
     }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
+import { Pagination } from '../../components/ui/Pagination'
 import { useAuth } from '../../contexts/useAuth'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 import {
@@ -31,15 +32,21 @@ export function EvidenceManagement() {
   const [evaluations, setEvaluations] = useState<EvaluationSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [evaluationFilter, setEvaluationFilter] = useState('')
   const [open, setOpen] = useState(false)
   const [preview, setPreview] = useState<EvidencePreviewState | null>(null)
+  const [pageNumber, setPageNumber] = useState(1)
   const previewRequest = useRef(0)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const [page, evaluationPage] = await Promise.all([
-        getEvidences({}),
+        getEvidences({
+          evaluationId: evaluationFilter || undefined,
+          page: pageNumber,
+          pageSize: 20,
+        }),
         getEvaluations({ pageSize: 100 }),
       ])
       setResult(page)
@@ -50,7 +57,7 @@ export function EvidenceManagement() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [evaluationFilter, pageNumber])
 
   useEffect(() => {
     queueMicrotask(() => void load())
@@ -159,6 +166,24 @@ export function EvidenceManagement() {
         )}
       </div>
       <div className="mt-6 overflow-hidden rounded-card bg-white p-5 shadow-card">
+        <label className="mb-5 block max-w-xl text-sm font-bold text-ink-strong">
+          Filtrar por evaluación
+          <select
+            value={evaluationFilter}
+            onChange={(event) => {
+              setEvaluationFilter(event.target.value)
+              setPageNumber(1)
+            }}
+            className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 font-normal"
+          >
+            <option value="">Todas las evaluaciones</option>
+            {evaluations.map((evaluation) => (
+              <option key={evaluation.id} value={evaluation.id}>
+                {evaluation.number} · {evaluation.establishmentName}
+              </option>
+            ))}
+          </select>
+        </label>
         {error && (
           <div
             role="alert"
@@ -228,6 +253,14 @@ export function EvidenceManagement() {
             </p>
           )}
         </div>
+        <Pagination
+          page={pageNumber}
+          pageSize={result.pageSize}
+          total={result.total}
+          disabled={loading}
+          label="evidencias"
+          onChange={setPageNumber}
+        />
       </div>
       {open && (
         <EvidenceForm evaluations={evaluations} onClose={() => setOpen(false)} onSave={save} />

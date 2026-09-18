@@ -1,4 +1,5 @@
 using FluentValidation;
+using SIGERSA.Application.Common;
 using SIGERSA.Domain.Entities;
 using SIGERSA.Domain.Repositories;
 using SIGERSA.Domain.Security;
@@ -13,6 +14,7 @@ public sealed record PublicRegistrationRequest(
     string Correo,
     string? Telefono,
     string Rol,
+    Guid? EmpresaId,
     string Password,
     bool TermsAccepted);
 
@@ -31,10 +33,16 @@ public sealed class PublicRegistrationRequestValidator : AbstractValidator<Publi
             .WithMessage("El tipo de identificación debe ser cédula o pasaporte.");
         RuleFor(request => request.Identificacion).NotEmpty().MaximumLength(100);
         RuleFor(request => request.Correo).NotEmpty().EmailAddress().MaximumLength(320);
-        RuleFor(request => request.Telefono).NotEmpty().MaximumLength(40);
+        RuleFor(request => request.Telefono).NotEmpty().MaximumLength(40).Must(DominicanPhone.IsValid)
+            .WithMessage("El teléfono debe tener 10 dígitos y comenzar con 809, 829 o 849.");
         RuleFor(request => request.Rol)
             .Must(value => AllowedRoles.Contains(value?.Trim().ToUpperInvariant(), StringComparer.Ordinal))
             .WithMessage("Solo puede solicitar el rol Administrador de Empresa o Usuario Delegado.");
+        RuleFor(request => request.EmpresaId)
+            .NotNull()
+            .When(request => string.Equals(
+                request.Rol?.Trim(), "USUARIO_DELEGADO", StringComparison.OrdinalIgnoreCase))
+            .WithMessage("Debe seleccionar la empresa a la que pertenece el usuario delegado.");
         RuleFor(request => request.Password)
             .NotEmpty().MinimumLength(8).MaximumLength(128)
             .Matches("[A-Z]").WithMessage("La contraseña debe contener una mayúscula.")
@@ -70,6 +78,13 @@ public sealed class PublicRegistrationService(
 
         var normalizedEmail = request.Correo.Trim().ToLowerInvariant();
         var normalizedIdentification = NormalizeIdentification(request.Identificacion);
+        var normalizedRole = request.Rol.Trim().ToUpperInvariant();
+        if (normalizedRole == "USUARIO_DELEGADO")
+        {
+            var companies = await repository.GetActiveCompanyOptionsAsync(cancellationToken);
+            if (!companies.Any(company => company.Id == request.EmpresaId))
+                throw new InvalidOperationException("La empresa seleccionada no existe o no está activa.");
+        }
         if (await repository.PublicRegistrationExistsAsync(
                 normalizedEmail, normalizedIdentification, cancellationToken))
             throw new InvalidOperationException("Ya existe una solicitud o usuario con ese correo o identificación.");
@@ -83,12 +98,13 @@ public sealed class PublicRegistrationService(
             Path.GetFileName(originalName), stored.FileSize, stored.MimeType, stored.Sha256Hash);
         var draft = new PublicUserRegistrationDraft(
             userId,
+            normalizedRole == "USUARIO_DELEGADO" ? request.EmpresaId : null,
             request.NombreCompleto.Trim(),
             normalizedEmail,
             request.TipoIdentificacion.Trim().ToUpperInvariant(),
             normalizedIdentification,
             request.Telefono?.Trim(),
-            request.Rol.Trim().ToUpperInvariant(),
+            normalizedRole,
             passwordService.Hash(request.Password),
             timeProvider.GetUtcNow(),
             document);

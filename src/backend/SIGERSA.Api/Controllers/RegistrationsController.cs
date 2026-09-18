@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using SIGERSA.Application.Users;
+using SIGERSA.Domain.Security;
 using SIGERSA.Infrastructure.Configuration;
 
 namespace SIGERSA.Api.Controllers;
@@ -12,8 +13,14 @@ namespace SIGERSA.Api.Controllers;
 [AllowAnonymous]
 public sealed class RegistrationsController(
     PublicRegistrationService service,
+    SIGERSA.Domain.Repositories.IUsuarioRepository users,
     IOptions<SupabaseOptions> storageOptions) : ControllerBase
 {
+    [HttpGet("companies")]
+    public async Task<ActionResult<IReadOnlyList<CompanyOption>>> GetCompanies(
+        CancellationToken cancellationToken) =>
+        Ok(await users.GetActiveCompanyOptionsAsync(cancellationToken));
+
     [HttpPost]
     [EnableRateLimiting("auth")]
     [Consumes("multipart/form-data")]
@@ -34,6 +41,7 @@ public sealed class RegistrationsController(
                 form.Correo,
                 form.Telefono,
                 form.Rol,
+                form.EmpresaId,
                 form.Password,
                 form.TermsAccepted),
             storageOptions.Value.DefaultBucketName,
@@ -54,6 +62,7 @@ public sealed class PublicRegistrationForm
     public string Correo { get; init; } = string.Empty;
     public string? Telefono { get; init; }
     public string Rol { get; init; } = string.Empty;
+    public Guid? EmpresaId { get; init; }
     public string Password { get; init; } = string.Empty;
     public bool TermsAccepted { get; init; }
     public IFormFile? AuthorizationLetter { get; init; }

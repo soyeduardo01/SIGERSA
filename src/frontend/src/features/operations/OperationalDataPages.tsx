@@ -10,6 +10,7 @@ import {
   getFindings,
   getSurveillance,
   getSurveillanceOptions,
+  updateFindingStatus,
   updateSurveillance,
   type AuditEventRecord,
   type FindingDetail,
@@ -23,6 +24,7 @@ import {
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
 import { useAuth } from '../../contexts/useAuth'
+import { Pagination, useClientPagination } from '../../components/ui/Pagination'
 
 const fieldClass =
   'mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 font-normal'
@@ -77,6 +79,7 @@ export function SurveillanceManagement() {
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<SurveillanceRecord | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const pagination = useClientPagination(items)
 
   async function load() {
     try {
@@ -185,7 +188,7 @@ export function SurveillanceManagement() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {pagination.visibleItems.map((item) => (
                 <tr key={`${item.kind}-${item.id}`} className="border-b border-slate-100">
                   <td className="px-3 py-4">
                     <strong>{item.number}</strong>
@@ -239,6 +242,13 @@ export function SurveillanceManagement() {
             </p>
           )}
         </div>
+        <Pagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={items.length}
+          label="alertas y denuncias"
+          onChange={pagination.setPage}
+        />
       </div>
       {modalOpen && options && (
         <SurveillanceForm
@@ -507,6 +517,7 @@ function SurveillanceForm({
 }
 
 export function FindingsManagement() {
+  const { roles } = useAuth()
   const [items, setItems] = useState<FindingRecord[]>([])
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
@@ -514,6 +525,9 @@ export function FindingsManagement() {
   const [error, setError] = useState('')
   const [detail, setDetail] = useState<FindingDetail | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  const [updatingId, setUpdatingId] = useState('')
+  const canManage = roles.some((role) => role === 'ADMINISTRADOR' || role === 'COORDINADOR')
+  const pagination = useClientPagination(items)
   useEffect(() => {
     let active = true
     void getFindings({ search, status, pageSize: 100 })
@@ -543,6 +557,58 @@ export function FindingsManagement() {
       setLoadingDetail(false)
     }
   }
+  async function advanceStatus(item: FindingRecord) {
+    const nextStatus =
+      item.status === 'ABIERTA'
+        ? 'EN_CORRECCION'
+        : item.status === 'EN_CORRECCION'
+          ? 'VALIDADO'
+          : item.status === 'VALIDADO'
+            ? 'CERRADO'
+            : null
+    if (!nextStatus) return
+    const reason =
+      nextStatus === 'CERRADO'
+        ? await alerts.textInput({
+            title: 'Cerrar no conformidad',
+            label: 'Justifique el cierre después de validar la corrección.',
+            confirmText: 'Cerrar hallazgo',
+          })
+        : (await alerts.confirm({
+              title:
+                nextStatus === 'EN_CORRECCION' ? 'Iniciar corrección' : 'Validar la corrección',
+              text:
+                nextStatus === 'EN_CORRECCION'
+                  ? 'El hallazgo quedará identificado como una corrección en curso.'
+                  : 'Confirme que la evidencia de corrección fue revisada.',
+              confirmText: nextStatus === 'EN_CORRECCION' ? 'Iniciar' : 'Validar',
+            }))
+          ? undefined
+          : null
+    if (reason === null) return
+    setUpdatingId(item.id)
+    try {
+      await updateFindingStatus(item.id, item.rowVersion, nextStatus, reason)
+      setItems((current) =>
+        current.map((value) =>
+          value.id === item.id
+            ? {
+                ...value,
+                status: nextStatus,
+                rowVersion: value.rowVersion + 1,
+                closedAt: nextStatus === 'CERRADO' ? new Date().toISOString() : null,
+              }
+            : value,
+        ),
+      )
+      if (detail?.id === item.id) setDetail(null)
+      await alerts.success(`Hallazgo ${formatStatusLabel(nextStatus).toLowerCase()}`)
+    } catch (caught) {
+      await alerts.error(caught, 'No se pudo actualizar el hallazgo')
+    } finally {
+      setUpdatingId('')
+    }
+  }
   return (
     <section aria-labelledby="findings-title">
       <PageHeader
@@ -550,6 +616,15 @@ export function FindingsManagement() {
         title="Hallazgos y no conformidades"
         description="Consulte los incumplimientos generados automáticamente desde las respuestas de las evaluaciones."
       />
+      {canManage && (
+        <div className="mt-5 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm text-ink-body">
+          <strong className="text-brand-900">Flujo de seguimiento</strong>
+          <p className="mt-1">
+            Use la acción de cada registro para avanzar en orden: Abierta → En corrección → Validado
+            → Cerrado. El cierre exige una justificación.
+          </p>
+        </div>
+      )}
       <div className="mt-6 rounded-card bg-white p-5 shadow-card">
         <form
           onSubmit={(event) => {
@@ -575,7 +650,7 @@ export function FindingsManagement() {
               className={fieldClass}
             >
               <option value="">Todos</option>
-              {['ABIERTA', 'EN_CORRECCION', 'CORREGIDA', 'VERIFICADA', 'CERRADA'].map((value) => (
+              {['ABIERTA', 'EN_CORRECCION', 'VALIDADO', 'CERRADO'].map((value) => (
                 <option key={value} value={value}>
                   {formatStatusLabel(value)}
                 </option>
@@ -600,7 +675,7 @@ export function FindingsManagement() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {pagination.visibleItems.map((item) => (
                 <tr key={item.id} className="border-b border-slate-100">
                   <td className="px-3 py-4">
                     <strong>{item.code}</strong>
@@ -618,14 +693,32 @@ export function FindingsManagement() {
                   <td className="px-3 py-4">{item.criticality}</td>
                   <td className="px-3 py-4">{formatStatusLabel(item.status)}</td>
                   <td className="px-3 py-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => void showDetail(item)}
-                      disabled={loadingDetail}
-                      className="rounded-lg border border-brand-300 px-3 py-2 font-bold text-brand-800 disabled:opacity-50"
-                    >
-                      Ver detalles
-                    </button>
+                    <div className="flex justify-end gap-2">
+                      {canManage && item.status !== 'CERRADO' && (
+                        <button
+                          type="button"
+                          onClick={() => void advanceStatus(item)}
+                          disabled={updatingId === item.id}
+                          className="rounded-lg bg-brand-700 px-3 py-2 font-bold text-white disabled:opacity-50"
+                        >
+                          {updatingId === item.id
+                            ? 'Actualizando…'
+                            : item.status === 'ABIERTA'
+                              ? 'Iniciar corrección'
+                              : item.status === 'EN_CORRECCION'
+                                ? 'Validar'
+                                : 'Cerrar'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void showDetail(item)}
+                        disabled={loadingDetail}
+                        className="border-brand-300 text-brand-800 rounded-lg border px-3 py-2 font-bold disabled:opacity-50"
+                      >
+                        Ver detalles
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -635,6 +728,13 @@ export function FindingsManagement() {
             <p className="p-10 text-center text-sm text-ink-muted">No hay hallazgos registrados.</p>
           )}
         </div>
+        <Pagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={items.length}
+          label="hallazgos"
+          onChange={pagination.setPage}
+        />
       </div>
       {detail && <FindingDetails detail={detail} onClose={() => setDetail(null)} />}
     </section>
@@ -663,17 +763,44 @@ function FindingDetails({ detail, onClose }: { detail: FindingDetail; onClose: (
         </div>
         <div className="mt-6 grid gap-4 text-sm">
           <div className="grid gap-3 rounded-xl bg-slate-50 p-4 md:grid-cols-2">
-            <p><strong>Evaluación:</strong> {detail.evaluationNumber}</p>
-            <p><strong>Caso:</strong> {detail.caseNumber}</p>
-            <p><strong>Empresa:</strong> {detail.companyName}</p>
-            <p><strong>Establecimiento:</strong> {detail.establishmentName}</p>
-            <p className="md:col-span-2"><strong>Ítem:</strong> {detail.itemCode} · {detail.itemTitle}</p>
-            <p><strong>Respuesta:</strong> {formatStatusLabel(detail.rating)}</p>
-            <p><strong>Estado:</strong> {formatStatusLabel(detail.status)}</p>
+            <p>
+              <strong>Evaluación:</strong> {detail.evaluationNumber}
+            </p>
+            <p>
+              <strong>Caso:</strong> {detail.caseNumber}
+            </p>
+            <p>
+              <strong>Empresa:</strong> {detail.companyName}
+            </p>
+            <p>
+              <strong>Establecimiento:</strong> {detail.establishmentName}
+            </p>
+            <p className="md:col-span-2">
+              <strong>Ítem:</strong> {detail.itemCode} · {detail.itemTitle}
+            </p>
+            <p>
+              <strong>Respuesta:</strong> {formatStatusLabel(detail.rating)}
+            </p>
+            <p>
+              <strong>Estado:</strong> {formatStatusLabel(detail.status)}
+            </p>
           </div>
-          <div><strong>Descripción</strong><p className="mt-1 text-ink-muted">{detail.description}</p></div>
-          {detail.observation && <div><strong>Observación</strong><p className="mt-1 text-ink-muted">{detail.observation}</p></div>}
-          {detail.technicalComment && <div><strong>Comentario técnico</strong><p className="mt-1 text-ink-muted">{detail.technicalComment}</p></div>}
+          <div>
+            <strong>Descripción</strong>
+            <p className="mt-1 text-ink-muted">{detail.description}</p>
+          </div>
+          {detail.observation && (
+            <div>
+              <strong>Observación</strong>
+              <p className="mt-1 text-ink-muted">{detail.observation}</p>
+            </div>
+          )}
+          {detail.technicalComment && (
+            <div>
+              <strong>Comentario técnico</strong>
+              <p className="mt-1 text-ink-muted">{detail.technicalComment}</p>
+            </div>
+          )}
           <div>
             <strong>Evidencias ({detail.evidences.length}/3)</strong>
             {detail.evidences.length === 0 ? (
@@ -681,7 +808,10 @@ function FindingDetails({ detail, onClose }: { detail: FindingDetail; onClose: (
             ) : (
               <ul className="mt-2 space-y-2">
                 {detail.evidences.map((evidence) => (
-                  <li key={evidence.id} className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-emerald-900">
+                  <li
+                    key={evidence.id}
+                    className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-emerald-900"
+                  >
                     {evidence.originalName} · {formatStatusLabel(evidence.evidenceType)}
                   </li>
                 ))}
@@ -716,6 +846,7 @@ export function HistoryManagement() {
     evaluation: HistoricalEvaluation
     events: TimelineEvent[]
   } | null>(null)
+  const pagination = useClientPagination(items)
   const [generatingReport, setGeneratingReport] = useState<string | null>(null)
   const [refresh, setRefresh] = useState(0)
   const { roles } = useAuth()
@@ -865,7 +996,7 @@ export function HistoryManagement() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {pagination.visibleItems.map((item) => (
                 <tr key={item.id} className="border-b border-slate-100">
                   <td className="px-3 py-4">
                     <strong>{item.number}</strong>
@@ -895,9 +1026,14 @@ export function HistoryManagement() {
                     )}
                     <div className="mt-2 flex flex-wrap gap-2">
                       {canReview &&
-                        ['FINALIZADA', 'ENVIADA', 'EN_REVISION', 'EN_CORRECCION'].includes(
-                          item.status,
-                        ) && (
+                        !item.hasOfficialReport &&
+                        [
+                          'FINALIZADA',
+                          'ENVIADA',
+                          'EN_REVISION',
+                          'EN_CORRECCION',
+                          'APROBADA',
+                        ].includes(item.status) && (
                           <button
                             type="button"
                             onClick={() => void generateReport(item, false)}
@@ -949,6 +1085,13 @@ export function HistoryManagement() {
             </p>
           )}
         </div>
+        <Pagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={items.length}
+          label="historial de evaluaciones"
+          onChange={pagination.setPage}
+        />
       </div>
       {timeline && (
         <div
@@ -1025,6 +1168,7 @@ export function AuditManagement() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [error, setError] = useState('')
+  const pagination = useClientPagination(items)
   useEffect(() => {
     let active = true
     void getAuditEvents({
@@ -1123,7 +1267,7 @@ export function AuditManagement() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {pagination.visibleItems.map((item) => (
                 <tr key={item.id} className="border-b border-slate-100">
                   <td className="px-3 py-4">
                     {new Intl.DateTimeFormat('es-DO', {
@@ -1151,6 +1295,13 @@ export function AuditManagement() {
             </p>
           )}
         </div>
+        <Pagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={items.length}
+          label="auditoría"
+          onChange={pagination.setPage}
+        />
       </div>
     </section>
   )

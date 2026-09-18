@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
+import { Pagination } from '../../components/ui/Pagination'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 import {
   cancelSchedule,
@@ -14,10 +15,14 @@ import {
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
-import { futureLocalDateTime, toLocalDateTimeInput, toUtcIsoFromLocalInput } from '../../lib/dateTime'
+import {
+  futureLocalDateTime,
+  toLocalDateTimeInput,
+  toUtcIsoFromLocalInput,
+} from '../../lib/dateTime'
 import { queueSchedule } from '../../offline/syncQueue'
 
-const emptyPage: SchedulesPage = { items: [], page: 1, pageSize: 100, total: 0 }
+const emptyPage: SchedulesPage = { items: [], page: 1, pageSize: 10, total: 0 }
 type CalendarView = 'day' | 'week' | 'month'
 
 export function SchedulingManagement() {
@@ -31,11 +36,12 @@ export function SchedulingManagement() {
   const [open, setOpen] = useState(false)
   const [calendarView, setCalendarView] = useState<CalendarView>('month')
   const [anchorDate, setAnchorDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [pageNumber, setPageNumber] = useState(1)
 
   async function load() {
     setLoading(true)
     try {
-      setResult(await getSchedules({ status, pageSize: 100 }))
+      setResult(await getSchedules({ status, page: pageNumber, pageSize: 10 }))
       setError('')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'No se pudo cargar la programación.')
@@ -46,7 +52,10 @@ export function SchedulingManagement() {
 
   useEffect(() => {
     let active = true
-    void Promise.all([getSchedules({ status, pageSize: 100 }), getScheduleOptions()])
+    void Promise.all([
+      getSchedules({ status, page: pageNumber, pageSize: 10 }),
+      getScheduleOptions(),
+    ])
       .then(([page, choices]) => {
         if (active) {
           setResult(page)
@@ -63,7 +72,7 @@ export function SchedulingManagement() {
     return () => {
       active = false
     }
-  }, [status])
+  }, [pageNumber, status])
 
   async function save(draft: ScheduleDraft) {
     try {
@@ -151,7 +160,10 @@ export function SchedulingManagement() {
             Estado
             <select
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
+              onChange={(event) => {
+                setStatus(event.target.value)
+                setPageNumber(1)
+              }}
               className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
             >
               <option value="">Todos</option>
@@ -171,7 +183,10 @@ export function SchedulingManagement() {
               className="mt-1.5 min-h-11 rounded-xl border px-3 font-normal"
             />
           </label>
-          <div className="flex rounded-xl border border-slate-300 p-1" aria-label="Vista del calendario">
+          <div
+            className="flex rounded-xl border border-slate-300 p-1"
+            aria-label="Vista del calendario"
+          >
             {(['day', 'week', 'month'] as const).map((view) => (
               <button
                 key={view}
@@ -244,61 +259,64 @@ export function SchedulingManagement() {
               {visibleItems.map((item) => {
                 const timing = scheduleTiming(item)
                 return (
-                <tr key={item.id} className={`border-b border-slate-100 ${timing.rowClass}`}>
-                  <td className="px-3 py-4 font-bold">
-                    {item.caseNumber}
-                    <span className="block text-xs font-normal text-ink-muted">
-                      {item.companyName} · {item.establishmentName}
-                    </span>
-                    <span className="mt-1 block text-xs font-normal text-ink-muted">
-                      {formatStatusLabel(item.caseOrigin)}
-                      {item.requestNumber ? ` · Solicitud ${item.requestNumber}` : ''}
-                    </span>
-                    {item.location && (
+                  <tr key={item.id} className={`border-b border-slate-100 ${timing.rowClass}`}>
+                    <td className="px-3 py-4 font-bold">
+                      {item.caseNumber}
+                      <span className="block text-xs font-normal text-ink-muted">
+                        {item.companyName} · {item.establishmentName}
+                      </span>
                       <span className="mt-1 block text-xs font-normal text-ink-muted">
-                        {item.location}
+                        {formatStatusLabel(item.caseOrigin)}
+                        {item.requestNumber ? ` · Solicitud ${item.requestNumber}` : ''}
                       </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-4">
-                    {new Date(item.startsAt).toLocaleString()}
-                    <span className="block text-xs text-ink-muted">
-                      hasta {new Date(item.endsAt).toLocaleString()}
-                    </span>
-                    {timing.label && (
-                      <span className={`mt-1 inline-flex rounded-full px-2 py-1 text-xs font-bold ${timing.badgeClass}`}>
-                        {timing.label}
+                      {item.location && (
+                        <span className="mt-1 block text-xs font-normal text-ink-muted">
+                          {item.location}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-4">
+                      {new Date(item.startsAt).toLocaleString()}
+                      <span className="block text-xs text-ink-muted">
+                        hasta {new Date(item.endsAt).toLocaleString()}
                       </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-4">{item.evaluatorNames.join(', ')}</td>
-                  <td className="px-3 py-4">{item.priority}</td>
-                  <td className="px-3 py-4">{formatStatusLabel(item.status)}</td>
-                  <td className="px-3 py-4 text-right">
-                    {options?.canManage && !['CANCELADA', 'COMPLETADA'].includes(item.status) && (
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditing(item)
-                            setOpen(true)
-                          }}
-                          className="rounded-lg border px-3 py-2 font-bold"
+                      {timing.label && (
+                        <span
+                          className={`mt-1 inline-flex rounded-full px-2 py-1 text-xs font-bold ${timing.badgeClass}`}
                         >
-                          Reprogramar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void cancel(item)}
-                          className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              )})}
+                          {timing.label}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-4">{item.evaluatorNames.join(', ')}</td>
+                    <td className="px-3 py-4">{item.priority}</td>
+                    <td className="px-3 py-4">{formatStatusLabel(item.status)}</td>
+                    <td className="px-3 py-4 text-right">
+                      {options?.canManage && !['CANCELADA', 'COMPLETADA'].includes(item.status) && (
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditing(item)
+                              setOpen(true)
+                            }}
+                            className="rounded-lg border px-3 py-2 font-bold"
+                          >
+                            Reprogramar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void cancel(item)}
+                            className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
           {loading && <TableSkeleton rows={5} columns={6} />}
@@ -308,6 +326,14 @@ export function SchedulingManagement() {
             </p>
           )}
         </div>
+        <Pagination
+          page={pageNumber}
+          pageSize={result.pageSize}
+          total={result.total}
+          disabled={loading}
+          label="programaciones"
+          onChange={setPageNumber}
+        />
       </div>
       {open && options && (
         <ScheduleForm
@@ -355,7 +381,10 @@ function formatCalendarPeriod(start: Date, end: Date, view: CalendarView) {
   return `${formatter.format(start)} – ${formatter.format(inclusiveEnd)}`
 }
 
-export function scheduleTiming(item: Pick<Schedule, 'startsAt' | 'endsAt' | 'status'>, now = Date.now()) {
+export function scheduleTiming(
+  item: Pick<Schedule, 'startsAt' | 'endsAt' | 'status'>,
+  now = Date.now(),
+) {
   if (['CANCELADA', 'COMPLETADA'].includes(item.status))
     return { label: '', badgeClass: '', rowClass: '' }
   const startsAt = Date.parse(item.startsAt)

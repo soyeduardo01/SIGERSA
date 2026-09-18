@@ -23,6 +23,9 @@ public sealed class ReportService(
         CancellationToken cancellationToken)
     {
         EnsureReviewer(actor);
+        if (await repository.HasOfficialReportAsync(evaluationId, cancellationToken))
+            throw new InvalidOperationException(
+                "El informe oficial ya fue emitido y sus versiones quedaron cerradas para edición.");
         var data = await repository.GetReportDataAsync(evaluationId, actor.UserId, cancellationToken)
             ?? throw new KeyNotFoundException("La evaluación no existe o todavía no está lista para generar su informe.");
         if (official && !string.Equals(data.Status, "APROBADA", StringComparison.Ordinal))

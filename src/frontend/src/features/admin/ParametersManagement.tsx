@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
+import { Pagination, useClientPagination } from '../../components/ui/Pagination'
 import {
   activateParameter,
   createParameter,
@@ -31,6 +32,7 @@ export function ParametersManagement() {
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<ParameterControl | null>(null)
   const [open, setOpen] = useState(false)
+  const pagination = useClientPagination(items)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -162,7 +164,7 @@ export function ParametersManagement() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
+              {pagination.visibleItems.map((item) => (
                 <tr key={item.parametersId} className="border-b border-slate-100">
                   <td className="p-3 font-bold">{item.keyWord}</td>
                   <td className="p-3">{item.cCode ?? '—'}</td>
@@ -222,6 +224,14 @@ export function ParametersManagement() {
             </p>
           )}
         </div>
+        <Pagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={items.length}
+          disabled={loading}
+          label="parámetros"
+          onChange={pagination.setPage}
+        />
       </div>
       {open && <ParameterForm item={editing} onClose={() => setOpen(false)} onSave={save} />}
     </section>

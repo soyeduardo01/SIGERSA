@@ -26,6 +26,7 @@ public sealed class PublicRegistrationServiceTests
         Assert.Equal("PENDIENTE_VALIDACION", result.Status);
         Assert.Equal(result.Id, repository.Created?.Id);
         Assert.Equal("ADMINISTRADOR_EMPRESA", repository.Created?.RequestedRole);
+        Assert.Null(repository.Created?.EmpresaId);
         Assert.StartsWith("$2", repository.Created?.PasswordHash);
         Assert.StartsWith($"autorizaciones/{result.Id:N}/", storage.Upload?.SupabasePath);
         Assert.Equal("evidencias", repository.Created?.AuthorizationLetter.BucketName);
@@ -58,7 +59,29 @@ public sealed class PublicRegistrationServiceTests
 
     private static PublicRegistrationRequest ValidRequest() => new(
         "María Pérez", "CEDULA", "001-0000000-1", "maria@example.com",
-        "809-555-1212", "ADMINISTRADOR_EMPRESA", "Segura8!", true);
+        "809-555-1212", "ADMINISTRADOR_EMPRESA", null, "Segura8!", true);
+
+    [Fact]
+    public async Task DelegateRegistrationRequiresAndStoresAnActiveCompany()
+    {
+        var companyId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var repository = new FakeRepository { Companies = [new CompanyOption(companyId, "Empresa Uno")] };
+        var service = new PublicRegistrationService(
+            repository, new FakeStorage(), new BcryptPasswordService(),
+            new PublicRegistrationRequestValidator(), new FixedTimeProvider());
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.RegisterAsync(
+            ValidRequest() with { Rol = "USUARIO_DELEGADO" }, "evidencias", "carta.pdf",
+            "application/pdf", 4, new MemoryStream([0x25, 0x50, 0x44, 0x46]), CancellationToken.None));
+
+        var result = await service.RegisterAsync(
+            ValidRequest() with { Rol = "USUARIO_DELEGADO", EmpresaId = companyId }, "evidencias",
+            "carta.pdf", "application/pdf", 4, new MemoryStream([0x25, 0x50, 0x44, 0x46]),
+            CancellationToken.None);
+
+        Assert.Equal(companyId, repository.Created?.EmpresaId);
+        Assert.Equal(result.Id, repository.Created?.Id);
+    }
 
     private sealed class FixedTimeProvider : TimeProvider
     {
@@ -86,6 +109,7 @@ public sealed class PublicRegistrationServiceTests
 
     private sealed class FakeRepository : IUsuarioRepository
     {
+        public IReadOnlyList<CompanyOption> Companies { get; init; } = [];
         public PublicUserRegistrationDraft? Created { get; private set; }
         public Task<bool> PublicRegistrationExistsAsync(string normalizedEmail, string normalizedIdentification,
             CancellationToken cancellationToken = default) => Task.FromResult(false);
@@ -99,7 +123,7 @@ public sealed class PublicRegistrationServiceTests
         public Task<IReadOnlyList<RoleOption>> GetActiveRoleOptionsAsync(
             CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<RoleOption>>([]);
         public Task<IReadOnlyList<CompanyOption>> GetActiveCompanyOptionsAsync(
-            CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<CompanyOption>>([]);
+            CancellationToken cancellationToken = default) => Task.FromResult(Companies);
         public Task<bool> CanActivateAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(false);
         public Task<Guid> CreateManagedAsync(ManagedUserDraft draft, Guid actorId,
             CancellationToken cancellationToken = default) => throw new NotSupportedException();

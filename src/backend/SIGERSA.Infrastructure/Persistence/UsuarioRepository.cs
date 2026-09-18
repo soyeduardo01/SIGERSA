@@ -77,6 +77,14 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
                          AND ur.vigente_desde <= CURRENT_TIMESTAMP
                          AND (ur.vigente_hasta IS NULL OR ur.vigente_hasta > CURRENT_TIMESTAMP)
                    ), array_remove(ARRAY[u.rol_solicitado]::varchar[], NULL)) AS Roles,
+                   COALESCE(array_agg(DISTINCT r.nombre) FILTER (
+                       WHERE r.nombre IS NOT NULL AND ur.activo = true
+                         AND ur.vigente_desde <= CURRENT_TIMESTAMP
+                         AND (ur.vigente_hasta IS NULL OR ur.vigente_hasta > CURRENT_TIMESTAMP)
+                   ), array_remove(ARRAY[(
+                       SELECT requested_role.nombre FROM "SIGERSA"."ROL" requested_role
+                        WHERE requested_role.codigo = u.rol_solicitado
+                   )]::varchar[], NULL)) AS RoleNames,
                    u.empresa_id AS EmpresaId, e.razon_social AS EmpresaNombre,
                    u.estado AS Estado, u.activo AS Activo, u.version_fila AS VersionFila
             FROM "SIGERSA"."USUARIO" AS u
@@ -173,12 +181,8 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
                 SELECT 1 FROM "SIGERSA"."USUARIO" user_account
                  WHERE user_account.id = @Id AND user_account.activo = true
                    AND (
-                       (user_account.rol_solicitado IS NULL AND NOT EXISTS (
-                           SELECT 1 FROM "SIGERSA"."USUARIO_ROL" user_role
-                           JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
-                           WHERE user_role.usuario_id = user_account.id
-                             AND user_role.activo = true
-                             AND role.codigo IN ('ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO')))
+                       user_account.rol_solicitado IS NULL
+                       OR user_account.rol_solicitado NOT IN ('ADMINISTRADOR_EMPRESA', 'USUARIO_DELEGADO')
                        OR EXISTS (
                            SELECT 1 FROM "SIGERSA"."USUARIO_DOCUMENTO_AUTORIZACION" document
                            WHERE document.usuario_id = user_account.id AND document.vigente = true)
@@ -218,11 +222,11 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
         {
             await connection.ExecuteAsync(new CommandDefinition(Sql("""
                 INSERT INTO "SIGERSA"."USUARIO"
-                    (id, nombre_completo, tipo_identificacion, identificacion_normalizada,
+                    (id, empresa_id, nombre_completo, tipo_identificacion, identificacion_normalizada,
                      correo, correo_normalizado, telefono, password_hash, estado, activo,
                      rol_solicitado, terminos_aceptados_en)
                 VALUES
-                    (@Id, @NombreCompleto, @TipoIdentificacion, @IdentificacionNormalizada,
+                    (@Id, @EmpresaId, @NombreCompleto, @TipoIdentificacion, @IdentificacionNormalizada,
                      @Correo, @Correo, @Telefono, @PasswordHash, 'PENDIENTE_VALIDACION', true,
                      @RequestedRole, @TermsAcceptedAt);
 
@@ -235,6 +239,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
                 """), new
             {
                 draft.Id,
+                draft.EmpresaId,
                 draft.NombreCompleto,
                 draft.TipoIdentificacion,
                 draft.IdentificacionNormalizada,
@@ -465,6 +470,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
         public string Identificacion { get; init; } = string.Empty;
         public string? Telefono { get; init; }
         public string[] Roles { get; init; } = [];
+        public string[] RoleNames { get; init; } = [];
         public Guid? EmpresaId { get; init; }
         public string? EmpresaNombre { get; init; }
         public string Estado { get; init; } = string.Empty;
@@ -473,7 +479,7 @@ public sealed class UsuarioRepository(IDbConnectionFactory connectionFactory)
 
         public ManagedUser ToDomain() => new(
             Id, NombreCompleto, Correo, TipoIdentificacion, Identificacion, Telefono,
-            Roles, EmpresaId, EmpresaNombre, Estado, Activo, VersionFila);
+            Roles, RoleNames, EmpresaId, EmpresaNombre, Estado, Activo, VersionFila);
     }
 
     private sealed class RoleOptionRow

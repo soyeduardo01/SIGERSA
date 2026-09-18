@@ -76,6 +76,29 @@ public sealed class EstablishmentServiceTests
             Guid.NewGuid(), ValidRequest() with { RowVersion = 2 }, ActorId, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task CreateRequiresEveryRiskInput()
+    {
+        var service = new EstablishmentService(new FakeRepository(), new EstablishmentRequestValidator());
+        var incomplete = ValidRequest() with
+        {
+            AnnualProduction = null,
+            HaccpImplemented = null,
+            MicrobiologicalSamplingPlan = null,
+            IsInabieSupplier = null,
+            Products = []
+        };
+
+        var exception = await Assert.ThrowsAsync<ValidationException>(() =>
+            service.CreateAsync(incomplete, ActorId, CancellationToken.None));
+
+        Assert.Contains(exception.Errors, error => error.PropertyName == nameof(EstablishmentRequest.AnnualProduction));
+        Assert.Contains(exception.Errors, error => error.PropertyName == nameof(EstablishmentRequest.HaccpImplemented));
+        Assert.Contains(exception.Errors, error => error.PropertyName == nameof(EstablishmentRequest.MicrobiologicalSamplingPlan));
+        Assert.Contains(exception.Errors, error => error.PropertyName == nameof(EstablishmentRequest.IsInabieSupplier));
+        Assert.Contains(exception.Errors, error => error.PropertyName == nameof(EstablishmentRequest.Products));
+    }
+
     private static EstablishmentRequest ValidRequest() => new(
         CompanyId: CompanyId,
         MunicipalityId: null,
@@ -104,7 +127,7 @@ public sealed class EstablishmentServiceTests
         Status: "ACTIVO",
         MarketIds: [],
         Contacts: [],
-        Products: [],
+        Products: [new EstablishmentProductDraft(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), "Producto", 1, "kg")],
         RowVersion: null);
 
     private sealed class FakeRepository : IEstablishmentRepository

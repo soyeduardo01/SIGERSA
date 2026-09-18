@@ -16,11 +16,32 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
                    establishment.empresa_id AS CompanyId, company.razon_social AS CompanyName,
                    province.nombre AS ProvinceName, municipality.nombre AS MunicipalityName,
                    establishment.telefono AS Phone, establishment.correo AS Email,
-                   establishment.estado AS Status, establishment.version_fila AS RowVersion
+                   establishment.estado AS Status,
+                   risk.id AS EvaluationId, risk.riesgo_producto AS ProductRisk,
+                   risk.riesgo_establecimiento AS EstablishmentRisk,
+                   risk.riesgo_total AS TotalRisk, risk.nivel_riesgo AS RiskLevel,
+                   risk.frecuencia AS Frequency,
+                   NULLIF(risk.snapshot_calculo #>> '{factors,productionScore}', '')::numeric AS ProductionScore,
+                   NULLIF(risk.snapshot_calculo #>> '{factors,haccpScore}', '')::numeric AS HaccpScore,
+                   NULLIF(risk.snapshot_calculo #>> '{factors,bpmScore}', '')::numeric AS BpmScore,
+                   NULLIF(risk.snapshot_calculo #>> '{factors,inabieScore}', '')::numeric AS InabieScore,
+                   NULLIF(risk.snapshot_calculo #>> '{factors,rejectionScore}', '')::numeric AS RejectionScore,
+                   NULLIF(risk.snapshot_calculo #>> '{factors,samplingScore}', '')::numeric AS SamplingScore,
+                   COALESCE(NULLIF(risk.snapshot_calculo #>> '{Decision,CriticalNonconformities}', '')::integer, 0) AS CriticalNonconformities,
+                   risk.snapshot_calculo #>> '{breakdown,Adjustment}' AS RiskAdjustment,
+                   establishment.version_fila AS RowVersion
             FROM "SIGERSA"."ESTABLECIMIENTO" AS establishment
             JOIN "SIGERSA"."EMPRESA" AS company ON company.id = establishment.empresa_id
             LEFT JOIN "SIGERSA"."MUNICIPIO" AS municipality ON municipality.id = establishment.municipio_id
             LEFT JOIN "SIGERSA"."PROVINCIA" AS province ON province.id = municipality.provincia_id
+            LEFT JOIN LATERAL (
+                SELECT evaluation.*
+                 FROM "SIGERSA"."EVALUACION" AS evaluation
+                 WHERE evaluation.establecimiento_id = establishment.id
+                   AND evaluation.riesgo_total IS NOT NULL
+                 ORDER BY evaluation.modificado_en DESC NULLS LAST, evaluation.creado_en DESC
+                 LIMIT 1
+            ) AS risk ON true
             WHERE establishment.activo = true
               AND (@Search IS NULL OR lower(establishment.nombre) LIKE '%' || @Search || '%'
                    OR lower(establishment.codigo) LIKE '%' || @Search || '%'
@@ -148,10 +169,10 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
                  ELSE parameter."CCode"
              END
             ORDER BY parameter."NumericData", parameter."ParametersId";
-            SELECT id AS Id, codigo AS Code, nombre AS Name FROM "SIGERSA"."CATEGORIA_ALIMENTO" WHERE activo = true ORDER BY orden, nombre;
+            SELECT id AS Id, codigo AS Code, nombre AS Name FROM "SIGERSA"."CATEGORIA_ALIMENTO" WHERE activo = true ORDER BY nombre;
             SELECT id AS Id, categoria_alimento_id AS CategoryId, codigo AS Code,
                    nombre AS Name, nivel_riesgo::integer AS RiskLevel
-            FROM "SIGERSA"."SUBCATEGORIA_ALIMENTO" WHERE activo = true ORDER BY orden, nombre;
+            FROM "SIGERSA"."SUBCATEGORIA_ALIMENTO" WHERE activo = true ORDER BY nombre;
             SELECT * FROM "SIGERSA"."FN_ParametersControl_GetActive"('ESTADO_ESTABLECIMIENTO', NULL);
             SELECT * FROM "SIGERSA"."FN_ParametersControl_GetActive"('NIVEL_IMPLEMENTACION_HACCP', NULL);
             SELECT * FROM "SIGERSA"."FN_ParametersControl_GetActive"('APLICACION_MUESTREO_MICROBIOLOGICO', NULL);
@@ -229,6 +250,16 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
         Guid actorId,
         CancellationToken cancellationToken)
     {
+        var productSubcategoryIds = draft.Products.Select(product => product.SubcategoryId).Distinct().ToArray();
+        var validRiskSubcategories = await connection.ExecuteScalarAsync<int>(new CommandDefinition(Sql("""
+            SELECT COUNT(*)::integer
+              FROM "SIGERSA"."SUBCATEGORIA_ALIMENTO"
+             WHERE id = ANY(@ProductSubcategoryIds) AND activo = true AND nivel_riesgo IS NOT NULL;
+            """), new { ProductSubcategoryIds = productSubcategoryIds }, transaction,
+            cancellationToken: cancellationToken));
+        if (validRiskSubcategories != productSubcategoryIds.Length)
+            throw new ArgumentException("Todos los productos deben usar una subcategoría activa con nivel de riesgo configurado.");
+
         await connection.ExecuteAsync(new CommandDefinition(Sql("""
             UPDATE "SIGERSA"."CONTACTO" SET activo = false, modificado_en = CURRENT_TIMESTAMP,
                 modificado_por = @ActorId, version_fila = version_fila + 1
@@ -345,7 +376,7 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
              es_suplidor_inabie, distribucion_inabie_codigo, estado, activo, creado_por)
         VALUES
             (@Id, @CompanyId, @MunicipalityId, @DpsDasId, @CommercializationId,
-             (SELECT razon_social FROM "SIGERSA"."EMPRESA" WHERE id = @CompanyId AND activo = true),
+             @Name,
              @Street, @AddressNumber, @Phone, @Email, @OperationsStartDate,
              @SanitaryPermitNumber, @SanitaryPermitExpiresAt, @ProductsDescription,
              @AnnualProduction, @FemaleEmployees, @MaleEmployees,
@@ -358,7 +389,7 @@ public sealed class EstablishmentRepository(IDbConnectionFactory connectionFacto
         UPDATE "SIGERSA"."ESTABLECIMIENTO"
            SET municipio_id = @MunicipalityId, dps_das_id = @DpsDasId,
                comercializacion_id = @CommercializationId,
-               nombre = (SELECT razon_social FROM "SIGERSA"."EMPRESA" WHERE id = @CompanyId AND activo = true),
+               nombre = @Name,
                calle = @Street, numero_direccion = @AddressNumber, telefono = @Phone, correo = @Email,
                fecha_inicio_operaciones = @OperationsStartDate,
                permiso_sanitario_numero = @SanitaryPermitNumber,

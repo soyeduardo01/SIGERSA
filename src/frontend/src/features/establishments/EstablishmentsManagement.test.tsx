@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { alerts } from '../../lib/alerts'
+import { getEstablishmentOptions, getEstablishments } from '../../lib/api'
 import { EstablishmentsManagement } from './EstablishmentsManagement'
 
 vi.mock('../../lib/api', () => ({
@@ -31,8 +33,16 @@ vi.mock('../../lib/api', () => ({
     ],
     samplingApplications: [
       { parametersId: 5, cCode: 'MP', stringData: 'Solo para las materias primas' },
-      { parametersId: 6, cCode: 'AP_PT', stringData: 'Solo para las áreas de proceso y productos terminados' },
-      { parametersId: 7, cCode: 'MP_AP_PT', stringData: 'Para las materias primas, las áreas de proceso y productos terminados' },
+      {
+        parametersId: 6,
+        cCode: 'AP_PT',
+        stringData: 'Solo para las áreas de proceso y productos terminados',
+      },
+      {
+        parametersId: 7,
+        cCode: 'MP_AP_PT',
+        stringData: 'Para las materias primas, las áreas de proceso y productos terminados',
+      },
     ],
     inabieDistributions: [
       { parametersId: 8, cCode: 'NACIONAL', stringData: 'A nivel nacional' },
@@ -77,12 +87,21 @@ describe('EstablishmentsManagement', () => {
     expect(targetMarket).toHaveTextContent('Todos los segmentos')
 
     fireEvent.click(screen.getByRole('tab', { name: 'Controles y estado' }))
-    const switches = screen.getAllByRole('switch')
-    switches.forEach((control) => fireEvent.click(control))
+    fireEvent.change(screen.getByLabelText(/¿Tienen implementado el sistema HACCP/), {
+      target: { value: 'true' },
+    })
+    fireEvent.change(screen.getByLabelText(/¿Tienen un plan de muestreo microbiológico/), {
+      target: { value: 'true' },
+    })
+    fireEvent.change(screen.getByLabelText(/¿Son suplidores del INABIE/), {
+      target: { value: 'true' },
+    })
     expect(screen.getByText('En el 25% de las líneas de producción')).toBeInTheDocument()
     expect(screen.getByText('En todas las líneas de producción')).toBeInTheDocument()
     expect(screen.getByText('Solo para las materias primas')).toBeInTheDocument()
-    expect(screen.getByText('Para las materias primas, las áreas de proceso y productos terminados')).toBeInTheDocument()
+    expect(
+      screen.getByText('Para las materias primas, las áreas de proceso y productos terminados'),
+    ).toBeInTheDocument()
     expect(screen.getByText('A nivel nacional')).toBeInTheDocument()
     expect(screen.getByText('A nivel regional')).toBeInTheDocument()
     expect(screen.getByText('A nivel local')).toBeInTheDocument()
@@ -94,5 +113,54 @@ describe('EstablishmentsManagement', () => {
     fireEvent.change(contactPhones[0], { target: { value: '809555123455' } })
     expect(identifications[0]).toHaveValue('001-0000000-1')
     expect(contactPhones[0]).toHaveValue('809-555-1234')
+  })
+
+  it('mantiene disponible el listado si falla la carga de catálogos', async () => {
+    vi.mocked(getEstablishments).mockResolvedValueOnce({
+      items: [
+        {
+          id: 'establishment-1',
+          code: 'EST-001',
+          name: 'Planta Central',
+          companyId: 'company-1',
+          companyName: 'Empresa de prueba',
+          provinceName: 'Distrito Nacional',
+          municipalityName: 'Santo Domingo',
+          phone: '809-555-1234',
+          email: null,
+          status: 'ACTIVO',
+          evaluationId: null,
+          productRisk: null,
+          establishmentRisk: null,
+          totalRisk: null,
+          riskLevel: null,
+          frequency: null,
+          productionScore: null,
+          haccpScore: null,
+          bpmScore: null,
+          inabieScore: null,
+          rejectionScore: null,
+          samplingScore: null,
+          criticalNonconformities: 0,
+          riskAdjustment: null,
+          rowVersion: 1,
+        },
+      ],
+      page: 1,
+      pageSize: 10,
+      total: 1,
+    })
+    vi.mocked(getEstablishmentOptions).mockRejectedValueOnce(new Error('Fallo del catálogo'))
+
+    render(<EstablishmentsManagement />)
+
+    expect(await screen.findByText('Planta Central')).toBeInTheDocument()
+    expect(screen.queryByText('La solicitud no pudo completarse.')).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(alerts.error).toHaveBeenCalledWith(
+        expect.any(Error),
+        'No se pudieron cargar los catálogos',
+      ),
+    )
   })
 })

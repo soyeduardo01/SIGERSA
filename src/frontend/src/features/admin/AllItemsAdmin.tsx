@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
+import { Pagination, useClientPagination } from '../../components/ui/Pagination'
 import {
   createAllItem,
   deleteAllItem,
@@ -30,6 +31,7 @@ export function AllItemsAdmin({ readOnly = false }: { readOnly?: boolean }) {
   const [message, setMessage] = useState('')
   const [proposalOpen, setProposalOpen] = useState(false)
   const [proposal, setProposal] = useState('')
+  const pagination = useClientPagination(items)
 
   useEffect(() => {
     void reload()
@@ -168,7 +170,7 @@ export function AllItemsAdmin({ readOnly = false }: { readOnly?: boolean }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {items.map((item) => (
+              {pagination.visibleItems.map((item) => (
                 <tr key={item.items}>
                   <td className="p-3 font-semibold">{item.items}</td>
                   <td className="p-3">{item.itemsId}</td>
@@ -181,6 +183,13 @@ export function AllItemsAdmin({ readOnly = false }: { readOnly?: boolean }) {
           </table>
           {items.length === 0 && !message && <TableSkeleton rows={6} columns={5} />}
         </div>
+        <Pagination
+          page={pagination.page}
+          pageSize={pagination.pageSize}
+          total={items.length}
+          label="ítems BPM"
+          onChange={pagination.setPage}
+        />
         {proposalOpen && (
           <div
             className="sigersa-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -464,54 +473,64 @@ export function AllItemsAdmin({ readOnly = false }: { readOnly?: boolean }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {items.map((item, index) => (
-              <tr key={item.items}>
-                <td className="p-3 font-semibold">{item.items}</td>
-                <td className="p-3">{item.itemsId}</td>
-                <td className="max-w-xl p-3">{item.description}</td>
-                <td className="p-3">{sectionTypeLabels[item.sectionType] ?? item.sectionType}</td>
-                <td className="p-3">{item.parents ?? '—'}</td>
-                <td className="p-3">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={index === 0}
-                      aria-label={`Mover ${item.itemsId} hacia arriba`}
-                      onClick={() => void move(index, -1)}
-                      className="min-h-10 rounded-lg border border-slate-300 px-3 font-bold disabled:opacity-40"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      disabled={index === items.length - 1}
-                      aria-label={`Mover ${item.itemsId} hacia abajo`}
-                      onClick={() => void move(index, 1)}
-                      className="min-h-10 rounded-lg border border-slate-300 px-3 font-bold disabled:opacity-40"
-                    >
-                      ↓
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => edit(item)}
-                      className="min-h-10 rounded-lg border border-brand-700 px-3 font-bold text-brand-700"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void remove(item)}
-                      className="min-h-10 rounded-lg border border-red-300 px-3 font-bold text-red-700"
-                    >
-                      Remover
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {pagination.visibleItems.map((item, index) => {
+              const absoluteIndex = pagination.startIndex + index
+              return (
+                <tr key={item.items}>
+                  <td className="p-3 font-semibold">{item.items}</td>
+                  <td className="p-3">{item.itemsId}</td>
+                  <td className="max-w-xl p-3">{item.description}</td>
+                  <td className="p-3">{sectionTypeLabels[item.sectionType] ?? item.sectionType}</td>
+                  <td className="p-3">{item.parents ?? '—'}</td>
+                  <td className="p-3">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={absoluteIndex === 0}
+                        aria-label={`Mover ${item.itemsId} hacia arriba`}
+                        onClick={() => void move(absoluteIndex, -1)}
+                        className="min-h-10 rounded-lg border border-slate-300 px-3 font-bold disabled:opacity-40"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        disabled={absoluteIndex === items.length - 1}
+                        aria-label={`Mover ${item.itemsId} hacia abajo`}
+                        onClick={() => void move(absoluteIndex, 1)}
+                        className="min-h-10 rounded-lg border border-slate-300 px-3 font-bold disabled:opacity-40"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => edit(item)}
+                        className="min-h-10 rounded-lg border border-brand-700 px-3 font-bold text-brand-700"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void remove(item)}
+                        className="min-h-10 rounded-lg border border-red-300 px-3 font-bold text-red-700"
+                      >
+                        Remover
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={pagination.page}
+        pageSize={pagination.pageSize}
+        total={items.length}
+        label="ítems BPM"
+        onChange={pagination.setPage}
+      />
     </section>
   )
 }

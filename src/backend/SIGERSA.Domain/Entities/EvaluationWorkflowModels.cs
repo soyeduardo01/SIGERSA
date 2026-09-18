@@ -143,6 +143,7 @@ public sealed record EvaluationCalculationInput(
     long RowVersion,
     IReadOnlyList<EvaluationFormItem> Items,
     IReadOnlyList<EvaluationAnswer> Answers,
+    decimal? ProductRisk,
     decimal? MonthlyProduction,
     bool? HaccpImplemented,
     decimal? HaccpPercentage,
@@ -162,7 +163,23 @@ public sealed record EvaluationCalculation(
     string Frequency,
     DateOnly? NextInspectionDate,
     EvaluationDecisionGuidance Decision,
+    RiskCalculationBreakdown Breakdown,
     long RowVersion);
+
+public sealed record RiskFactorBreakdown(
+    string Code,
+    string Name,
+    decimal Weight,
+    decimal? Score,
+    decimal? WeightedValue,
+    string Basis);
+
+public sealed record RiskCalculationBreakdown(
+    string Formula,
+    decimal? BaseTotalRisk,
+    decimal? EffectiveTotalRisk,
+    string? Adjustment,
+    IReadOnlyList<RiskFactorBreakdown> Factors);
 
 public sealed record EvaluationDecisionGuidance(
     string Band,

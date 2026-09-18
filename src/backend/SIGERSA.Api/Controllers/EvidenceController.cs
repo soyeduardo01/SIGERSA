@@ -16,9 +16,9 @@ public sealed class EvidenceController(EvidenceService service, IOptions<Supabas
 {
     [HttpGet]
     public Task<EvidencesPage> Search(
-        string? search, string? evidenceType, int page = 1, int pageSize = 20,
+        string? search, string? evidenceType, Guid? evaluationId, int page = 1, int pageSize = 20,
         CancellationToken cancellationToken = default) =>
-        service.SearchAsync(search, evidenceType, page, pageSize, ActorContext(), cancellationToken);
+        service.SearchAsync(search, evidenceType, evaluationId, page, pageSize, ActorContext(), cancellationToken);
 
     [HttpGet("{id:guid}/content")]
     public async Task<IActionResult> Download(Guid id, CancellationToken cancellationToken)

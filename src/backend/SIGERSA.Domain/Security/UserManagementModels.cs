@@ -10,6 +10,7 @@ public sealed record ManagedUser(
     string Identificacion,
     string? Telefono,
     string[] Roles,
+    string[] RoleNames,
     Guid? EmpresaId,
     string? EmpresaNombre,
     string Estado,
@@ -44,6 +45,7 @@ public sealed record ManagedUserDraft(
 
 public sealed record PublicUserRegistrationDraft(
     Guid Id,
+    Guid? EmpresaId,
     string NombreCompleto,
     string Correo,
     string TipoIdentificacion,

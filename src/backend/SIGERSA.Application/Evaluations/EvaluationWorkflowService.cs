@@ -132,13 +132,11 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
 
     public async Task<EvaluationCalculation> CalculateAsync(
         Guid evaluationId,
-        decimal productRisk,
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
         if (!HasRole(actor, "TECNICO_EVALUADOR"))
             throw new ForbiddenException("Solo el técnico evaluador puede calcular la evaluación.");
-        if (productRisk is < 1m or > 3m) throw new ArgumentOutOfRangeException(nameof(productRisk));
         var input = await repository.GetCalculationInputAsync(
             Required(evaluationId, nameof(evaluationId)),
             Required(actor.UserId, nameof(actor.UserId)),
@@ -191,7 +189,8 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             new RiskFactor(0.06m, rejectionScore),
             new RiskFactor(0.08m, samplingScore)
         ]);
-        var total = RiskEngine.CalculateTotalRisk(productRisk, establishmentRisk);
+        var decision = InspectionQualificationPolicy.Evaluate(policy, compliance, applicableAnswers);
+        var total = RiskEngine.CalculateTotalRisk(input.ProductRisk, establishmentRisk);
         var level = total.Level switch
         {
             RiskLevel.Low => "BAJO",
@@ -213,7 +212,27 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             InspectionFrequency.Quarterly => DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(3),
             _ => (DateOnly?)null
         };
-        var decision = InspectionQualificationPolicy.Evaluate(policy, compliance, applicableAnswers);
+        var factors = new[]
+        {
+            Factor("PRODUCCION", "Volumen de producción", 0.16m, productionScore,
+                input.MonthlyProduction is null ? "Sin producción mensual registrada" : $"{input.MonthlyProduction:N0} por mes"),
+            Factor("HACCP", "Implementación del sistema HACCP", 0.09m, haccpScore,
+                input.HaccpImplemented == true ? $"Implementado al {input.HaccpPercentage ?? 0m:N1} %" : "No implementado"),
+            Factor("BPM", "Cumplimiento con las BPM", 0.56m, bpmScore,
+                $"Cumplimiento calculado: {compliance:N1} %"),
+            Factor("INABIE", "Proveedor INABIE", 0.05m, inabieScore,
+                input.IsInabieSupplier == true ? $"Distribución: {input.InabieDistributionCode ?? "sin especificar"}" : "No es suplidor INABIE"),
+            Factor("RECHAZOS", "Rechazos microbiológicos", 0.06m, rejectionScore,
+                $"{input.MicrobiologicalRejectionsLastFiveYears} en los últimos 5 años"),
+            Factor("MUESTREO", "Plan de muestreo", 0.08m, samplingScore,
+                input.MicrobiologicalSamplingPlan == true ? $"Aplicación: {input.SamplingApplicationCode ?? "sin especificar"}" : "No dispone de plan")
+        };
+        var breakdown = new RiskCalculationBreakdown(
+            "Riesgo total = riesgo microbiológico del producto × riesgo del establecimiento",
+            total.TotalRisk,
+            total.TotalRisk,
+            null,
+            factors);
         var calculation = new EvaluationCalculation(
             input.EvaluationId,
             compliance,
@@ -224,6 +243,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             frequency,
             nextInspectionDate,
             decision,
+            breakdown,
             input.RowVersion);
         var snapshot = JsonSerializer.Serialize(new
         {
@@ -235,6 +255,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             calculation.RiskLevel,
             calculation.Frequency,
             calculation.NextInspectionDate,
+            breakdown,
             policy = new
             {
                 policy.Mode,
@@ -269,13 +290,12 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
 
     public async Task<EvaluationCalculation> FinalizeAsync(
         Guid evaluationId,
-        decimal productRisk,
         EvaluationActor actor,
         CancellationToken cancellationToken)
     {
         if (!HasRole(actor, "TECNICO_EVALUADOR"))
             throw new ForbiddenException("Solo el técnico evaluador puede finalizar la evaluación.");
-        var calculation = await CalculateAsync(evaluationId, productRisk, actor, cancellationToken);
+        var calculation = await CalculateAsync(evaluationId, actor, cancellationToken);
         if (calculation.TotalRisk is null)
             throw new InvalidOperationException("La evaluación no puede finalizar hasta completar las respuestas y factores de riesgo requeridos.");
         var rowVersion = await TransitionAsync(evaluationId,
@@ -441,6 +461,10 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         true when application is "MP_AP_PT" or "MATERIAS_PRIMAS_AREAS_PROCESO_PRODUCTOS_TERMINADOS" => 1m,
         _ => null
     };
+
+    private static RiskFactorBreakdown Factor(
+        string code, string name, decimal weight, decimal? score, string basis) =>
+        new(code, name, weight, score, score * weight, basis);
 
     private static Guid Required(Guid value, string name)
     {

@@ -32,7 +32,7 @@ function initialDraft(user: ManagedUser | null): ManagedUserDraft {
     telefono: formatPhone(user?.telefono ?? ''),
     empresaId: user?.empresaId ?? null,
     rol: user?.roles[0] ?? '',
-    estado: user?.estado ?? 'PENDIENTE_VALIDACION',
+    estado: user?.estado ?? 'ACTIVO',
     temporaryPassword: '',
     versionFila: user?.versionFila ?? null,
   }
@@ -136,6 +136,8 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
             Teléfono
             <input
               inputMode="tel"
+              pattern="(809|829|849)-[0-9]{3}-[0-9]{4}"
+              title="Use 10 dígitos y un prefijo 809, 829 o 849."
               maxLength={12}
               placeholder="000-000-0000"
               value={draft.telefono}
@@ -233,7 +235,10 @@ export function UserFormModal({ user, options, onClose, onSave }: UserFormModalP
               <option value="">Seleccione</option>
               {userStates.options
                 .filter((option) =>
-                  ['PENDIENTE_VALIDACION', 'ACTIVO', 'RECHAZADO'].includes(option.stringData ?? ''),
+                  (user
+                    ? ['PENDIENTE_VALIDACION', 'ACTIVO', 'RECHAZADO']
+                    : ['ACTIVO', 'RECHAZADO']
+                  ).includes(option.stringData ?? ''),
                 )
                 .map((option) => (
                   <option key={option.parametersId} value={option.stringData ?? ''}>

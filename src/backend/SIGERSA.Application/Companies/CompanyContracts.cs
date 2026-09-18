@@ -1,4 +1,5 @@
 using FluentValidation;
+using SIGERSA.Application.Common;
 
 namespace SIGERSA.Application.Companies;
 
@@ -28,10 +29,15 @@ public sealed class CompanyRequestValidator : AbstractValidator<CompanyRequest>
     public CompanyRequestValidator()
     {
         RuleFor(request => request.LegalName).NotEmpty().MaximumLength(250);
-        RuleFor(request => request.TaxId).NotEmpty().MaximumLength(30);
+        RuleFor(request => request.TaxId)
+            .NotEmpty()
+            .MaximumLength(30)
+            .Matches("^[0-9]+$")
+            .WithMessage("El RNC solo puede contener caracteres numéricos.");
         RuleFor(request => request.TradeName).MaximumLength(250);
         RuleFor(request => request.EconomicActivity).MaximumLength(250);
-        RuleFor(request => request.Phone).MaximumLength(40);
+        RuleFor(request => request.Phone).MaximumLength(40).Must(DominicanPhone.IsValid)
+            .WithMessage("El teléfono debe tener 10 dígitos y comenzar con 809, 829 o 849.");
         RuleFor(request => request.Email).EmailAddress().MaximumLength(320)
             .When(request => !string.IsNullOrWhiteSpace(request.Email));
         RuleFor(request => request.Address).MaximumLength(2000);
@@ -48,7 +54,8 @@ public sealed class CompanyRequestValidator : AbstractValidator<CompanyRequest>
             contact.RuleFor(value => value.IdentificationType)
                 .Must(value => value is null or "CEDULA" or "PASAPORTE")
                 .WithMessage("El tipo de identificación debe ser CEDULA o PASAPORTE.");
-            contact.RuleFor(value => value.Phone).MaximumLength(40);
+            contact.RuleFor(value => value.Phone).MaximumLength(40).Must(DominicanPhone.IsValid)
+                .WithMessage("El teléfono debe tener 10 dígitos y comenzar con 809, 829 o 849.");
             contact.RuleFor(value => value.Email).EmailAddress().MaximumLength(320)
                 .When(value => !string.IsNullOrWhiteSpace(value.Email));
         });

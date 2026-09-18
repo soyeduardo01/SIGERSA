@@ -405,10 +405,18 @@ function CompanyFormModal({
             <input
               required
               maxLength={30}
+              inputMode="numeric"
+              pattern="[0-9]+"
+              title="Ingrese únicamente números."
               value={draft.taxId}
-              onChange={(event) => setDraft({ ...draft, taxId: event.target.value })}
+              onChange={(event) =>
+                setDraft({ ...draft, taxId: event.target.value.replace(/\D/g, '') })
+              }
               className={inputClass}
             />
+            <span className="mt-1 block text-xs font-normal text-ink-muted">
+              Solo números, sin guiones ni espacios.
+            </span>
           </label>
           <label className="text-sm font-bold text-ink-body">
             Razón social
@@ -487,6 +495,8 @@ function CompanyFormModal({
             Teléfono
             <input
               type="tel"
+              pattern="(809|829|849)-[0-9]{3}-[0-9]{4}"
+              title="Use 10 dígitos y un prefijo 809, 829 o 849."
               maxLength={40}
               value={draft.phone ?? ''}
               onChange={(event) => setOptional('phone', formatPhone(event.target.value))}
@@ -527,7 +537,7 @@ function CompanyFormModal({
               const contact = draft.contacts.find((item) => item.type === type)
               return (
                 <div key={type} className="grid gap-3 rounded-lg bg-slate-50 p-3 md:grid-cols-2">
-                  <h3 className="text-sm font-bold text-brand-800 md:col-span-2">
+                  <h3 className="text-brand-800 text-sm font-bold md:col-span-2">
                     {type === 'LEGAL'
                       ? 'Representante legal'
                       : type === 'CALIDAD'
@@ -577,9 +587,14 @@ function CompanyFormModal({
                   <label className="text-xs font-bold text-ink-body">
                     Teléfono
                     <input
+                      type="tel"
+                      pattern="(809|829|849)-[0-9]{3}-[0-9]{4}"
+                      title="Use 10 dígitos y un prefijo 809, 829 o 849."
                       maxLength={40}
                       value={contact?.phone ?? ''}
-                      onChange={(event) => updateContact(type, 'phone', formatPhone(event.target.value))}
+                      onChange={(event) =>
+                        updateContact(type, 'phone', formatPhone(event.target.value))
+                      }
                       className={inputClass}
                     />
                   </label>

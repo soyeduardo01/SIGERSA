@@ -285,6 +285,8 @@ export function ProfileManagement() {
                 <Field label="Teléfono">
                   <input
                     type="tel"
+                    pattern="\(?(809|829|849)\)?[ ]?[0-9]{3}-[0-9]{4}"
+                    title="Use 10 dígitos y un prefijo 809, 829 o 849."
                     maxLength={14}
                     value={phone}
                     onChange={(event) => setPhone(formatProfilePhone(event.target.value))}

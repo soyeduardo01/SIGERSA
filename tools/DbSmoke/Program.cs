@@ -6,6 +6,7 @@ using SIGERSA.Application.Evaluations;
 using SIGERSA.Application.Operations;
 using SIGERSA.Domain.Entities;
 using SIGERSA.Domain.Exceptions;
+using SIGERSA.Domain.Security;
 using SIGERSA.Infrastructure.Configuration;
 using SIGERSA.Infrastructure.Persistence;
 using SIGERSA.Infrastructure.Reports;
@@ -19,26 +20,206 @@ var localSettings = File.ReadLines(Path.Combine(root, ".env.local"))
 var connectionString = localSettings["Database__ConnectionString"];
 await using var dataSource = NpgsqlDataSource.Create(connectionString);
 
+if (args.Contains("--check-establishment-roundtrip", StringComparer.Ordinal))
+{
+    await using var connection = await dataSource.OpenConnectionAsync();
+    var seed = await connection.QuerySingleAsync<EstablishmentRoundtripSeed>("""
+        SELECT company.id AS CompanyId, municipality.id AS MunicipalityId,
+               municipality.provincia_id AS ProvinceId, dps.id AS DpsDasId,
+               commercialization.id AS CommercializationId, market.id AS MarketId,
+               subcategory.id AS SubcategoryId,
+               (SELECT user_role.usuario_id
+                  FROM "SIGERSA"."USUARIO_ROL" user_role
+                  JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                 WHERE user_role.activo = true AND role.codigo = 'ADMINISTRADOR'
+                 LIMIT 1) AS ActorId
+          FROM "SIGERSA"."EMPRESA" company
+          CROSS JOIN LATERAL (SELECT id, provincia_id FROM "SIGERSA"."MUNICIPIO" WHERE activo = true LIMIT 1) municipality
+          CROSS JOIN LATERAL (SELECT id FROM "SIGERSA"."DPS_DAS" WHERE activo = true LIMIT 1) dps
+          CROSS JOIN LATERAL (SELECT id FROM "SIGERSA"."COMERCIALIZACION" WHERE activo = true LIMIT 1) commercialization
+          CROSS JOIN LATERAL (SELECT id FROM "SIGERSA"."MERCADO_OBJETIVO" WHERE activo = true LIMIT 1) market
+          CROSS JOIN LATERAL (SELECT id FROM "SIGERSA"."SUBCATEGORIA_ALIMENTO" WHERE activo = true AND nivel_riesgo IS NOT NULL LIMIT 1) subcategory
+         WHERE company.activo = true
+         LIMIT 1;
+        """);
+    var repository = new EstablishmentRepository(new DbConnectionFactory(dataSource));
+    var service = new SIGERSA.Application.Establishments.EstablishmentService(
+        repository, new SIGERSA.Application.Establishments.EstablishmentRequestValidator());
+    var initialPage = await service.SearchAsync(null, null, 1, 10, CancellationToken.None);
+    var options = await service.GetOptionsAsync(CancellationToken.None);
+    if (initialPage.Page != 1 || initialPage.PageSize != 10 || options.Companies.Count == 0)
+        throw new InvalidOperationException("Las consultas iniciales del módulo de establecimientos no respondieron correctamente.");
+    Guid? establishmentId = null;
+    try
+    {
+        var request = new SIGERSA.Application.Establishments.EstablishmentRequest(
+            seed.CompanyId, seed.MunicipalityId, seed.DpsDasId, seed.CommercializationId,
+            "", "Planta de prueba íntegra", "Calle Uno", "42", "809-555-0101",
+            "planta@example.com", DateTimeOffset.UtcNow.AddYears(-2), "PS-ROUNDTRIP",
+            DateTimeOffset.UtcNow.AddYears(1), "Producto de prueba", 1_200_000m, 12, 8,
+            1, true, 75, true, "MP", true, "REGIONAL", "ACTIVO", [seed.MarketId],
+            [new EstablishmentContactDraft("PRINCIPAL", "Contacto Uno", "00100000001", "829-555-0102", "contacto@example.com")],
+            [new EstablishmentProductDraft(seed.SubcategoryId, "Producto A", 100_000m, "kg"),
+             new EstablishmentProductDraft(seed.SubcategoryId, "Producto B", 200_000m, "kg")], null);
+        establishmentId = await service.CreateAsync(request, seed.ActorId, CancellationToken.None);
+        var created = await service.GetAsync(establishmentId.Value, CancellationToken.None);
+        if (created.Data.Name != "Planta de prueba íntegra" || created.Data.Street != "Calle Uno"
+            || created.Data.Products.Count != 2 || created.Data.Contacts.Count != 1
+            || created.Data.MarketIds.Single() != seed.MarketId || created.ProvinceId != seed.ProvinceId)
+            throw new InvalidOperationException("La creación del establecimiento perdió información.");
+
+        await service.UpdateAsync(establishmentId.Value, request with
+        {
+            Name = "Planta editada íntegra",
+            Street = "Calle Dos",
+            AnnualProduction = 2_400_000m,
+            RowVersion = created.Data.RowVersion
+        }, seed.ActorId, CancellationToken.None);
+        var updated = await service.GetAsync(establishmentId.Value, CancellationToken.None);
+        if (updated.Data.Name != "Planta editada íntegra" || updated.Data.Street != "Calle Dos"
+            || updated.Data.AnnualProduction != 2_400_000m || updated.Data.Products.Count != 2
+            || updated.Data.Contacts.Single().FullName != "Contacto Uno")
+            throw new InvalidOperationException("La edición del establecimiento no reconstruyó todos los campos.");
+        Console.WriteLine("Establishment roundtrip OK: id={0}, products={1}, contacts={2}, version={3}",
+            establishmentId, updated.Data.Products.Count, updated.Data.Contacts.Count, updated.Data.RowVersion);
+    }
+    finally
+    {
+        if (establishmentId.HasValue)
+        {
+            await connection.ExecuteAsync("""
+                DELETE FROM "SIGERSA"."CONTACTO" WHERE establecimiento_id = @Id;
+                DELETE FROM "SIGERSA"."ESTABLECIMIENTO_MERCADO" WHERE establecimiento_id = @Id;
+                DELETE FROM "SIGERSA"."ESTABLECIMIENTO_PRODUCTO" WHERE establecimiento_id = @Id;
+                DELETE FROM "SIGERSA"."ESTABLECIMIENTO" WHERE id = @Id;
+                """, new { Id = establishmentId.Value });
+        }
+    }
+    return;
+}
+
 if (args.Contains("--check-close-evaluation", StringComparer.Ordinal))
 {
     await using var connection = await dataSource.OpenConnectionAsync();
-    var target = await connection.QuerySingleAsync<EvaluationTransitionTarget>("""
+    var target = await connection.QuerySingleOrDefaultAsync<EvaluationTransitionTarget>("""
         SELECT evaluation.id AS EvaluationId, evaluation.version_fila AS RowVersion,
                (SELECT user_role.usuario_id
                   FROM "SIGERSA"."USUARIO_ROL" user_role
                   JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
                  WHERE user_role.activo = true AND role.activo = true
                    AND role.codigo = 'COORDINADOR'
+                   AND user_role.usuario_id <> evaluation.evaluador_principal_id
                  ORDER BY user_role.usuario_id LIMIT 1) AS CoordinatorId
-          FROM "SIGERSA"."EVALUACION" evaluation
+         FROM "SIGERSA"."EVALUACION" evaluation
          WHERE evaluation.estado = 'NO_APROBADA'
+           AND EXISTS (
+               SELECT 1 FROM "SIGERSA"."NO_CONFORMIDAD" nonconformity
+                WHERE nonconformity.evaluacion_id = evaluation.id
+                  AND nonconformity.estado <> 'CERRADO')
             OR (evaluation.estado = 'APROBADA' AND EXISTS (
                 SELECT 1 FROM "SIGERSA"."INFORME" report
                 JOIN "SIGERSA"."INFORME_VERSION" version ON version.informe_id = report.id
-                WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true))
+                WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true)
+                AND EXISTS (
+                    SELECT 1 FROM "SIGERSA"."NO_CONFORMIDAD" nonconformity
+                     WHERE nonconformity.evaluacion_id = evaluation.id
+                       AND nonconformity.estado <> 'CERRADO'))
          ORDER BY evaluation.modificado_en DESC
          LIMIT 1;
         """);
+    Guid? seededEvaluationId = null;
+    Guid? seededCaseId = null;
+    if (target is null)
+    {
+        var seed = await connection.QuerySingleAsync<ReinspectionSeed>("""
+            SELECT inspection_case.empresa_id AS CompanyId,
+                   evaluation.establecimiento_id AS EstablishmentId,
+                   evaluation.ficha_inspeccion_id AS InspectionTemplateId,
+                   evaluation.evaluador_principal_id AS EvaluatorId,
+                   evaluation.version_regla_riesgo_id AS RiskRuleVersionId,
+                   item.id AS ItemId, criticality.id AS CriticalityId,
+                   (SELECT user_role.usuario_id
+                      FROM "SIGERSA"."USUARIO_ROL" user_role
+                      JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
+                     WHERE user_role.activo = true AND role.activo = true
+                       AND role.codigo = 'COORDINADOR'
+                       AND user_role.usuario_id <> evaluation.evaluador_principal_id
+                     ORDER BY user_role.usuario_id LIMIT 1) AS CoordinatorId
+              FROM "SIGERSA"."EVALUACION" evaluation
+              JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
+              JOIN "SIGERSA"."ITEM_FICHA" item
+                ON item.ficha_inspeccion_id = evaluation.ficha_inspeccion_id
+               AND item.es_evaluable = true AND item.source_allitems_item IS NOT NULL
+              JOIN "SIGERSA"."NIVEL_CRITICIDAD" criticality ON criticality.codigo = 'M'
+             ORDER BY evaluation.creado_en DESC, item.orden
+             LIMIT 1;
+            """);
+        seededCaseId = Guid.NewGuid();
+        seededEvaluationId = Guid.NewGuid();
+        var responseId = Guid.NewGuid();
+        await connection.ExecuteAsync("""
+            INSERT INTO "SIGERSA"."CASO"
+                (id, numero, empresa_id, establecimiento_id, motivo_inspeccion_id,
+                 origen, estado, prioridad, creado_por)
+            SELECT @CaseId, 'CAS-SMOKE-' || upper(substr(replace(@CaseId::text, '-', ''), 1, 8)),
+                   @CompanyId, @EstablishmentId, reason.id, 'PROGRAMACION', 'ABIERTO', 2,
+                   @CoordinatorId
+              FROM "SIGERSA"."MOTIVO_INSPECCION" reason
+             WHERE reason.codigo = 'INSPECCION_CONTROL' AND reason.activo = true;
+
+            INSERT INTO "SIGERSA"."EVALUACION"
+                (id, numero, caso_id, establecimiento_id, ficha_inspeccion_id,
+                 evaluador_principal_id, estado, alcance, iniciada_en, finalizada_en,
+                 porcentaje_cumplimiento, riesgo_producto, riesgo_establecimiento,
+                 riesgo_total, nivel_riesgo, frecuencia, version_regla_riesgo_id, creado_por)
+            VALUES
+                (@EvaluationId,
+                 'EV-SMOKE-' || upper(substr(replace(@EvaluationId::text, '-', ''), 1, 8)),
+                 @CaseId, @EstablishmentId, @InspectionTemplateId, @EvaluatorId,
+                 'EN_EJECUCION', 'COMPLETO', CURRENT_TIMESTAMP - INTERVAL '1 hour',
+                 CURRENT_TIMESTAMP, 75, 1, 2, 2, 'BAJO', 'ANUAL', @RiskRuleVersionId,
+                 @CoordinatorId);
+
+            INSERT INTO "SIGERSA"."RESPUESTA_USUARIO"
+                (id, evaluacion_id, item_ficha_id, valor_texto, nivel_criticidad_id,
+                 puntaje_obtenido, maximo_aplicable, respondido_por, idempotency_key,
+                 creado_por)
+            VALUES (@ResponseId, @EvaluationId, @ItemId, 'NO_CUMPLE', @CriticalityId,
+                    0, 1, @EvaluatorId, gen_random_uuid(), @EvaluatorId);
+
+            INSERT INTO "SIGERSA"."NO_CONFORMIDAD"
+                (id, evaluacion_id, item_ficha_id, respuesta_usuario_id,
+                 nivel_criticidad_id, codigo, descripcion, estado, creado_por)
+            VALUES (gen_random_uuid(), @EvaluationId, @ItemId, @ResponseId,
+                    @CriticalityId, 'NC-SMOKE', 'No conformidad para prueba transaccional',
+                    'ABIERTA', @EvaluatorId);
+
+            UPDATE "SIGERSA"."EVALUACION"
+               SET estado = 'NO_APROBADA', modificado_en = CURRENT_TIMESTAMP
+             WHERE id = @EvaluationId;
+            """, new
+        {
+            CaseId = seededCaseId.Value,
+            EvaluationId = seededEvaluationId.Value,
+            ResponseId = responseId,
+            seed.CompanyId,
+            seed.EstablishmentId,
+            seed.InspectionTemplateId,
+            seed.EvaluatorId,
+            seed.RiskRuleVersionId,
+            seed.ItemId,
+            seed.CriticalityId,
+            seed.CoordinatorId
+        });
+        target = new EvaluationTransitionTarget
+        {
+            EvaluationId = seededEvaluationId.Value,
+            RowVersion = await connection.ExecuteScalarAsync<long>(
+                """SELECT version_fila FROM "SIGERSA"."EVALUACION" WHERE id = @EvaluationId;""",
+                new { EvaluationId = seededEvaluationId.Value }),
+            CoordinatorId = seed.CoordinatorId
+        };
+    }
     var service = new EvaluationWorkflowService(
         new EvaluationWorkflowRepository(new DbConnectionFactory(dataSource)));
     var version = await service.TransitionAsync(
@@ -63,6 +244,33 @@ if (args.Contains("--check-close-evaluation", StringComparer.Ordinal))
         throw new InvalidOperationException(
             $"Cierre inconsistente: evaluación={result.EvaluationStatus}, caso={result.CaseStatus}, " +
             $"programación={result.ScheduleStatus ?? "-"}, solicitud={result.RequestStatus ?? "-"}.");
+    var followUp = await connection.QuerySingleAsync<ReinspectionResult>("""
+        SELECT follow_up.estado AS EvaluationStatus,
+               follow_up.alcance AS Scope,
+               schedule.estado AS ScheduleStatus,
+               inspection_case.estado AS CaseStatus,
+               reason.codigo AS ReasonCode,
+               (SELECT COUNT(*)::integer
+                  FROM "SIGERSA"."NO_CONFORMIDAD" nonconformity
+                 WHERE nonconformity.evaluacion_id = @EvaluationId
+                   AND nonconformity.estado <> 'CERRADO') AS ExpectedItems,
+               (SELECT COUNT(DISTINCT item.source_allitems_item)::integer
+                  FROM "SIGERSA"."RESPUESTA_USUARIO" response
+                  JOIN "SIGERSA"."ITEM_FICHA" item ON item.id = response.item_ficha_id
+                 WHERE response.evaluacion_id = @EvaluationId
+                   AND response.valor_texto = 'NO_CUMPLE') AS SourceItems
+          FROM "SIGERSA"."CASO" inspection_case
+          JOIN "SIGERSA"."MOTIVO_INSPECCION" reason ON reason.id = inspection_case.motivo_inspeccion_id
+          JOIN "SIGERSA"."PROGRAMACION" schedule ON schedule.caso_id = inspection_case.id
+          JOIN "SIGERSA"."EVALUACION" follow_up ON follow_up.programacion_id = schedule.id
+         WHERE inspection_case.metadatos_origen ->> 'evaluacionAnteriorId' = @EvaluationId::text
+           AND inspection_case.metadatos_origen ->> 'tipo' = 'REINSPECCION_NO_CONFORMIDADES';
+        """, new { target.EvaluationId });
+    if (followUp.EvaluationStatus != "ASIGNADA" || followUp.Scope != "SEGUIMIENTO"
+        || followUp.ScheduleStatus != "PROGRAMADA" || followUp.CaseStatus != "PROGRAMADO"
+        || followUp.ReasonCode != "INSPECCION_CONTROL" || followUp.ExpectedItems == 0
+        || followUp.SourceItems == 0)
+        throw new InvalidOperationException("La reinspección automática no quedó íntegramente programada.");
     Console.WriteLine(
         "Evaluation closure OK: evaluation={0}, status={1}, case={2}, schedule={3}, request={4}, version={5}",
         target.EvaluationId, result.EvaluationStatus, result.CaseStatus,
@@ -140,14 +348,19 @@ if (args.Contains("--check-official-report", StringComparer.Ordinal)
     await using var connection = await dataSource.OpenConnectionAsync();
     var evaluationId = await connection.QuerySingleOrDefaultAsync<Guid?>("""
         SELECT evaluation.id
-          FROM "SIGERSA"."EVALUACION" evaluation
+         FROM "SIGERSA"."EVALUACION" evaluation
          WHERE evaluation.estado IN ('FINALIZADA', 'ENVIADA', 'EN_REVISION', 'APROBADA', 'CERRADA')
+           AND (@Official = false OR evaluation.estado = 'APROBADA')
+           AND NOT EXISTS (
+               SELECT 1 FROM "SIGERSA"."INFORME" report
+               JOIN "SIGERSA"."INFORME_VERSION" version ON version.informe_id = report.id
+                WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true)
          ORDER BY (
              SELECT COUNT(*) FROM "SIGERSA"."EVIDENCIA" evidence
               WHERE evidence.evaluacion_id = evaluation.id AND evidence.eliminada = false
          ) DESC, evaluation.id
          LIMIT 1;
-        """) ?? throw new InvalidOperationException("No existe una evaluación lista para probar el informe.");
+        """, new { Official = official }) ?? throw new InvalidOperationException("No existe una evaluación lista para probar el informe.");
     var reportActorId = await connection.QuerySingleAsync<Guid>("""
         SELECT user_account.id
           FROM "SIGERSA"."USUARIO" user_account
@@ -205,7 +418,7 @@ if (args.Contains("--check-official-report", StringComparer.Ordinal)
 }
 
 var requestedMigration = args.FirstOrDefault(argument =>
-    argument is "--apply-migration-022" or "--apply-migration-023" or "--apply-migration-024");
+    argument is "--apply-migration-022" or "--apply-migration-023" or "--apply-migration-024" or "--apply-migration-025" or "--apply-migration-026");
 if (requestedMigration is not null)
 {
     var migrationNumber = requestedMigration[^3..];
@@ -213,7 +426,9 @@ if (requestedMigration is not null)
     {
         "022" => "022_inspection_frequency_notifications_and_reasons.sql",
         "023" => "023_new_requirements_roles_evidence.sql",
-        _ => "024_operational_workflow_consistency.sql"
+        "024" => "024_operational_workflow_consistency.sql",
+        "025" => "025_cross_module_audit.sql",
+        _ => "026_food_category_and_finding_workflow.sql"
     };
     var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations",
         migrationFile);
@@ -310,7 +525,9 @@ if (args.Contains("--migrate-latest", StringComparer.Ordinal))
         "021_align_evaluation_status_catalog.sql",
         "022_inspection_frequency_notifications_and_reasons.sql",
         "023_new_requirements_roles_evidence.sql",
-        "024_operational_workflow_consistency.sql"
+        "024_operational_workflow_consistency.sql",
+        "025_cross_module_audit.sql",
+        "026_food_category_and_finding_workflow.sql"
     })
     {
         var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations", fileName);
@@ -345,7 +562,7 @@ if (args.Contains("--check-technician-lists", StringComparer.Ordinal))
     var technicianEvaluations = await new EvaluationWorkflowRepository(technicianFactory).SearchAsync(
         new EvaluationSearch(null, null, 1, 20, technicianId, null, false, true, true));
     var technicianEvidences = await new EvidenceRepository(technicianFactory).SearchAsync(
-        new EvidenceSearch(null, null, 1, 20, technicianId, null, false, true));
+        new EvidenceSearch(null, null, null, 1, 20, technicianId, null, false, true));
     Console.WriteLine(
         $"Technician lists OK: evaluations={technicianEvaluations.Total}, evidences={technicianEvidences.Total}");
     return;
@@ -410,11 +627,16 @@ AssertCatalog(
     ["A nivel nacional", "A nivel regional", "A nivel local"],
     "distribución INABIE");
 var evidences = await new EvidenceRepository(factory).SearchAsync(
-    new EvidenceSearch(null, null, 1, 5, actorId, null, true, false));
+    new EvidenceSearch(null, null, null, 1, 5, actorId, null, true, false));
 var corrections = await new CorrectionRepository(factory).SearchAsync(
     new CorrectionSearch(null, null, 1, 5, actorId, null, true, false));
 var companies = await new CompanyRepository(factory).SearchAsync(new CompanySearch(null, null, 1, 5));
-var canActivateUser = await new UsuarioRepository(factory).CanActivateAsync(Guid.Empty);
+var userRepository = new UsuarioRepository(factory);
+var managedUsers = await userRepository.SearchManagedAsync(
+    new ManagedUsersQuery(null, null, null, 1, 100, null));
+if (managedUsers.Items.Any(user => user.Roles.Length > 0 && user.RoleNames.Length == 0))
+    throw new InvalidOperationException("La gestión de usuarios no devolvió los nombres descriptivos de rol.");
+var canActivateUser = await userRepository.CanActivateAsync(Guid.Empty);
 var supportingDocuments = new SupportingDocumentRepository(factory);
 var canAttachUserDocument = await supportingDocuments.CanAttachToUserAsync(Guid.Empty, null, true);
 var canAttachRequestDocument = await supportingDocuments.CanAttachToRequestAsync(Guid.Empty, Guid.Empty, null, true);
@@ -438,7 +660,7 @@ var history = await operations.SearchHistoryAsync(
     new HistoricalEvaluationSearch(null, null, null, null, 1, 5, operationalScope));
 var audit = await operations.SearchAuditAsync(new AuditEventSearch(null, null, null, null, 1, 5));
 
-Console.WriteLine($"SQL smoke OK: requests={requests.Total}, caseOrigins={requestOptions.Reasons.Count}, cases={cases.Total}, schedules={schedules.Total}, evaluations={evaluations.Total}, evaluationStates={evaluationStates.Count}, evaluationOrigin={inspectionContext?.Origin ?? "none"}, evaluationOptions={evaluationOptions.Cases.Count + evaluationOptions.Establishments.Count + evaluationOptions.Templates.Count + evaluationOptions.RiskRules.Count + evaluationOptions.Evaluators.Count}, establishmentTypes={requestOptions.EstablishmentTypes.Count}, establishmentCatalogs={establishmentOptions.Markets.Count + establishmentOptions.Commercializations.Count + establishmentOptions.HaccpLevels.Count + establishmentOptions.SamplingApplications.Count + establishmentOptions.InabieDistributions.Count}, evidences={evidences.Total}, corrections={corrections.Total}, companies={companies.Total}, dashboard={dashboard.ActiveCases}, alerts={dashboard.CriticalAlerts}, complaints={dashboard.OpenComplaints}, surveillance={surveillance.Total}, findings={findings.Total}, findingOptions={findingOptions.Evaluations.Count + findingOptions.Criticalities.Count}, history={history.Total}, audit={audit.Total}, activation={canActivateUser}, userDocument={canAttachUserDocument}, requestDocument={canAttachRequestDocument}");
+Console.WriteLine($"SQL smoke OK: requests={requests.Total}, caseOrigins={requestOptions.Reasons.Count}, cases={cases.Total}, schedules={schedules.Total}, evaluations={evaluations.Total}, evaluationStates={evaluationStates.Count}, evaluationOrigin={inspectionContext?.Origin ?? "none"}, evaluationOptions={evaluationOptions.Cases.Count + evaluationOptions.Establishments.Count + evaluationOptions.Templates.Count + evaluationOptions.RiskRules.Count + evaluationOptions.Evaluators.Count}, establishmentTypes={requestOptions.EstablishmentTypes.Count}, establishmentCatalogs={establishmentOptions.Markets.Count + establishmentOptions.Commercializations.Count + establishmentOptions.HaccpLevels.Count + establishmentOptions.SamplingApplications.Count + establishmentOptions.InabieDistributions.Count}, evidences={evidences.Total}, corrections={corrections.Total}, companies={companies.Total}, users={managedUsers.Total}, dashboard={dashboard.ActiveCases}, alerts={dashboard.CriticalAlerts}, complaints={dashboard.OpenComplaints}, surveillance={surveillance.Total}, findings={findings.Total}, findingOptions={findingOptions.Evaluations.Count + findingOptions.Criticalities.Count}, history={history.Total}, audit={audit.Total}, activation={canActivateUser}, userDocument={canAttachUserDocument}, requestDocument={canAttachRequestDocument}");
 
 static void AssertCatalog(IEnumerable<string> actual, string[] expected, string name)
 {
@@ -497,6 +719,14 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
               JOIN "SIGERSA"."ITEM_FICHA" item ON item.ficha_inspeccion_id = evaluation.ficha_inspeccion_id
              WHERE item.es_evaluable = true AND item.activo = true
                AND item.source_allitems_item IS NOT NULL
+               AND EXISTS (
+                   SELECT 1
+                     FROM "SIGERSA"."ESTABLECIMIENTO_PRODUCTO" product
+                     JOIN "SIGERSA"."SUBCATEGORIA_ALIMENTO" subcategory
+                       ON subcategory.id = product.subcategoria_alimento_id
+                    WHERE product.establecimiento_id = evaluation.establecimiento_id
+                      AND product.activo = true AND subcategory.activo = true
+                      AND subcategory.nivel_riesgo IS NOT NULL)
              ORDER BY evaluation.creado_en DESC, item.orden
              LIMIT 1;
             """);
@@ -577,7 +807,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
         var service = new EvaluationWorkflowService(repository);
         var technicianActor = new EvaluationActor(seed.EvaluatorId, ["TECNICO_EVALUADOR"], null);
         var baselineCalculation = await service.CalculateAsync(
-            previousEvaluationId, 1m, technicianActor, CancellationToken.None);
+            previousEvaluationId, technicianActor, CancellationToken.None);
         if (baselineCalculation.CompliancePercentage != 75m)
             throw new InvalidOperationException("La ficha base de la prueba no fue calculada en 75% por el motor.");
         await connection.ExecuteAsync("""
@@ -632,14 +862,14 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
         if (firstEvidenceId != evidence.Id || repeatedEvidenceId != evidence.Id)
             throw new InvalidOperationException("La evidencia no se persistió de forma idempotente.");
         var linkedEvidence = (await evidenceRepository.SearchAsync(new EvidenceSearch(
-            marker.ToLowerInvariant(), null, 1, 5, seed.EvaluatorId, null, true, false),
+            marker.ToLowerInvariant(), null, currentEvaluationId, 1, 5, seed.EvaluatorId, null, true, false),
             CancellationToken.None)).Items.SingleOrDefault(item => item.Id == evidence.Id);
         if (linkedEvidence?.SourceItem != seed.SourceItem
             || string.IsNullOrWhiteSpace(linkedEvidence.ItemCode)
             || string.IsNullOrWhiteSpace(linkedEvidence.ItemTitle))
             throw new InvalidOperationException("La evidencia no devolvió el ítem de la ficha asociado.");
         var calculation = await service.CalculateAsync(
-            currentEvaluationId, 1m, technicianActor, CancellationToken.None);
+            currentEvaluationId, technicianActor, CancellationToken.None);
 
         const string persistedEvaluationSql = @"
             SELECT COUNT(*)::integer AS SavedAnswers,
@@ -769,7 +999,7 @@ static async Task CheckFocusedEvaluationWriteAsync(NpgsqlDataSource dataSource)
                    modificado_por = @EvaluatorId, version_fila = version_fila + 1
              WHERE id = @CurrentEvaluationId;
             """, new { CurrentEvaluationId = currentEvaluationId, seed.EvaluatorId });
-        var finalized = await service.FinalizeAsync(currentEvaluationId, 1m,
+        var finalized = await service.FinalizeAsync(currentEvaluationId,
             new EvaluationActor(seed.EvaluatorId, ["TECNICO_EVALUADOR"], null), CancellationToken.None);
         try
         {
@@ -895,4 +1125,39 @@ sealed class EvaluationClosureResult
     public string CaseStatus { get; init; } = string.Empty;
     public string? ScheduleStatus { get; init; }
     public string? RequestStatus { get; init; }
+}
+
+sealed class ReinspectionResult
+{
+    public string EvaluationStatus { get; init; } = string.Empty;
+    public string Scope { get; init; } = string.Empty;
+    public string ScheduleStatus { get; init; } = string.Empty;
+    public string CaseStatus { get; init; } = string.Empty;
+    public string ReasonCode { get; init; } = string.Empty;
+    public int ExpectedItems { get; init; }
+    public int SourceItems { get; init; }
+}
+
+sealed class ReinspectionSeed
+{
+    public Guid CompanyId { get; init; }
+    public Guid EstablishmentId { get; init; }
+    public Guid InspectionTemplateId { get; init; }
+    public Guid EvaluatorId { get; init; }
+    public Guid RiskRuleVersionId { get; init; }
+    public Guid ItemId { get; init; }
+    public Guid CriticalityId { get; init; }
+    public Guid CoordinatorId { get; init; }
+}
+
+sealed class EstablishmentRoundtripSeed
+{
+    public Guid CompanyId { get; init; }
+    public Guid MunicipalityId { get; init; }
+    public Guid ProvinceId { get; init; }
+    public Guid DpsDasId { get; init; }
+    public Guid CommercializationId { get; init; }
+    public Guid MarketId { get; init; }
+    public Guid SubcategoryId { get; init; }
+    public Guid ActorId { get; init; }
 }

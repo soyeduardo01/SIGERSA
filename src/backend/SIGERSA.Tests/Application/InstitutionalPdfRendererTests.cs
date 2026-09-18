@@ -37,7 +37,10 @@ public sealed class InstitutionalPdfRendererTests
         {
             BrowserExecutablePath = Environment.GetEnvironmentVariable("CHROME_PATH")
         }));
-        var pdf = await renderer.RenderAsync(SampleData(), true);
+        var data = Environment.GetEnvironmentVariable("SIGERSA_PDF_QA_LARGE") == "1"
+            ? LargeSampleData()
+            : SampleData();
+        var pdf = await renderer.RenderAsync(data, true);
 
         Assert.StartsWith("%PDF", Encoding.ASCII.GetString(pdf, 0, 4), StringComparison.Ordinal);
         Assert.True(pdf.Length > 100_000);
@@ -52,4 +55,14 @@ public sealed class InstitutionalPdfRendererTests
         DateTimeOffset.Parse("2026-09-14T16:00:00Z", CultureInfo.InvariantCulture),
         [new ReportFinding("NC-001", "MENOR", "Registro de control pendiente de firma.", "ABIERTA")],
         [new ReportEvidence("evidencia-planta.jpg", "FOTOGRAFIA", "image/jpeg")]);
+
+    private static ReportGenerationData LargeSampleData() => SampleData() with
+    {
+        Findings = Enumerable.Range(1, 48).Select(index => new ReportFinding(
+            $"NC-{index:000}", index % 5 == 0 ? "CRÍTICA" : "MAYOR",
+            $"Hallazgo extenso {index}: se requiere documentar la corrección, verificar la evidencia y conservar la trazabilidad del seguimiento sin invadir el pie de página.",
+            "ABIERTA")).ToArray(),
+        Evidences = Enumerable.Range(1, 32).Select(index => new ReportEvidence(
+            $"evidencia-de-verificacion-{index:000}.jpg", "FOTOGRAFIA", "image/jpeg")).ToArray()
+    };
 }

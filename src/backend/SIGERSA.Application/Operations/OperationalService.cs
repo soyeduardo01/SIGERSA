@@ -133,10 +133,22 @@ public sealed class OperationalService(
     public async Task CloseFindingAsync(
         Guid id, CloseFindingRequest request, OperationalActor actor, CancellationToken cancellationToken)
     {
+        await UpdateFindingStatusAsync(id,
+            new UpdateFindingStatusRequest(request.RowVersion, "CERRADO", request.Reason),
+            actor, cancellationToken);
+    }
+
+    public async Task UpdateFindingStatusAsync(
+        Guid id, UpdateFindingStatusRequest request, OperationalActor actor, CancellationToken cancellationToken)
+    {
         EnsureCoordinator(actor);
-        if (request.RowVersion <= 0 || string.IsNullOrWhiteSpace(request.Reason))
-            throw new ArgumentException("La versión y la justificación son obligatorias.");
-        if (!await repository.CloseFindingAsync(id, request.RowVersion, request.Reason.Trim(), actor.UserId, cancellationToken))
+        var status = Normalize(request.Status)?.ToUpperInvariant();
+        if (request.RowVersion <= 0 || status is not ("EN_CORRECCION" or "VALIDADO" or "CERRADO"))
+            throw new ArgumentException("La versión y el estado de seguimiento son obligatorios.");
+        if (status == "CERRADO" && string.IsNullOrWhiteSpace(request.Reason))
+            throw new ArgumentException("La justificación es obligatoria para cerrar el hallazgo.");
+        if (!await repository.UpdateFindingStatusAsync(
+                id, request.RowVersion, status, Normalize(request.Reason), actor.UserId, cancellationToken))
             throw new OptimisticConcurrencyException(id);
     }
 

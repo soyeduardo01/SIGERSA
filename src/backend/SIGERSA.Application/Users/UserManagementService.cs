@@ -68,8 +68,7 @@ public sealed class UserManagementService(
         }
 
         var draft = BuildDraft(request, actor, passwordService.Hash(request.TemporaryPassword), null);
-        if (CompanyAssignableRoles.Contains(draft.Rol, StringComparer.Ordinal))
-            draft = draft with { Estado = "PENDIENTE_VALIDACION" };
+        draft = draft with { Estado = "ACTIVO" };
         return await repository.CreateManagedAsync(draft, actor.UserId, cancellationToken);
     }
 

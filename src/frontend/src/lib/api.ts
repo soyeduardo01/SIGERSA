@@ -26,6 +26,7 @@ export interface PublicRegistrationDraft {
   correo: string
   telefono: string
   rol: 'ADMINISTRADOR_EMPRESA' | 'USUARIO_DELEGADO'
+  empresaId: string | null
   password: string
   termsAccepted: boolean
   authorizationLetter: File
@@ -133,6 +134,20 @@ export interface EstablishmentSummary {
   phone: string | null
   email: string | null
   status: string
+  evaluationId: string | null
+  productRisk: number | null
+  establishmentRisk: number | null
+  totalRisk: number | null
+  riskLevel: string | null
+  frequency: string | null
+  productionScore: number | null
+  haccpScore: number | null
+  bpmScore: number | null
+  inabieScore: number | null
+  rejectionScore: number | null
+  samplingScore: number | null
+  criticalNonconformities: number
+  riskAdjustment: string | null
   rowVersion: number
 }
 
@@ -556,7 +571,25 @@ export interface EvaluationCalculation {
   frequency: 'ANUAL' | 'SEMESTRAL' | 'TRIMESTRAL' | 'NO_APLICA'
   nextInspectionDate: string | null
   decision: EvaluationDecisionGuidance
+  breakdown: RiskCalculationBreakdown
   rowVersion: number
+}
+
+export interface RiskFactorBreakdown {
+  code: string
+  name: string
+  weight: number
+  score: number | null
+  weightedValue: number | null
+  basis: string
+}
+
+export interface RiskCalculationBreakdown {
+  formula: string
+  baseTotalRisk: number | null
+  effectiveTotalRisk: number | null
+  adjustment: string | null
+  factors: RiskFactorBreakdown[]
 }
 
 export interface EvaluationSummary {
@@ -647,6 +680,7 @@ export interface ManagedUser {
   identificacion: string
   telefono: string | null
   roles: string[]
+  roleNames?: string[]
   empresaId: string | null
   empresaNombre: string | null
   estado: string
@@ -1051,12 +1085,19 @@ export async function registerPublicUser(draft: PublicRegistrationDraft) {
   form.append('correo', draft.correo)
   form.append('telefono', draft.telefono)
   form.append('rol', draft.rol)
+  if (draft.empresaId) form.append('empresaId', draft.empresaId)
   form.append('password', draft.password)
   form.append('termsAccepted', String(draft.termsAccepted))
   form.append('authorizationLetter', draft.authorizationLetter)
   const response = await publicFetch('/api/v1/registrations', { method: 'POST', body: form })
   if (!response.ok) throw await apiError(response)
   return (await response.json()) as { id: string; status: 'PENDIENTE_VALIDACION' }
+}
+
+export async function getPublicRegistrationCompanies() {
+  const response = await publicFetch('/api/v1/registrations/companies', {})
+  if (!response.ok) throw await apiError(response)
+  return (await response.json()) as Array<{ id: string; name: string }>
 }
 
 export async function apiFetch(path: string, init: RequestInit = {}, retry = true) {
@@ -1287,10 +1328,12 @@ export async function createEvaluation(draft: EvaluationDraft) {
   )
 }
 
-export async function calculateEvaluation(evaluationId: string, productRisk: number) {
-  return sendJson<EvaluationCalculation>(`/api/v1/evaluations/${evaluationId}/calculate`, 'POST', {
-    productRisk,
-  })
+export async function calculateEvaluation(evaluationId: string) {
+  return sendJson<EvaluationCalculation>(
+    `/api/v1/evaluations/${evaluationId}/calculate`,
+    'POST',
+    {},
+  )
 }
 
 export async function startEvaluation(
@@ -1306,10 +1349,8 @@ export async function startEvaluation(
   })
 }
 
-export async function finalizeEvaluation(evaluationId: string, productRisk: number) {
-  return sendJson<EvaluationCalculation>(`/api/v1/evaluations/${evaluationId}/finalize`, 'POST', {
-    productRisk,
-  })
+export async function finalizeEvaluation(evaluationId: string) {
+  return sendJson<EvaluationCalculation>(`/api/v1/evaluations/${evaluationId}/finalize`, 'POST', {})
 }
 
 export async function transitionEvaluation(
@@ -1354,12 +1395,14 @@ export async function confirmEvidenceUpload(input: {
 export async function getEvidences(filters: {
   search?: string
   evidenceType?: string
+  evaluationId?: string
   page?: number
   pageSize?: number
 }) {
   const query = new URLSearchParams()
   if (filters.search) query.set('search', filters.search)
   if (filters.evidenceType) query.set('evidenceType', filters.evidenceType)
+  if (filters.evaluationId) query.set('evaluationId', filters.evaluationId)
   query.set('page', String(filters.page ?? 1))
   query.set('pageSize', String(filters.pageSize ?? 20))
   return getJson<EvidencesPage>(`/api/v1/evidences?${query}`)
@@ -1564,11 +1607,13 @@ export async function closeCase(id: string, rowVersion: number, reason: string) 
 export async function getSchedules(filters: {
   search?: string
   status?: string
+  page?: number
   pageSize?: number
 }) {
   const query = new URLSearchParams()
   if (filters.search) query.set('search', filters.search)
   if (filters.status) query.set('status', filters.status)
+  query.set('page', String(filters.page ?? 1))
   query.set('pageSize', String(filters.pageSize ?? 50))
   return getJson<SchedulesPage>(`/api/v1/schedules?${query}`)
 }
@@ -1594,11 +1639,13 @@ export async function cancelSchedule(id: string, rowVersion: number, reason: str
 export async function getCorrections(filters: {
   search?: string
   status?: string
+  page?: number
   pageSize?: number
 }) {
   const query = new URLSearchParams()
   if (filters.search) query.set('search', filters.search)
   if (filters.status) query.set('status', filters.status)
+  query.set('page', String(filters.page ?? 1))
   query.set('pageSize', String(filters.pageSize ?? 50))
   return getJson<CorrectionsPage>(`/api/v1/corrections?${query}`)
 }
@@ -1638,12 +1685,14 @@ export async function getSurveillance(filters: {
   search?: string
   kind?: string
   result?: string
+  page?: number
   pageSize?: number
 }) {
   const query = new URLSearchParams()
   if (filters.search) query.set('search', filters.search)
   if (filters.kind) query.set('kind', filters.kind)
   if (filters.result) query.set('result', filters.result)
+  query.set('page', String(filters.page ?? 1))
   query.set('pageSize', String(filters.pageSize ?? 50))
   return getJson<SurveillancePage>(`/api/v1/surveillance?${query}`)
 }
@@ -1684,11 +1733,13 @@ export async function updateSurveillance(id: string, draft: SurveillanceDraft) {
 export async function getFindings(filters: {
   search?: string
   status?: string
+  page?: number
   pageSize?: number
 }) {
   const query = new URLSearchParams()
   if (filters.search) query.set('search', filters.search)
   if (filters.status) query.set('status', filters.status)
+  query.set('page', String(filters.page ?? 1))
   query.set('pageSize', String(filters.pageSize ?? 50))
   return getJson<FindingsPage>(`/api/v1/findings?${query}`)
 }
@@ -1714,11 +1765,25 @@ export async function closeFinding(id: string, rowVersion: number, reason: strin
   return sendJson<void>(`/api/v1/findings/${id}/close`, 'POST', { rowVersion, reason })
 }
 
+export async function updateFindingStatus(
+  id: string,
+  rowVersion: number,
+  status: 'EN_CORRECCION' | 'VALIDADO' | 'CERRADO',
+  reason?: string,
+) {
+  return sendJson<void>(`/api/v1/findings/${id}/status`, 'PUT', {
+    rowVersion,
+    status,
+    reason: reason ?? null,
+  })
+}
+
 export async function getEvaluationHistory(filters: {
   search?: string
   status?: string
   from?: string
   to?: string
+  page?: number
   pageSize?: number
 }) {
   const query = new URLSearchParams()
@@ -1726,6 +1791,7 @@ export async function getEvaluationHistory(filters: {
   if (filters.status) query.set('status', filters.status)
   if (filters.from) query.set('from', filters.from)
   if (filters.to) query.set('to', filters.to)
+  query.set('page', String(filters.page ?? 1))
   query.set('pageSize', String(filters.pageSize ?? 50))
   return getJson<HistoricalEvaluationsPage>(`/api/v1/history/evaluations?${query}`)
 }
@@ -1739,6 +1805,7 @@ export async function getAuditEvents(filters: {
   result?: string
   from?: string
   to?: string
+  page?: number
   pageSize?: number
 }) {
   const query = new URLSearchParams()
@@ -1746,6 +1813,7 @@ export async function getAuditEvents(filters: {
   if (filters.result) query.set('result', filters.result)
   if (filters.from) query.set('from', filters.from)
   if (filters.to) query.set('to', filters.to)
+  query.set('page', String(filters.page ?? 1))
   query.set('pageSize', String(filters.pageSize ?? 50))
   return getJson<AuditEventsPage>(`/api/v1/audit-events?${query}`)
 }

@@ -1,7 +1,11 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import { PasswordValidatorUI } from '../../components/feedback/PasswordValidatorUI'
 import { alerts } from '../../lib/alerts'
-import { registerPublicUser, type PublicRegistrationDraft } from '../../lib/api'
+import {
+  getPublicRegistrationCompanies,
+  registerPublicUser,
+  type PublicRegistrationDraft,
+} from '../../lib/api'
 import { formatCedula, formatIdentification, formatPhone } from '../../lib/formatters'
 import { isPasswordValid } from '../../lib/passwordPolicy'
 import { DecorativeLeaf, LoginVisualPanel } from './LoginPage'
@@ -16,6 +20,7 @@ interface RegistrationFormState {
   correo: string
   telefono: string
   rol: '' | PublicRegistrationDraft['rol']
+  empresaId: string
   password: string
   termsAccepted: boolean
 }
@@ -27,6 +32,7 @@ const initialDraft: RegistrationFormState = {
   correo: '',
   telefono: '',
   rol: '',
+  empresaId: '',
   password: '',
   termsAccepted: false,
 }
@@ -36,6 +42,14 @@ export function RegistrationPage({ onBack }: { onBack: () => void }) {
   const [file, setFile] = useState<File | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [companies, setCompanies] = useState<Array<{ id: string; name: string }>>([])
+  const [companiesError, setCompaniesError] = useState('')
+
+  useEffect(() => {
+    void getPublicRegistrationCompanies()
+      .then(setCompanies)
+      .catch(() => setCompaniesError('No se pudo cargar el catálogo de empresas.'))
+  }, [])
 
   function selectFile(selected: File | null) {
     if (!selected) {
@@ -61,10 +75,21 @@ export function RegistrationPage({ onBack }: { onBack: () => void }) {
 
   async function submit(event: FormEvent) {
     event.preventDefault()
-    if (!file || !draft.rol || !isPasswordValid(draft.password)) return
+    if (
+      !file ||
+      !draft.rol ||
+      (draft.rol === 'USUARIO_DELEGADO' && !draft.empresaId) ||
+      !isPasswordValid(draft.password)
+    )
+      return
     setSaving(true)
     try {
-      await registerPublicUser({ ...draft, rol: draft.rol, authorizationLetter: file })
+      await registerPublicUser({
+        ...draft,
+        rol: draft.rol,
+        empresaId: draft.empresaId || null,
+        authorizationLetter: file,
+      })
       await alerts.success(
         'Solicitud recibida',
         'Tu cuenta quedó pendiente de validación. Un administrador revisará los datos y la carta de autorización.',
@@ -183,6 +208,8 @@ export function RegistrationPage({ onBack }: { onBack: () => void }) {
                 <input
                   required
                   inputMode="tel"
+                  pattern="(809|829|849)-[0-9]{3}-[0-9]{4}"
+                  title="Use 10 dígitos y un prefijo 809, 829 o 849."
                   autoComplete="tel"
                   maxLength={12}
                   placeholder="809-123-4567"
@@ -201,6 +228,7 @@ export function RegistrationPage({ onBack }: { onBack: () => void }) {
                     setDraft({
                       ...draft,
                       rol: event.target.value as PublicRegistrationDraft['rol'],
+                      empresaId: event.target.value === 'USUARIO_DELEGADO' ? draft.empresaId : '',
                     })
                   }
                   className={inputClass}
@@ -210,6 +238,26 @@ export function RegistrationPage({ onBack }: { onBack: () => void }) {
                   <option value="USUARIO_DELEGADO">Usuario Delegado</option>
                 </select>
               </Field>
+              {draft.rol === 'USUARIO_DELEGADO' && (
+                <Field label="Empresa" wide>
+                  <select
+                    required
+                    value={draft.empresaId}
+                    onChange={(event) => setDraft({ ...draft, empresaId: event.target.value })}
+                    className={inputClass}
+                  >
+                    <option value="">Selecciona la empresa a la que perteneces</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name}
+                      </option>
+                    ))}
+                  </select>
+                  {companiesError && (
+                    <span className="mt-1 block text-red-700">{companiesError}</span>
+                  )}
+                </Field>
+              )}
               <Field label="Contraseña" wide>
                 <span className="relative block">
                   <input
@@ -289,6 +337,7 @@ export function RegistrationPage({ onBack }: { onBack: () => void }) {
                   saving ||
                   !file ||
                   !draft.rol ||
+                  (draft.rol === 'USUARIO_DELEGADO' && !draft.empresaId) ||
                   !draft.termsAccepted ||
                   !isPasswordValid(draft.password)
                 }

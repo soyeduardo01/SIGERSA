@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
+import { Pagination } from '../../components/ui/Pagination'
 import {
   closeCase,
   createCase,
@@ -36,6 +37,7 @@ export function CasesManagement() {
   const [error, setError] = useState('')
   const [editing, setEditing] = useState<InspectionCase | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [pageNumber, setPageNumber] = useState(1)
 
   useEffect(() => {
     let active = true
@@ -56,7 +58,7 @@ export function CasesManagement() {
   async function load() {
     setLoading(true)
     try {
-      setResult(await getCases({ search, status, pageSize: 50 }))
+      setResult(await getCases({ search, status, page: pageNumber, pageSize: 10 }))
       setError('')
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'No se pudieron cargar los casos.')
@@ -67,7 +69,7 @@ export function CasesManagement() {
 
   useEffect(() => {
     let active = true
-    void getCases({ search, status, pageSize: 50 })
+    void getCases({ search, status, page: pageNumber, pageSize: 10 })
       .then((value) => {
         if (active) {
           setResult(value)
@@ -83,7 +85,7 @@ export function CasesManagement() {
     return () => {
       active = false
     }
-  }, [search, status])
+  }, [pageNumber, search, status])
 
   async function save(draft: CaseDraft) {
     try {
@@ -152,6 +154,7 @@ export function CasesManagement() {
         <form
           onSubmit={(event) => {
             event.preventDefault()
+            setPageNumber(1)
             setSearch(searchInput.trim())
           }}
           className="grid gap-3 md:grid-cols-[1fr_14rem_auto]"
@@ -169,7 +172,10 @@ export function CasesManagement() {
             Estado
             <select
               value={status}
-              onChange={(event) => setStatus(event.target.value)}
+              onChange={(event) => {
+                setStatus(event.target.value)
+                setPageNumber(1)
+              }}
               className="mt-1.5 min-h-11 w-full rounded-xl border border-slate-300 px-3 font-normal"
             >
               <option value="">Todos</option>
@@ -251,6 +257,14 @@ export function CasesManagement() {
             <p className="p-10 text-center text-sm text-ink-muted">No hay casos para mostrar.</p>
           )}
         </div>
+        <Pagination
+          page={pageNumber}
+          pageSize={result.pageSize}
+          total={result.total}
+          disabled={loading}
+          label="casos"
+          onChange={setPageNumber}
+        />
       </div>
       {modalOpen && options && (
         <CaseForm
@@ -376,7 +390,7 @@ function CaseForm({
               {!item &&
                 availableSources.map((option) => (
                   <option key={`${option.kind}-${option.id}`} value={option.id}>
-                  {option.name}
+                    {option.name}
                   </option>
                 ))}
             </select>

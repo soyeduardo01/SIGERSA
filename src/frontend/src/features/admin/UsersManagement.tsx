@@ -282,7 +282,9 @@ export function UsersManagement() {
                       </span>
                     )}
                   </td>
-                  <td className="px-3 py-4 text-ink-body">{user.roles.join(', ') || 'Sin rol'}</td>
+                  <td className="px-3 py-4 text-ink-body">
+                    {user.roleNames?.join(', ') || user.roles.join(', ') || 'Sin rol'}
+                  </td>
                   <td className="px-3 py-4 text-ink-body">
                     {user.empresaNombre ??
                       (user.roles.some((item) =>

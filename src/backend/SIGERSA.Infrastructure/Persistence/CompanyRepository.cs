@@ -104,15 +104,6 @@ public sealed class CompanyRepository(IDbConnectionFactory connectionFactory)
                 ActorId = actorId
             }, transaction, cancellationToken: cancellationToken));
             await ReplaceContactsAsync(connection, transaction, id, draft.Contacts, actorId, cancellationToken);
-            await connection.ExecuteAsync(new CommandDefinition(Sql("""
-                INSERT INTO "SIGERSA"."AUDITORIA_EVENTO"
-                    (id, actor_id, accion, recurso_tipo, recurso_id, resultado,
-                     valores_nuevos, metadatos, creado_por)
-                SELECT gen_random_uuid(), @ActorId, 'CREAR_EMPRESA', 'EMPRESA', company.id,
-                       'EXITOSO', to_jsonb(company), '{}'::jsonb, @ActorId
-                  FROM "SIGERSA"."EMPRESA" company WHERE company.id = @Id;
-                """), new { Id = id, ActorId = actorId }, transaction,
-                cancellationToken: cancellationToken));
             await transaction.CommitAsync(cancellationToken);
         }
         return id;
@@ -138,12 +129,6 @@ public sealed class CompanyRepository(IDbConnectionFactory connectionFactory)
         await using (connection)
         await using (var transaction = await connection.BeginTransactionAsync(cancellationToken))
         {
-            var previous = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(Sql("""
-                SELECT to_jsonb(company)::text FROM "SIGERSA"."EMPRESA" company
-                 WHERE company.id = @Id AND company.activo = true AND company.version_fila = @RowVersion
-                 FOR UPDATE;
-                """), new { Id = id, draft.RowVersion }, transaction,
-                cancellationToken: cancellationToken));
             var affected = await connection.ExecuteAsync(new CommandDefinition(Sql(sql), new
             {
                 Id = id,
@@ -165,15 +150,6 @@ public sealed class CompanyRepository(IDbConnectionFactory connectionFactory)
                 return false;
             }
             await ReplaceContactsAsync(connection, transaction, id, draft.Contacts, actorId, cancellationToken);
-            await connection.ExecuteAsync(new CommandDefinition(Sql("""
-                INSERT INTO "SIGERSA"."AUDITORIA_EVENTO"
-                    (id, actor_id, accion, recurso_tipo, recurso_id, resultado,
-                     valores_anteriores, valores_nuevos, metadatos, creado_por)
-                SELECT gen_random_uuid(), @ActorId, 'ACTUALIZAR_EMPRESA', 'EMPRESA', company.id,
-                       'EXITOSO', CAST(@Previous AS jsonb), to_jsonb(company), '{}'::jsonb, @ActorId
-                  FROM "SIGERSA"."EMPRESA" company WHERE company.id = @Id;
-                """), new { Id = id, ActorId = actorId, Previous = previous }, transaction,
-                cancellationToken: cancellationToken));
             await transaction.CommitAsync(cancellationToken);
             return true;
         }

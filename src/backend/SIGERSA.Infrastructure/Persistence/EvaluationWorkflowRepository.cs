@@ -768,12 +768,12 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                         version_fila = "SIGERSA"."NO_CONFORMIDAD".version_fila + 1;
 
                 UPDATE "SIGERSA"."NO_CONFORMIDAD"
-                   SET estado = 'CERRADA', cerrada_en = CURRENT_TIMESTAMP,
+                   SET estado = 'CERRADO', cerrada_en = CURRENT_TIMESTAMP,
                        cierre_justificacion = 'Cerrada automáticamente al cambiar la respuesta a cumplimiento.',
                        modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
                        version_fila = version_fila + 1
                  WHERE evaluacion_id = @EvaluationId AND item_ficha_id = @ItemId
-                   AND @Rating <> 'NO_CUMPLE' AND estado <> 'CERRADA';
+                   AND @Rating <> 'NO_CUMPLE' AND estado <> 'CERRADO';
                 """), new
             {
                 ResponseId = answer.Id,
@@ -800,6 +800,12 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         {
             var evaluationSql = $"""
                 SELECT evaluation.version_fila AS RowVersion,
+                       (SELECT MAX(subcategory.nivel_riesgo)::numeric
+                          FROM "SIGERSA"."ESTABLECIMIENTO_PRODUCTO" product
+                          JOIN "SIGERSA"."SUBCATEGORIA_ALIMENTO" subcategory
+                            ON subcategory.id = product.subcategoria_alimento_id
+                         WHERE product.establecimiento_id = establishment.id
+                           AND product.activo = true AND subcategory.activo = true) AS ProductRisk,
                        COALESCE((SELECT SUM(product.volumen_mensual)
                                  FROM "SIGERSA"."ESTABLECIMIENTO_PRODUCTO" product
                                  WHERE product.establecimiento_id = establishment.id AND product.activo = true),
@@ -829,6 +835,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 WHERE response.evaluacion_id = @EvaluationId;
                 """), new { EvaluationId = evaluationId }, cancellationToken: cancellationToken))).Select(row => row.ToDomain()).ToArray();
             return new EvaluationCalculationInput(evaluationId, header.RowVersion, items, answers,
+                header.ProductRisk,
                 header.MonthlyProduction, header.HaccpImplemented, header.HaccpPercentage,
                 header.IsInabieSupplier, header.InabieDistributionCode,
                 header.MicrobiologicalRejectionsLastFiveYears,
@@ -968,7 +975,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         public DateOnly? PreviousInspectionDate { get; init; }
         public decimal? PreviousCompliancePercentage { get; init; }
     }
-    private sealed class CalculationHeaderRow { public long RowVersion { get; init; } public decimal? MonthlyProduction { get; init; } public bool? HaccpImplemented { get; init; } public decimal? HaccpPercentage { get; init; } public bool? IsInabieSupplier { get; init; } public string? InabieDistributionCode { get; init; } public int MicrobiologicalRejectionsLastFiveYears { get; init; } public bool? MicrobiologicalSamplingPlan { get; init; } public string? SamplingApplicationCode { get; init; } }
+    private sealed class CalculationHeaderRow { public long RowVersion { get; init; } public decimal? ProductRisk { get; init; } public decimal? MonthlyProduction { get; init; } public bool? HaccpImplemented { get; init; } public decimal? HaccpPercentage { get; init; } public bool? IsInabieSupplier { get; init; } public string? InabieDistributionCode { get; init; } public int MicrobiologicalRejectionsLastFiveYears { get; init; } public bool? MicrobiologicalSamplingPlan { get; init; } public string? SamplingApplicationCode { get; init; } }
     private sealed class EvaluationSupplementRow
     {
         public DateOnly? PreviousInspectionDate { get; init; }
@@ -1079,7 +1086,106 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                               AND role.codigo = 'COORDINADOR'))
                    )
                 RETURNING evaluation.version_fila AS RowVersion, evaluation.caso_id AS CaseId,
-                          evaluation.programacion_id AS ScheduleId
+                          evaluation.programacion_id AS ScheduleId,
+                          evaluation.id AS EvaluationId, evaluation.numero AS EvaluationNumber,
+                          evaluation.establecimiento_id AS EstablishmentId,
+                          evaluation.ficha_inspeccion_id AS InspectionTemplateId,
+                          evaluation.evaluador_principal_id AS EvaluatorId,
+                          evaluation.version_regla_riesgo_id AS RiskRuleVersionId
+            ), follow_up_seed AS MATERIALIZED (
+                SELECT gen_random_uuid() AS FollowUpCaseId,
+                       gen_random_uuid() AS FollowUpScheduleId,
+                       gen_random_uuid() AS FollowUpEvaluationId,
+                       updated.CaseId AS PreviousCaseId,
+                       updated.EvaluationId AS PreviousEvaluationId,
+                       updated.EvaluationNumber, updated.EstablishmentId,
+                       updated.InspectionTemplateId, updated.EvaluatorId,
+                       updated.RiskRuleVersionId,
+                       inspection_case.empresa_id AS CompanyId,
+                       CASE WHEN EXISTS (
+                           SELECT 1
+                             FROM "SIGERSA"."NO_CONFORMIDAD" nonconformity
+                             JOIN "SIGERSA"."NIVEL_CRITICIDAD" criticality
+                               ON criticality.id = nonconformity.nivel_criticidad_id
+                            WHERE nonconformity.evaluacion_id = updated.EvaluationId
+                              AND nonconformity.estado <> 'CERRADO'
+                              AND criticality.codigo = 'C'
+                       ) THEN 1 ELSE 2 END::smallint AS Priority,
+                       CURRENT_TIMESTAMP + INTERVAL '30 days' AS StartsAt
+                  FROM updated
+                  JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = updated.CaseId
+                 WHERE @Action = 'CLOSE'
+                   AND EXISTS (
+                       SELECT 1 FROM "SIGERSA"."NO_CONFORMIDAD" nonconformity
+                        WHERE nonconformity.evaluacion_id = updated.EvaluationId
+                          AND nonconformity.estado <> 'CERRADO')
+            ), follow_up_case AS (
+                INSERT INTO "SIGERSA"."CASO"
+                    (id, numero, empresa_id, establecimiento_id, motivo_inspeccion_id,
+                     origen, estado, prioridad, responsable_actual_id, motivo_decision,
+                     metadatos_origen, creado_por)
+                SELECT seed.FollowUpCaseId,
+                       'CAS-' || to_char(CURRENT_TIMESTAMP, 'YYYYMMDD') || '-' ||
+                           upper(substr(replace(seed.FollowUpCaseId::text, '-', ''), 1, 8)),
+                       seed.CompanyId, seed.EstablishmentId, reason.id,
+                       'PROGRAMACION', 'PROGRAMADO', seed.Priority, @ActorId,
+                       'Reinspección automática por no conformidades de ' || seed.EvaluationNumber,
+                       jsonb_build_object('evaluacionAnteriorId', seed.PreviousEvaluationId,
+                                          'tipo', 'REINSPECCION_NO_CONFORMIDADES'),
+                       @ActorId
+                  FROM follow_up_seed seed
+                  JOIN "SIGERSA"."MOTIVO_INSPECCION" reason
+                    ON reason.codigo = 'INSPECCION_CONTROL' AND reason.activo = true
+                RETURNING id
+            ), follow_up_schedule AS (
+                INSERT INTO "SIGERSA"."PROGRAMACION"
+                    (id, caso_id, ficha_inspeccion_id, inicio_programado, fin_programado,
+                     prioridad, estado, observaciones, programado_por, creado_por)
+                SELECT seed.FollowUpScheduleId, seed.FollowUpCaseId, seed.InspectionTemplateId,
+                       seed.StartsAt, seed.StartsAt + INTERVAL '4 hours', seed.Priority,
+                       'PROGRAMADA',
+                       'Reinspección automática; auditar únicamente las no conformidades de ' ||
+                           seed.EvaluationNumber,
+                       @ActorId, @ActorId
+                  FROM follow_up_seed seed
+                  JOIN follow_up_case created_case ON created_case.id = seed.FollowUpCaseId
+                RETURNING id
+            ), follow_up_assignment AS (
+                INSERT INTO "SIGERSA"."ASIGNACION"
+                    (id, programacion_id, evaluador_id, es_principal, estado,
+                     motivo_asignacion, asignado_por, creado_por)
+                SELECT gen_random_uuid(), seed.FollowUpScheduleId, seed.EvaluatorId, true, 'ACTIVA',
+                       'Reinspección automática por no conformidades', @ActorId, @ActorId
+                  FROM follow_up_seed seed
+                  JOIN follow_up_schedule schedule ON schedule.id = seed.FollowUpScheduleId
+                RETURNING programacion_id
+            ), follow_up_evaluation AS (
+                INSERT INTO "SIGERSA"."EVALUACION"
+                    (id, numero, caso_id, programacion_id, establecimiento_id,
+                     ficha_inspeccion_id, evaluador_principal_id, estado, alcance,
+                     programada_inicio_en, programada_fin_en, version_regla_riesgo_id,
+                     creado_por)
+                SELECT seed.FollowUpEvaluationId,
+                       'EV-' || to_char(CURRENT_TIMESTAMP, 'YYYYMMDD') || '-' ||
+                           upper(substr(replace(seed.FollowUpEvaluationId::text, '-', ''), 1, 8)),
+                       seed.FollowUpCaseId, seed.FollowUpScheduleId, seed.EstablishmentId,
+                       seed.InspectionTemplateId, seed.EvaluatorId, 'ASIGNADA', 'SEGUIMIENTO',
+                       seed.StartsAt, seed.StartsAt + INTERVAL '4 hours',
+                       seed.RiskRuleVersionId, @ActorId
+                  FROM follow_up_seed seed
+                  JOIN follow_up_assignment assignment
+                    ON assignment.programacion_id = seed.FollowUpScheduleId
+                RETURNING id
+            ), follow_up_history AS (
+                INSERT INTO "SIGERSA"."PROGRAMACION_HISTORIAL"
+                    (id, programacion_id, accion, inicio_nuevo, fin_nuevo, prioridad_nueva,
+                     estado_nuevo, motivo, realizado_por, creado_por)
+                SELECT gen_random_uuid(), seed.FollowUpScheduleId, 'CREADA', seed.StartsAt,
+                       seed.StartsAt + INTERVAL '4 hours', seed.Priority, 'PROGRAMADA',
+                       'Reinspección automática por no conformidades', @ActorId, @ActorId
+                  FROM follow_up_seed seed
+                  JOIN follow_up_evaluation evaluation ON evaluation.id = seed.FollowUpEvaluationId
+                RETURNING id
             ), request_in_progress AS (
                 UPDATE "SIGERSA"."SOLICITUD" request
                    SET estado = 'EN_PROCESO', modificado_en = CURRENT_TIMESTAMP,

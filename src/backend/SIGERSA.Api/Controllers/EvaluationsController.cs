@@ -95,9 +95,8 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
     [Authorize(Roles = "TECNICO_EVALUADOR")]
     public Task<EvaluationCalculation> Calculate(
         Guid evaluationId,
-        CalculateEvaluationRequest request,
         CancellationToken cancellationToken) =>
-        service.CalculateAsync(evaluationId, request.ProductRisk, ActorContext(), cancellationToken);
+        service.CalculateAsync(evaluationId, ActorContext(), cancellationToken);
 
     [HttpPost("evaluations/{evaluationId:guid}/start")]
     [Authorize(Roles = "TECNICO_EVALUADOR")]
@@ -110,8 +109,8 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
     [HttpPost("evaluations/{evaluationId:guid}/finalize")]
     [Authorize(Roles = "TECNICO_EVALUADOR")]
     public Task<EvaluationCalculation> Finalize(
-        Guid evaluationId, FinalizeEvaluationRequest request, CancellationToken cancellationToken) =>
-        service.FinalizeAsync(evaluationId, request.ProductRisk, ActorContext(), cancellationToken);
+        Guid evaluationId, CancellationToken cancellationToken) =>
+        service.FinalizeAsync(evaluationId, ActorContext(), cancellationToken);
 
     [HttpPost("evaluations/{evaluationId:guid}/submit")]
     [Authorize(Roles = "TECNICO_EVALUADOR")]
@@ -199,7 +198,5 @@ public sealed record SaveAnswerRequest(
     DateTimeOffset? ClientDate,
     long? BaseVersion);
 
-public sealed record CalculateEvaluationRequest(decimal ProductRisk = 1m);
 public sealed record StartEvaluationRequest(long RowVersion, decimal? Latitude, decimal? Longitude, decimal? AccuracyMeters);
-public sealed record FinalizeEvaluationRequest(decimal ProductRisk);
 public sealed record EvaluationTransitionRequest(long RowVersion);

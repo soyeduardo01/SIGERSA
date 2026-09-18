@@ -695,18 +695,35 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
         Guid actorId,
         CancellationToken cancellationToken = default)
     {
+        return await UpdateFindingStatusAsync(
+            id, rowVersion, "CERRADO", reason, actorId, cancellationToken);
+    }
+
+    public async Task<bool> UpdateFindingStatusAsync(
+        Guid id,
+        long rowVersion,
+        string status,
+        string? reason,
+        Guid actorId,
+        CancellationToken cancellationToken = default)
+    {
         const string sql = """
             UPDATE "SIGERSA"."NO_CONFORMIDAD"
-               SET estado = 'CERRADA', cerrada_en = CURRENT_TIMESTAMP,
-                   cierre_justificacion = @Reason, modificado_en = CURRENT_TIMESTAMP,
-                   modificado_por = @ActorId, version_fila = version_fila + 1
-             WHERE id = @Id AND version_fila = @RowVersion AND estado <> 'CERRADA';
+               SET estado = @Status,
+                   cerrada_en = CASE WHEN @Status = 'CERRADO' THEN CURRENT_TIMESTAMP ELSE NULL END,
+                   cierre_justificacion = CASE WHEN @Status = 'CERRADO' THEN @Reason ELSE NULL END,
+                   modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
+                   version_fila = version_fila + 1
+             WHERE id = @Id AND version_fila = @RowVersion
+               AND ((estado = 'ABIERTA' AND @Status = 'EN_CORRECCION')
+                    OR (estado = 'EN_CORRECCION' AND @Status = 'VALIDADO')
+                    OR (estado = 'VALIDADO' AND @Status = 'CERRADO'));
             """;
         var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
         await using (connection)
         {
             return await connection.ExecuteAsync(new CommandDefinition(
-                Sql(sql), new { Id = id, RowVersion = rowVersion, Reason = reason, ActorId = actorId },
+                Sql(sql), new { Id = id, RowVersion = rowVersion, Status = status, Reason = reason, ActorId = actorId },
                 cancellationToken: cancellationToken)) == 1;
         }
     }
@@ -996,6 +1013,16 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
                     SET modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId
                 RETURNING id;
                 """), new { Id = Guid.NewGuid(), EvaluationId = evaluationId, ActorId = actorId }, transaction, cancellationToken: cancellationToken));
+            var alreadyOfficial = await connection.ExecuteScalarAsync<bool>(new CommandDefinition(Sql("""
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM "SIGERSA"."INFORME_VERSION"
+                     WHERE informe_id = @ReportId AND es_oficial = true
+                );
+                """), new { ReportId = reportId }, transaction, cancellationToken: cancellationToken));
+            if (alreadyOfficial)
+                throw new InvalidOperationException(
+                    "El informe oficial ya fue emitido y sus versiones quedaron cerradas para edición.");
             var version = await connection.ExecuteScalarAsync<int>(new CommandDefinition(Sql("""
                 SELECT COALESCE(MAX(version), 0) + 1
                   FROM "SIGERSA"."INFORME_VERSION" WHERE informe_id = @ReportId;
@@ -1148,6 +1175,22 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
         public long RowVersion { get; init; }
         public FindingRecord ToDomain() => new(Id, EvaluationId, EvaluationNumber, EstablishmentName, SourceItem,
             ItemTitle, Criticality, Code, Description, Status, Utc(DetectedAt), ClosedAt.HasValue ? Utc(ClosedAt.Value) : null, RowVersion);
+    }
+
+    public async Task<bool> HasOfficialReportAsync(
+        Guid evaluationId,
+        CancellationToken cancellationToken = default)
+    {
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+            return await connection.ExecuteScalarAsync<bool>(new CommandDefinition(Sql("""
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM "SIGERSA"."INFORME" report
+                      JOIN "SIGERSA"."INFORME_VERSION" version ON version.informe_id = report.id
+                     WHERE report.evaluacion_id = @EvaluationId AND version.es_oficial = true
+                );
+                """), new { EvaluationId = evaluationId }, cancellationToken: cancellationToken));
     }
 
     private sealed class FindingDetailRow

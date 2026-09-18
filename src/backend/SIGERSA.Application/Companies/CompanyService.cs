@@ -53,8 +53,7 @@ public sealed class CompanyService(ICompanyRepository repository, IValidator<Com
         request.Status.Trim().ToUpperInvariant(),
         request.RowVersion);
 
-    private static string NormalizeTaxId(string value) =>
-        new(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
+    private static string NormalizeTaxId(string value) => value.Trim();
 
     private static string? Optional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

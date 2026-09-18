@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { FormSkeleton } from '../../components/feedback/Skeletons'
-import { useParameterOptions } from '../../hooks/useParameterOptions'
 import {
   calculateEvaluation,
   finalizeEvaluation,
@@ -10,9 +9,16 @@ import {
   type EvaluationFollowUpItem,
   type EvaluationFormItem,
   type EvaluationInspectionPolicy,
+  type EvaluationSavedAnswer,
   type EvaluationSupplement,
 } from '../../lib/api'
 import { offlineDb } from '../../offline/database'
+import {
+  cacheEvaluationWorkspace,
+  hasPendingEvaluationChanges,
+  readCachedEvaluationWorkspace,
+  type CachedEvaluationWorkspace,
+} from '../../offline/evaluationCache'
 import {
   flushSyncQueue,
   queueAnswer,
@@ -98,10 +104,8 @@ export function DynamicInspectionForm({
   const [supplement, setSupplement] = useState<EvaluationSupplement>(emptySupplement)
   const [savingSupplement, setSavingSupplement] = useState(false)
   const [calculation, setCalculation] = useState<EvaluationCalculation | null>(null)
-  const [productRisk, setProductRisk] = useState<number | null>(null)
   const [activeChapter, setActiveChapter] = useState(0)
   const chapterTopRef = useRef<HTMLDivElement>(null)
-  const productRiskOptions = useParameterOptions('NIVEL_RIESGO_ALIMENTO')
   const [message, setMessage] = useState('Indique una evaluación asignada para cargar su ficha.')
   const [loadingForm, setLoadingForm] = useState(() => {
     const candidate =
@@ -124,31 +128,60 @@ export function DynamicInspectionForm({
     void loadEvaluation(evaluationId)
     async function loadEvaluation(id: string) {
       const cacheKey = `evaluation-${id}`
-      const cached = await offlineDb.inspectionTemplates.get(cacheKey)
+      const legacyCached = await offlineDb.inspectionTemplates.get(cacheKey)
+      const cached = await readCachedEvaluationWorkspace(id)
       if (cached) {
-        const cachedDefinition = cached.definition as
-          | EvaluationFormItem[]
-          | {
-              items: EvaluationFormItem[]
-              policy: EvaluationInspectionPolicy
-              evidences?: Parameters<typeof evidenceStatusBySlot>[0]
-            }
-        if (Array.isArray(cachedDefinition)) {
-          setItems(cachedDefinition)
-          setPolicy(null)
-        } else {
-          setItems(cachedDefinition.items)
-          setPolicy(cachedDefinition.policy)
-          setEvidenceStatus(evidenceStatusBySlot(cachedDefinition.evidences ?? []))
-        }
+        setItems(cached.items)
+        setPolicy(cached.policy)
+        setEvidenceStatus(evidenceStatusBySlot(cached.evidences))
+        const cachedAnswers = cached.answers
+        setRatings(
+          Object.fromEntries(cachedAnswers.map((answer) => [answer.sourceItem, answer.rating])),
+        )
+        setCriticalities(
+          Object.fromEntries(
+            cachedAnswers
+              .filter((answer) => answer.criticalityCode)
+              .map((answer) => [answer.sourceItem, answer.criticalityCode as string]),
+          ),
+        )
+        setObservations(
+          Object.fromEntries(
+            cachedAnswers.map((answer) => [answer.sourceItem, answer.observation ?? '']),
+          ),
+        )
+        setComments(
+          Object.fromEntries(
+            cachedAnswers.map((answer) => [answer.sourceItem, answer.comment ?? '']),
+          ),
+        )
+        setAnswerStatus(
+          Object.fromEntries(
+            cachedAnswers.map((answer) => [answer.sourceItem, 'Guardado localmente']),
+          ),
+        )
+        setSupplement(cached.supplement)
         setMessage('Ficha disponible desde el almacenamiento local.')
+      } else if (legacyCached && Array.isArray(legacyCached.definition)) {
+        setItems(legacyCached.definition as EvaluationFormItem[])
+        setPolicy(null)
+        setMessage('Ficha básica disponible desde el almacenamiento local.')
       }
       if (!navigator.onLine) {
-        if (!cached) setMessage('Esta evaluación todavía no está disponible sin conexión.')
+        if (!cached && !legacyCached)
+          setMessage(
+            'No hay una copia local de esta evaluación. Cuando recupere conexión, use “Preparar offline” antes de salir a campo.',
+          )
         setLoadingForm(false)
         return
       }
       try {
+        if (cached && (await hasPendingEvaluationChanges(id))) {
+          setMessage(
+            'Ficha cargada localmente. Sus cambios pendientes se sincronizarán antes de actualizarla desde el servidor.',
+          )
+          return
+        }
         const workspace = await getEvaluationWorkspace(id)
         setItems(workspace.items)
         setPolicy(workspace.policy)
@@ -172,7 +205,7 @@ export function DynamicInspectionForm({
             workspace.answers.map((answer) => [answer.sourceItem, answer.comment ?? '']),
           ),
         )
-        setSupplement({
+        const normalizedSupplement = {
           ...workspace.supplement,
           previousInspectionDate:
             workspace.supplement.previousInspectionDate ?? workspace.policy.previousInspectionDate,
@@ -180,7 +213,8 @@ export function DynamicInspectionForm({
             workspace.supplement.previousQualification ??
             qualificationForPercentage(workspace.policy.previousCompliancePercentage),
           currentInspectionDate: workspace.supplement.currentInspectionDate ?? today(),
-        })
+        }
+        setSupplement(normalizedSupplement)
         setAnswerStatus(
           Object.fromEntries(workspace.answers.map((answer) => [answer.sourceItem, 'Guardado'])),
         )
@@ -188,19 +222,7 @@ export function DynamicInspectionForm({
         setActiveChapter(0)
         setCalculation(null)
         setMessage('Ficha y respuestas actualizadas desde la base de datos.')
-        await offlineDb.inspectionTemplates.put({
-          key: cacheKey,
-          id,
-          code: 'EVALUATION_SNAPSHOT',
-          version: 1,
-          status: 'PUBLICADA',
-          definition: {
-            items: workspace.items,
-            policy: workspace.policy,
-            evidences: workspace.evidences ?? [],
-          },
-          updatedAt: new Date().toISOString(),
-        })
+        await cacheEvaluationWorkspace(id, { ...workspace, supplement: normalizedSupplement })
       } catch (error) {
         setMessage(
           error instanceof Error ? error.message : 'No fue posible cargar la evaluación asignada.',
@@ -211,15 +233,6 @@ export function DynamicInspectionForm({
       }
     }
   }, [evaluationId])
-
-  useEffect(() => {
-    if (productRisk !== null) return
-    const firstValue = productRiskOptions.options.find(
-      (option) => option.numericData !== null,
-    )?.numericData
-    if (firstValue !== undefined && firstValue !== null)
-      queueMicrotask(() => setProductRisk(firstValue))
-  }, [productRisk, productRiskOptions.options])
 
   const visibleItems = useMemo(() => itemsForInspectionPolicy(items, policy), [items, policy])
   const requiredSources = useMemo(() => {
@@ -281,6 +294,28 @@ export function DynamicInspectionForm({
       observation: observations[item.sourceItem]?.trim() || undefined,
       comment: comments[item.sourceItem]?.trim() || undefined,
     })
+    const cacheKey = `evaluation-${evaluationId}`
+    const cached = await offlineDb.inspectionTemplates.get(cacheKey)
+    if (cached && !Array.isArray(cached.definition)) {
+      const definition = cached.definition as CachedEvaluationWorkspace
+      const answer: EvaluationSavedAnswer = {
+        sourceItem: item.sourceItem,
+        rating,
+        criticalityCode: rating === 'NO_CUMPLE' ? (criticality ?? null) : null,
+        observation: observations[item.sourceItem]?.trim() || null,
+        comment: comments[item.sourceItem]?.trim() || null,
+      }
+      await offlineDb.inspectionTemplates.update(cacheKey, {
+        definition: {
+          ...definition,
+          answers: [
+            ...(definition.answers ?? []).filter((value) => value.sourceItem !== item.sourceItem),
+            answer,
+          ],
+        },
+        updatedAt: new Date().toISOString(),
+      })
+    }
     if (!navigator.onLine) {
       setAnswerStatus((current) => ({ ...current, [item.sourceItem]: 'Pendiente sin conexión' }))
       setMessage(
@@ -361,7 +396,7 @@ export function DynamicInspectionForm({
   }
 
   async function calculate() {
-    if (!evaluationId || productRisk === null || !navigator.onLine) {
+    if (!evaluationId || !navigator.onLine) {
       await alerts.error(
         new Error('Conéctese y cargue una evaluación.'),
         'No es posible calcular ahora',
@@ -370,7 +405,7 @@ export function DynamicInspectionForm({
     }
     try {
       await ensureEvaluationSynced()
-      const result = await calculateEvaluation(evaluationId, productRisk)
+      const result = await calculateEvaluation(evaluationId)
       setCalculation(result)
       const suggested = qualificationForPercentage(result.compliancePercentage)
       if (suggested) {
@@ -414,9 +449,9 @@ export function DynamicInspectionForm({
   }
 
   async function finalize() {
-    if (!evaluationId || productRisk === null || !navigator.onLine) {
+    if (!evaluationId || !navigator.onLine) {
       await alerts.error(
-        new Error('Conéctese y seleccione el riesgo del producto.'),
+        new Error('Conéctese para sincronizar y finalizar la evaluación.'),
         'No es posible finalizar',
       )
       return
@@ -430,7 +465,7 @@ export function DynamicInspectionForm({
     try {
       await ensureEvaluationSynced()
       await persistSupplement(false)
-      const result = await finalizeEvaluation(evaluationId, productRisk)
+      const result = await finalizeEvaluation(evaluationId)
       setCalculation(result)
       setMessage('Evaluación finalizada y almacenada correctamente.')
       await alerts.success('Evaluación finalizada')
@@ -689,26 +724,10 @@ export function DynamicInspectionForm({
           )}
           <div className="mt-6 rounded-xl bg-surface-inverse p-5 text-white shadow-card">
             <div className="flex flex-wrap items-end gap-3">
-              <label className="text-sm font-bold">
-                Riesgo del producto
-                <select
-                  disabled={readOnly}
-                  value={productRisk ?? ''}
-                  onChange={(event) =>
-                    setProductRisk(event.target.value ? Number(event.target.value) : null)
-                  }
-                  className="mt-1.5 block min-h-11 rounded-lg bg-white px-3 text-ink-strong disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
-                >
-                  <option value="">Seleccione</option>
-                  {productRiskOptions.options
-                    .filter((option) => option.numericData !== null)
-                    .map((option) => (
-                      <option key={option.parametersId} value={option.numericData ?? ''}>
-                        {option.numericData} · {formatStatusLabel(option.stringData ?? '')}
-                      </option>
-                    ))}
-                </select>
-              </label>
+              <p className="max-w-sm text-sm text-emerald-100">
+                El riesgo del producto y el nivel de riesgo se determinan automáticamente a partir
+                de los productos del establecimiento y del puntaje calculado.
+              </p>
               <button
                 type="button"
                 onClick={() => void saveSupplement()}
@@ -720,7 +739,7 @@ export function DynamicInspectionForm({
               <button
                 type="button"
                 onClick={() => void calculate()}
-                disabled={readOnly || productRisk === null || !formComplete}
+                disabled={readOnly || !formComplete}
                 className="min-h-11 rounded-xl bg-brand-500 px-4 font-bold disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Sincronizar y calcular
@@ -728,17 +747,12 @@ export function DynamicInspectionForm({
               <button
                 type="button"
                 onClick={() => void finalize()}
-                disabled={readOnly || productRisk === null || !formComplete}
+                disabled={readOnly || !formComplete}
                 className="min-h-11 rounded-xl bg-white px-4 font-bold text-brand-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Finalizar evaluación
               </button>
             </div>
-            {!productRiskOptions.loading && productRiskOptions.options.length === 0 && (
-              <p className="mt-3 text-xs text-amber-200">
-                El catálogo NIVEL_RIESGO_ALIMENTO no tiene valores activos.
-              </p>
-            )}
             {calculation && (
               <output className="mt-4 block rounded-lg bg-white/10 px-4 py-3 text-sm">
                 Cumplimiento {calculation.compliancePercentage?.toFixed(1) ?? 'N/D'}% · Riesgo{' '}
@@ -765,12 +779,65 @@ export function DynamicInspectionForm({
                     ))}
                   </ul>
                 )}
+                <div className="mt-4 overflow-x-auto rounded-xl bg-white text-ink-body">
+                  <div className="border-b border-slate-200 p-4">
+                    <strong className="block text-ink-strong">
+                      Desglose del cálculo de riesgo
+                    </strong>
+                    <span className="text-xs text-ink-muted">{calculation.breakdown.formula}</span>
+                  </div>
+                  <table className="w-full min-w-[640px] text-left text-xs">
+                    <thead>
+                      <tr className="border-b bg-slate-50 text-ink-muted uppercase">
+                        <th className="p-3">Factor</th>
+                        <th className="p-3">Base aplicada</th>
+                        <th className="p-3">Puntaje</th>
+                        <th className="p-3">Peso</th>
+                        <th className="p-3">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {calculation.breakdown.factors.map((factor) => (
+                        <tr key={factor.code} className="border-b border-slate-100">
+                          <td className="p-3 font-bold">{factor.name}</td>
+                          <td className="p-3">{factor.basis}</td>
+                          <td className="p-3">{factor.score?.toFixed(2) ?? 'N/D'}</td>
+                          <td className="p-3">{(factor.weight * 100).toFixed(0)}%</td>
+                          <td className="p-3 font-bold">
+                            {factor.weightedValue?.toFixed(2) ?? 'N/D'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="grid gap-3 p-4 sm:grid-cols-3">
+                    <RiskResult label="Riesgo del producto" value={calculation.productRisk} />
+                    <RiskResult
+                      label="Riesgo del establecimiento"
+                      value={calculation.establishmentRisk}
+                    />
+                    <RiskResult label="Producto × establecimiento" value={calculation.totalRisk} />
+                  </div>
+                  <p className="px-4 pb-4 text-xs text-ink-muted">
+                    Matriz de frecuencia: 1.0–3.6 anual · más de 3.6 hasta 6.3 semestral · más de
+                    6.3 trimestral.
+                  </p>
+                </div>
               </output>
             )}
           </div>
         </>
       )}
     </section>
+  )
+}
+
+function RiskResult({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="rounded-lg bg-slate-50 p-3">
+      <span className="block text-[11px] font-bold text-ink-muted uppercase">{label}</span>
+      <strong className="mt-1 block text-lg text-ink-strong">{value?.toFixed(2) ?? 'N/D'}</strong>
+    </div>
   )
 }
 

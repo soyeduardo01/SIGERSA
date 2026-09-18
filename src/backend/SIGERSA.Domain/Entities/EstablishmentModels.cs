@@ -11,6 +11,20 @@ public sealed record EstablishmentSummary(
     string? Phone,
     string? Email,
     string Status,
+    Guid? EvaluationId,
+    decimal? ProductRisk,
+    decimal? EstablishmentRisk,
+    decimal? TotalRisk,
+    string? RiskLevel,
+    string? Frequency,
+    decimal? ProductionScore,
+    decimal? HaccpScore,
+    decimal? BpmScore,
+    decimal? InabieScore,
+    decimal? RejectionScore,
+    decimal? SamplingScore,
+    int CriticalNonconformities,
+    string? RiskAdjustment,
     long RowVersion);
 
 public sealed record EstablishmentsPage(

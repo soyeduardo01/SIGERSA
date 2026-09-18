@@ -65,11 +65,11 @@ function newDraft(options: EstablishmentOptions): EstablishmentDraft {
     femaleEmployees: null,
     maleEmployees: null,
     microbiologicalRejectionsLastFiveYears: 0,
-    haccpImplemented: false,
+    haccpImplemented: null,
     haccpPercentage: null,
-    microbiologicalSamplingPlan: false,
+    microbiologicalSamplingPlan: null,
     samplingApplicationCode: null,
-    isInabieSupplier: false,
+    isInabieSupplier: null,
     inabieDistributionCode: null,
     status: options.statuses[0]?.stringData ?? '',
     marketIds: [],
@@ -176,8 +176,9 @@ export function EstablishmentFormModal(props: EstablishmentFormModalProps) {
               monthlyVolume: numberValue(monthlyVolume),
               unit: unit.trim() || null,
             },
+            ...sourceProductsAfterFirst(draft.products),
           ]
-        : []
+        : draft.products
     await onSave({ ...draft, contacts, products })
   }
 
@@ -352,7 +353,11 @@ function FormSections(props: FormSectionsProps) {
             onChange={(event) => {
               const companyId = event.target.value
               update('companyId', companyId)
-              update('name', options.companies.find((value) => value.id === companyId)?.name ?? '')
+              if (!draft.name.trim())
+                update(
+                  'name',
+                  options.companies.find((value) => value.id === companyId)?.name ?? '',
+                )
             }}
             className={inputClass}
           >
@@ -367,10 +372,10 @@ function FormSections(props: FormSectionsProps) {
         <Field label="Nombre o razón social" required className="lg:col-span-3">
           <input
             required
-            readOnly
             maxLength={250}
             value={draft.name}
-            className={`${inputClass} bg-slate-100`}
+            onChange={(event) => update('name', event.target.value)}
+            className={inputClass}
           />
         </Field>
         <Field label="Calle" className="lg:col-span-4">
@@ -441,6 +446,8 @@ function FormSections(props: FormSectionsProps) {
           <input
             type="tel"
             inputMode="numeric"
+            pattern="(809|829|849)-[0-9]{3}-[0-9]{4}"
+            title="Use 10 dígitos y un prefijo 809, 829 o 849."
             maxLength={12}
             placeholder="809-555-1234"
             value={draft.phone ?? ''}
@@ -496,8 +503,9 @@ function FormSections(props: FormSectionsProps) {
             className={inputClass}
           />
         </Field>
-        <Field label="Producción anual" className="lg:col-span-2">
+        <Field label="Producción anual" required className="lg:col-span-2">
           <input
+            required
             type="number"
             min="0"
             step="0.0001"
@@ -523,7 +531,9 @@ function FormSections(props: FormSectionsProps) {
         <Field label="Mercado objetivo" className="lg:col-span-3">
           <select
             value={draft.marketIds[0] ?? ''}
-            onChange={(event) => update('marketIds', event.target.value ? [event.target.value] : [])}
+            onChange={(event) =>
+              update('marketIds', event.target.value ? [event.target.value] : [])
+            }
             className={inputClass}
           >
             <option value="">Seleccione</option>
@@ -534,8 +544,9 @@ function FormSections(props: FormSectionsProps) {
             ))}
           </select>
         </Field>
-        <Field label="Categoría de alimento" className="lg:col-span-3">
+        <Field label="Categoría de alimento" required className="lg:col-span-3">
           <select
+            required
             value={props.categoryId}
             onChange={(event) => {
               props.setCategoryId(event.target.value)
@@ -551,8 +562,9 @@ function FormSections(props: FormSectionsProps) {
             ))}
           </select>
         </Field>
-        <Field label="Subcategoría" className="lg:col-span-3">
+        <Field label="Subcategoría" required className="lg:col-span-3">
           <select
+            required
             disabled={!props.categoryId}
             value={props.subcategoryId}
             onChange={(event) => props.setSubcategoryId(event.target.value)}
@@ -567,8 +579,9 @@ function FormSections(props: FormSectionsProps) {
             ))}
           </select>
         </Field>
-        <Field label="Descripción del producto" className="lg:col-span-3">
+        <Field label="Descripción del producto" required className="lg:col-span-3">
           <input
+            required
             maxLength={300}
             value={props.productDescription}
             onChange={(event) => props.setProductDescription(event.target.value)}
@@ -600,15 +613,16 @@ function FormSections(props: FormSectionsProps) {
   if (tab === 'controls') {
     return (
       <section className="grid gap-5 md:grid-cols-2">
-        <ToggleCard
+        <RiskBooleanCard
           label="¿Tienen implementado el sistema HACCP?"
-          checked={draft.haccpImplemented === true}
-          onChange={(checked) => {
-            update('haccpImplemented', checked)
+          value={draft.haccpImplemented}
+          onChange={(value) => {
+            update('haccpImplemented', value)
             update('haccpPercentage', null)
           }}
         >
           <select
+            required
             disabled={draft.haccpImplemented !== true}
             value={draft.haccpPercentage ?? ''}
             onChange={(event) => update('haccpPercentage', numberValue(event.target.value))}
@@ -621,16 +635,17 @@ function FormSections(props: FormSectionsProps) {
               </option>
             ))}
           </select>
-        </ToggleCard>
-        <ToggleCard
+        </RiskBooleanCard>
+        <RiskBooleanCard
           label="¿Tienen un plan de muestreo microbiológico?"
-          checked={draft.microbiologicalSamplingPlan === true}
-          onChange={(checked) => {
-            update('microbiologicalSamplingPlan', checked)
+          value={draft.microbiologicalSamplingPlan}
+          onChange={(value) => {
+            update('microbiologicalSamplingPlan', value)
             update('samplingApplicationCode', null)
           }}
         >
           <select
+            required
             disabled={draft.microbiologicalSamplingPlan !== true}
             value={draft.samplingApplicationCode ?? ''}
             onChange={(event) => update('samplingApplicationCode', event.target.value || null)}
@@ -643,16 +658,17 @@ function FormSections(props: FormSectionsProps) {
               </option>
             ))}
           </select>
-        </ToggleCard>
-        <ToggleCard
+        </RiskBooleanCard>
+        <RiskBooleanCard
           label="¿Son suplidores del INABIE?"
-          checked={draft.isInabieSupplier === true}
-          onChange={(checked) => {
-            update('isInabieSupplier', checked)
+          value={draft.isInabieSupplier}
+          onChange={(value) => {
+            update('isInabieSupplier', value)
             update('inabieDistributionCode', null)
           }}
         >
           <select
+            required
             disabled={draft.isInabieSupplier !== true}
             value={draft.inabieDistributionCode ?? ''}
             onChange={(event) => update('inabieDistributionCode', event.target.value || null)}
@@ -665,7 +681,7 @@ function FormSections(props: FormSectionsProps) {
               </option>
             ))}
           </select>
-        </ToggleCard>
+        </RiskBooleanCard>
         <div className="grid gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 sm:grid-cols-2">
           <Field label="Empleados mujeres">
             <input
@@ -754,34 +770,33 @@ function Field({
   )
 }
 
-function ToggleCard({
+function RiskBooleanCard({
   label,
-  checked,
+  value,
   onChange,
   children,
 }: {
   label: string
-  checked: boolean
+  value: boolean | null
   onChange: (value: boolean) => void
   children: ReactNode
 }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm font-bold text-ink-strong">{label}</p>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={checked}
-          onClick={() => onChange(!checked)}
-          className={`relative h-7 w-12 shrink-0 rounded-full transition ${checked ? 'bg-brand-600' : 'bg-slate-300'}`}
+      <label className="text-sm font-bold text-ink-strong">
+        {label} <span className="text-red-600">*</span>
+        <select
+          required
+          value={value === null ? '' : String(value)}
+          onChange={(event) => onChange(event.target.value === 'true')}
+          className={inputClass}
         >
-          <span
-            className={`absolute top-1 size-5 rounded-full bg-white shadow transition-all ${checked ? 'right-1' : 'left-1'}`}
-          />
-        </button>
-      </div>
-      {children}
+          <option value="">Seleccione</option>
+          <option value="true">Sí</option>
+          <option value="false">No</option>
+        </select>
+      </label>
+      {value === true && children}
     </div>
   )
 }
@@ -820,6 +835,8 @@ function ContactFields({
         <input
           type="tel"
           inputMode="numeric"
+          pattern="(809|829|849)-[0-9]{3}-[0-9]{4}"
+          title="Use 10 dígitos y un prefijo 809, 829 o 849."
           maxLength={12}
           placeholder="809-555-1234"
           value={value.phone ?? ''}
@@ -861,6 +878,10 @@ function CatalogNotice({ names }: { names: string[] }) {
 
 function numberValue(value: string) {
   return value === '' ? null : Number(value)
+}
+
+function sourceProductsAfterFirst(products: EstablishmentDraft['products']) {
+  return products.length > 1 ? products.slice(1) : []
 }
 
 function dateValue(value: string | null) {

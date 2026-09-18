@@ -65,6 +65,17 @@ public sealed class SigersaSqlGuardTests
     }
 
     [Fact]
+    public void EnsureQualifiedShouldAcceptMaterializedCommonTableExpression()
+    {
+        const string sql = """
+            WITH records AS MATERIALIZED (SELECT id FROM "SIGERSA"."USUARIO")
+            SELECT * FROM records;
+            """;
+
+        Assert.Equal(sql, SigersaSqlGuard.EnsureQualified(sql));
+    }
+
+    [Fact]
     public void EnsureQualifiedShouldNotTreatFromParameterAsTableKeyword()
     {
         const string sql = "SELECT id FROM \"SIGERSA\".\"USUARIO\" WHERE (@From IS NULL);";

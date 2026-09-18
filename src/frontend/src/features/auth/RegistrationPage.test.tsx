@@ -1,9 +1,12 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { registerPublicUser } from '../../lib/api'
+import { getPublicRegistrationCompanies, registerPublicUser } from '../../lib/api'
 import { RegistrationPage } from './RegistrationPage'
 
-vi.mock('../../lib/api', () => ({ registerPublicUser: vi.fn() }))
+vi.mock('../../lib/api', () => ({
+  registerPublicUser: vi.fn(),
+  getPublicRegistrationCompanies: vi.fn(),
+}))
 vi.mock('../../lib/alerts', () => ({
   alerts: {
     success: vi.fn().mockResolvedValue(undefined),
@@ -18,6 +21,9 @@ describe('RegistrationPage', () => {
       id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
       status: 'PENDIENTE_VALIDACION',
     })
+    vi.mocked(getPublicRegistrationCompanies).mockResolvedValue([
+      { id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', name: 'Empresa registrada' },
+    ])
   })
 
   it('solo ofrece roles empresariales y envía la carta obligatoria', async () => {
@@ -35,6 +41,9 @@ describe('RegistrationPage', () => {
     })
     fireEvent.change(screen.getByLabelText(/Teléfono/), { target: { value: '8095551212' } })
     fireEvent.change(screen.getByLabelText(/Rol/), { target: { value: 'USUARIO_DELEGADO' } })
+    const company = await screen.findByLabelText(/Empresa/)
+    expect(screen.getByRole('button', { name: /Crear cuenta/ })).toBeDisabled()
+    fireEvent.change(company, { target: { value: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' } })
     fireEvent.change(screen.getByLabelText(/Contraseña/), { target: { value: 'Segura8!' } })
     fireEvent.change(screen.getByLabelText(/Carta de autorización/), {
       target: { files: [new File(['%PDF'], 'carta.pdf', { type: 'application/pdf' })] },
@@ -48,6 +57,7 @@ describe('RegistrationPage', () => {
     expect(vi.mocked(registerPublicUser).mock.calls[0]?.[0]).toMatchObject({
       nombreCompleto: 'María Pérez',
       rol: 'USUARIO_DELEGADO',
+      empresaId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
       termsAccepted: true,
     })
     expect(onBack).toHaveBeenCalledOnce()

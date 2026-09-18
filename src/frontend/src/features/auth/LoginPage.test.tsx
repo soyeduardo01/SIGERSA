@@ -118,4 +118,39 @@ describe('LoginPage', () => {
     )
     expect(onAuthenticated).toHaveBeenCalledWith(session)
   })
+
+  it('muestra un mensaje comprensible cuando falla la validación del código', async () => {
+    vi.mocked(login).mockResolvedValueOnce({
+      requiresTwoFactor: true,
+      expiresAt: '2026-09-12T18:00:00Z',
+    })
+    vi.mocked(verifyTwoFactor).mockRejectedValueOnce(
+      new Error('Npgsql.PostgresException: challenge verification failed'),
+    )
+    render(<LoginPage onAuthenticated={vi.fn()} onRecover={vi.fn()} />)
+
+    fireEvent.change(screen.getByLabelText('Correo institucional'), {
+      target: { value: 'admin@sigersa.local' },
+    })
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
+      target: { value: 'AdminTest-2026!' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Entrar/ }))
+
+    fireEvent.change(await screen.findByLabelText('Código de verificación'), {
+      target: { value: '000000' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Verificar código' }))
+
+    await waitFor(() =>
+      expect(alerts.error).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message:
+            'El código ingresado no es válido o ya venció. Verifíquelo e inténtelo nuevamente.',
+        }),
+        'No se pudo iniciar sesión',
+        { showUnauthorized: true },
+      ),
+    )
+  })
 })

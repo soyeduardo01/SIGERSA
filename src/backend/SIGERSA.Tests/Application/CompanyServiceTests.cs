@@ -8,13 +8,13 @@ namespace SIGERSA.Tests.Application;
 public sealed class CompanyServiceTests
 {
     [Fact]
-    public async Task CreateNormalizesRncAndContactData()
+    public async Task CreatePreservesNumericRncAndNormalizesContactData()
     {
         var repository = new FakeRepository();
         var service = new CompanyService(repository, new CompanyRequestValidator());
 
         await service.CreateAsync(new CompanyRequest(
-            "  Industria Alimentaria  ", "1-01-12345-6", "  Marca  ", null,
+            "  Industria Alimentaria  ", "101123456", "  Marca  ", null,
             " 809-555-0101 ", " INFO@EXAMPLE.COM ", null, null, [], "ACTIVA", null),
             Guid.NewGuid(), CancellationToken.None);
 
@@ -22,6 +22,20 @@ public sealed class CompanyServiceTests
         Assert.Equal("101123456", repository.LastDraft.TaxId);
         Assert.Equal("Industria Alimentaria", repository.LastDraft.LegalName);
         Assert.Equal("info@example.com", repository.LastDraft.Email);
+    }
+
+    [Theory]
+    [InlineData("10112A456")]
+    [InlineData("1-01-12345-6")]
+    [InlineData("101 123 456")]
+    public async Task CreateRejectsRncWithNonNumericCharacters(string taxId)
+    {
+        var service = new CompanyService(new FakeRepository(), new CompanyRequestValidator());
+        var request = new CompanyRequest("Empresa", taxId, null, null, null, null,
+            null, null, [], "ACTIVA", null);
+
+        await Assert.ThrowsAnyAsync<FluentValidation.ValidationException>(() =>
+            service.CreateAsync(request, Guid.NewGuid(), CancellationToken.None));
     }
 
     [Fact]

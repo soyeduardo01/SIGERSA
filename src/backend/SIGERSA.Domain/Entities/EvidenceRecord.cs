@@ -37,7 +37,7 @@ public sealed record EvidenceSummary(
 
 public sealed record EvidencesPage(IReadOnlyList<EvidenceSummary> Items, int Page, int PageSize, int Total);
 public sealed record EvidenceSearch(
-    string? Search, string? EvidenceType, int Page, int PageSize, Guid ActorId,
+    string? Search, string? EvidenceType, Guid? EvaluationId, int Page, int PageSize, Guid ActorId,
     Guid? CompanyScope, bool GlobalScope, bool AssignedOnly);
 public sealed record EvidenceStorageReference(
     Guid Id, string BucketName, string SupabasePath, string OriginalName, string MimeType);

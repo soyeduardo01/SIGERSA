@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { TableSkeleton } from '../../components/feedback/Skeletons'
+import { RiskBadge } from '../../components/ui/RiskBadge'
 import {
   createEstablishment,
   getEstablishment,
@@ -28,11 +29,13 @@ export function EstablishmentsManagement() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<EstablishmentDetails | null>(null)
   const [saving, setSaving] = useState(false)
+  const [page, setPage] = useState(1)
+  const [riskDetail, setRiskDetail] = useState<EstablishmentsPage['items'][number] | null>(null)
 
   async function load() {
     setLoading(true)
     try {
-      setResult(await getEstablishments({ search: query, status }))
+      setResult(await getEstablishments({ search: query, status, page, pageSize: 10 }))
       setError('')
     } catch (caught) {
       setError(
@@ -45,11 +48,11 @@ export function EstablishmentsManagement() {
 
   useEffect(() => {
     let active = true
-    void Promise.all([getEstablishments({ search: query, status }), getEstablishmentOptions()])
-      .then(([page, catalogs]) => {
+    queueMicrotask(() => active && setLoading(true))
+    void getEstablishments({ search: query, status, page, pageSize: 10 })
+      .then((records) => {
         if (!active) return
-        setResult(page)
-        setOptions(catalogs)
+        setResult(records)
         setError('')
       })
       .catch((caught) => {
@@ -64,10 +67,25 @@ export function EstablishmentsManagement() {
     return () => {
       active = false
     }
-  }, [query, status])
+  }, [page, query, status])
+
+  useEffect(() => {
+    let active = true
+    void getEstablishmentOptions()
+      .then((catalogs) => {
+        if (active) setOptions(catalogs)
+      })
+      .catch((caught) => {
+        if (active) void alerts.error(caught, 'No se pudieron cargar los catálogos')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   function searchRecords(event: FormEvent) {
     event.preventDefault()
+    setPage(1)
     setQuery(search.trim())
   }
 
@@ -190,6 +208,7 @@ export function EstablishmentsManagement() {
                 <th className="px-3 py-3">Ubicación</th>
                 <th className="px-3 py-3">Contacto</th>
                 <th className="px-3 py-3">Estado</th>
+                <th className="px-3 py-3">Riesgo actual</th>
                 <th className="px-3 py-3 text-right">Acción</th>
               </tr>
             </thead>
@@ -205,6 +224,28 @@ export function EstablishmentsManagement() {
                   </td>
                   <td className="px-3 py-4">{item.phone || item.email || 'No registrado'}</td>
                   <td className="px-3 py-4">{formatStatusLabel(item.status)}</td>
+                  <td className="px-3 py-4">
+                    {item.riskLevel ? (
+                      <button
+                        type="button"
+                        className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-700"
+                        onClick={() => setRiskDetail(item)}
+                        aria-label={`Ver cálculo de riesgo de ${item.name}`}
+                      >
+                        <RiskBadge
+                          level={
+                            item.riskLevel === 'BAJO'
+                              ? 'Bajo'
+                              : item.riskLevel === 'MEDIO'
+                                ? 'Medio'
+                                : 'Alto'
+                          }
+                        />
+                      </button>
+                    ) : (
+                      <span className="text-xs text-ink-muted">Pendiente de evaluación</span>
+                    )}
+                  </td>
                   <td className="px-3 py-4 text-right">
                     <button
                       type="button"
@@ -218,14 +259,25 @@ export function EstablishmentsManagement() {
               ))}
             </tbody>
           </table>
-          {loading && <TableSkeleton rows={5} columns={7} />}
+          {loading && <TableSkeleton rows={5} columns={8} />}
           {!loading && !error && result.items.length === 0 && (
             <p className="p-10 text-center text-sm text-ink-muted">
               No hay establecimientos registrados con estos filtros.
             </p>
           )}
         </div>
+        <Pagination
+          page={page}
+          pageSize={result.pageSize}
+          total={result.total}
+          disabled={loading}
+          onChange={setPage}
+        />
       </div>
+
+      {riskDetail && (
+        <EstablishmentRiskDialog item={riskDetail} onClose={() => setRiskDetail(null)} />
+      )}
 
       {modalOpen && options && (
         <EstablishmentFormModal
@@ -241,5 +293,164 @@ export function EstablishmentsManagement() {
         />
       )}
     </section>
+  )
+}
+
+function Pagination({
+  page,
+  pageSize,
+  total,
+  disabled,
+  onChange,
+}: {
+  page: number
+  pageSize: number
+  total: number
+  disabled: boolean
+  onChange: (page: number) => void
+}) {
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  return (
+    <nav
+      aria-label="Paginación de establecimientos"
+      className="mt-5 flex items-center justify-between border-t border-slate-100 pt-4 text-sm"
+    >
+      <span className="text-ink-muted">
+        {total} registros · Página {page} de {pages}
+      </span>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={disabled || page <= 1}
+          onClick={() => onChange(page - 1)}
+          className="rounded-lg border px-3 py-2 font-bold disabled:opacity-40"
+        >
+          Anterior
+        </button>
+        <button
+          type="button"
+          disabled={disabled || page >= pages}
+          onClick={() => onChange(page + 1)}
+          className="rounded-lg border px-3 py-2 font-bold disabled:opacity-40"
+        >
+          Siguiente
+        </button>
+      </div>
+    </nav>
+  )
+}
+
+function EstablishmentRiskDialog({
+  item,
+  onClose,
+}: {
+  item: EstablishmentsPage['items'][number]
+  onClose: () => void
+}) {
+  const factors = [
+    ['Volumen de producción', 16, item.productionScore],
+    ['Implementación del sistema HACCP', 9, item.haccpScore],
+    ['Cumplimiento con las BPM', 56, item.bpmScore],
+    ['Proveedor INABIE', 5, item.inabieScore],
+    ['Rechazos microbiológicos', 6, item.rejectionScore],
+    ['Plan de muestreo', 8, item.samplingScore],
+  ] as const
+  return (
+    <div
+      role="presentation"
+      className="sigersa-modal-overlay fixed inset-0 z-50 grid place-items-center p-4"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="risk-detail-title"
+        className="sigersa-modal-panel max-h-[90vh] w-full max-w-4xl overflow-y-auto p-6"
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold tracking-widest text-brand-700 uppercase">
+              Cálculo auditable
+            </p>
+            <h2 id="risk-detail-title" className="mt-1 text-xl font-extrabold">
+              Riesgo de {item.name}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar detalle"
+            className="rounded-full border px-3 py-2"
+          >
+            ✕
+          </button>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-4">
+          <RiskValue label="Producto" value={item.productRisk} />
+          <RiskValue label="Establecimiento" value={item.establishmentRisk} />
+          <RiskValue label="Riesgo total" value={item.totalRisk} />
+          <RiskValue
+            label="Frecuencia"
+            text={item.frequency ? formatStatusLabel(item.frequency) : 'No aplica'}
+          />
+        </div>
+        <p className="mt-5 rounded-xl bg-brand-50 p-4 text-sm font-bold text-brand-900">
+          Riesgo total = riesgo microbiológico del producto × riesgo del establecimiento
+        </p>
+        <div className="mt-5 overflow-x-auto">
+          <table className="w-full min-w-[620px] text-left text-sm">
+            <thead>
+              <tr className="border-b text-xs text-ink-muted uppercase">
+                <th className="px-3 py-3">Factor</th>
+                <th className="px-3 py-3">Puntaje</th>
+                <th className="px-3 py-3">Peso</th>
+                <th className="px-3 py-3">Valor ponderado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {factors.map(([name, weight, score]) => (
+                <tr key={name} className="border-b border-slate-100">
+                  <td className="px-3 py-3 font-semibold">{name}</td>
+                  <td className="px-3 py-3">{score?.toFixed(2) ?? 'N/D'}</td>
+                  <td className="px-3 py-3">{weight}%</td>
+                  <td className="px-3 py-3 font-bold">
+                    {score === null ? 'N/D' : ((score * weight) / 100).toFixed(2)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-50 font-extrabold">
+                <td className="px-3 py-3" colSpan={3}>
+                  Nivel de riesgo del establecimiento
+                </td>
+                <td className="px-3 py-3">{item.establishmentRisk?.toFixed(2) ?? 'N/D'}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <p className="mt-4 text-xs text-ink-muted">
+          La categoría o subcategoría alimentaria aporta el riesgo microbiológico: bajo = 1, medio =
+          2 y alto = 3.
+        </p>
+      </section>
+    </div>
+  )
+}
+
+function RiskValue({
+  label,
+  value,
+  text,
+}: {
+  label: string
+  value?: number | null
+  text?: string
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 p-3">
+      <span className="block text-xs font-bold text-ink-muted uppercase">{label}</span>
+      <strong className="mt-1 block text-lg">{text ?? value?.toFixed(2) ?? 'N/D'}</strong>
+    </div>
   )
 }
