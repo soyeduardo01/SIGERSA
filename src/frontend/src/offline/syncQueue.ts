@@ -14,6 +14,7 @@ import {
   type CasePayload,
   type CorrectionPayload,
   type EvidencePayload,
+  type EvaluationActionPayload,
   type RequestPayload,
   type SchedulePayload,
   type SyncQueueItem,
@@ -55,6 +56,18 @@ export async function queueSchedule(payload: SchedulePayload) {
 
 export async function queueCorrection(payload: CorrectionPayload) {
   return enqueueMutation('correction', payload, payload.idempotencyKey)
+}
+
+export async function queueEvaluationSupplement(payload: EvaluationActionPayload) {
+  return enqueueMutation('supplement', payload, `offline-supplement-${payload.evaluationId}`)
+}
+
+export async function queueEvaluationCalculation(evaluationId: string) {
+  return enqueueMutation('calculate', { evaluationId }, `offline-calculate-${evaluationId}`)
+}
+
+export async function queueEvaluationFinalization(evaluationId: string) {
+  return enqueueMutation('finalize', { evaluationId }, `offline-finalize-${evaluationId}`)
 }
 
 export async function getPendingMutationCount() {
@@ -113,11 +126,20 @@ export async function retryEvaluationMutations(evaluationId: string) {
 async function processSyncQueue() {
   const ownerUserId = currentUserId()
   const now = new Date().toISOString()
-  await offlineDb.syncQueue.where('status').equals('processing').filter((item) => item.ownerUserId === ownerUserId).modify({ status: 'pending', nextAttemptAt: now })
+  await offlineDb.syncQueue
+    .where('status')
+    .equals('processing')
+    .filter((item) => item.ownerUserId === ownerUserId)
+    .modify({ status: 'pending', nextAttemptAt: now })
   const queuedItems = await offlineDb.syncQueue
     .where('status')
     .anyOf('pending', 'failed')
-    .filter((item) => item.ownerUserId === ownerUserId && item.attempts < maxAttempts && item.nextAttemptAt <= now)
+    .filter(
+      (item) =>
+        item.ownerUserId === ownerUserId &&
+        item.attempts < maxAttempts &&
+        item.nextAttemptAt <= now,
+    )
     .sortBy('createdAt')
 
   for (const item of queuedItems) {
@@ -145,6 +167,8 @@ async function enqueueMutation(
   await offlineDb.transaction('rw', offlineDb.syncQueue, async () => {
     const existing = await offlineDb.syncQueue.get(idempotencyKey)
     if (!existing) await offlineDb.syncQueue.add(item)
+    else if (kind === 'supplement' || kind === 'calculate' || kind === 'finalize')
+      await offlineDb.syncQueue.put(item)
   })
   notifyQueueChanged()
 
@@ -218,8 +242,19 @@ async function processQueueItem(item: SyncQueueItem) {
       await postJson('/api/v1/cases', item.payload, item.idempotencyKey)
     } else if (item.kind === 'schedule') {
       await postJson('/api/v1/schedules', item.payload, item.idempotencyKey)
-    } else {
+    } else if (item.kind === 'correction') {
       await postJson('/api/v1/corrections', item.payload, item.idempotencyKey)
+    } else {
+      const action = item.payload as EvaluationActionPayload
+      if (item.kind === 'supplement') {
+        await putJson(`/api/v1/evaluations/${action.evaluationId}/supplement`, action.supplement)
+      } else {
+        await postJson(
+          `/api/v1/evaluations/${action.evaluationId}/${item.kind}`,
+          {},
+          item.idempotencyKey,
+        )
+      }
     }
 
     await offlineDb.syncQueue.delete(item.idempotencyKey)
@@ -236,6 +271,15 @@ async function processQueueItem(item: SyncQueueItem) {
   } finally {
     notifyQueueChanged()
   }
+}
+
+async function putJson(path: string, body: unknown) {
+  const response = await apiFetch(path, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) throw await apiError(response)
 }
 
 function isDuplicateObjectError(error: { message?: string; statusCode?: string | number }) {

@@ -24,6 +24,9 @@ public sealed class InstitutionalPdfRendererTests
         Assert.Contains("font-family:Poppins", html, StringComparison.Ordinal);
         Assert.Contains("Evaluación de Buenas", html, StringComparison.Ordinal);
         Assert.Contains("Escala de clasificación de riesgo total", html, StringComparison.Ordinal);
+        Assert.Contains("Bajo (1.0-3.6)", html, StringComparison.Ordinal);
+        Assert.Contains("Medio (&gt;3.6-6.3)", html, StringComparison.Ordinal);
+        Assert.Contains("Alto (&gt;6.3-9.0)", html, StringComparison.Ordinal);
         Assert.Contains("Flujo de decisión sanitaria", html, StringComparison.Ordinal);
     }
 

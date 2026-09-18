@@ -16,6 +16,7 @@ import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
 import { prepareEvaluationOffline } from '../../offline/evaluationCache'
+import { cacheEvaluationPage, readCachedEvaluationPage } from '../../offline/evaluationListCache'
 import { DynamicInspectionForm } from '../inspection/DynamicInspectionForm'
 import { useAuth } from '../../contexts/useAuth'
 import {
@@ -37,8 +38,6 @@ export function EvaluationsManagement() {
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [selected, setSelected] = useState<EvaluationSummary | null>(null)
-  const [offlineReadyIds, setOfflineReadyIds] = useState<Set<string>>(new Set())
-  const [preparingOfflineId, setPreparingOfflineId] = useState('')
   const [pageNumber, setPageNumber] = useState(1)
   const evaluationStates = useParameterOptions('ESTADO_EVALUACION')
   const { roles } = useAuth()
@@ -48,6 +47,7 @@ export function EvaluationsManagement() {
     setLoading(true)
     try {
       const page = await getEvaluations({ status, page: pageNumber, pageSize: 10 })
+      await cacheEvaluationPage(page)
       setResult(page)
       setSelected((current) =>
         current ? (page.items.find((item) => item.id === current.id) ?? current) : current,
@@ -63,13 +63,16 @@ export function EvaluationsManagement() {
   useEffect(() => {
     let active = true
     void Promise.all([
-      getEvaluations({ status, page: pageNumber, pageSize: 10 }),
-      getEvaluationOptions(),
+      navigator.onLine
+        ? getEvaluations({ status, page: pageNumber, pageSize: 10 })
+        : readCachedEvaluationPage(status, pageNumber, 10),
+      navigator.onLine ? getEvaluationOptions() : Promise.resolve(null),
     ])
       .then(([page, choices]) => {
         if (!active) return
         setResult(page)
-        setOptions(choices)
+        if (choices) setOptions(choices)
+        if (navigator.onLine) void cacheEvaluationPage(page)
         const requestedId = new URLSearchParams(window.location.search).get('evaluation')
         const requested = page.items.find((item) => item.id === requestedId)
         if (requested) setSelected(requested)
@@ -91,22 +94,12 @@ export function EvaluationsManagement() {
     if (!navigator.onLine || !canExecute) return
     const candidates = result.items.filter((item) => item.status === 'EN_EJECUCION' && item.canEdit)
     if (candidates.length === 0) return
-    let active = true
     void Promise.allSettled(
       candidates.map(async (item) => {
         await prepareEvaluationOffline(item.id)
         return item.id
       }),
-    ).then((results) => {
-      if (!active) return
-      const prepared = results.flatMap((entry) =>
-        entry.status === 'fulfilled' ? [entry.value] : [],
-      )
-      if (prepared.length > 0) setOfflineReadyIds((current) => new Set([...current, ...prepared]))
-    })
-    return () => {
-      active = false
-    }
+    )
   }, [canExecute, result.items])
 
   async function save(draft: EvaluationDraft) {
@@ -156,26 +149,6 @@ export function EvaluationsManagement() {
       )
     } catch (caught) {
       await alerts.error(caught, `No se pudo ${labels[action].toLowerCase()}`)
-    }
-  }
-
-  async function prepareOffline(item: EvaluationSummary) {
-    if (!navigator.onLine) {
-      await alerts.error(new Error('Se requiere conexión para descargar la ficha.'), 'Sin conexión')
-      return
-    }
-    setPreparingOfflineId(item.id)
-    try {
-      await prepareEvaluationOffline(item.id)
-      setOfflineReadyIds((current) => new Set(current).add(item.id))
-      await alerts.success(
-        'Evaluación disponible offline',
-        'Puede completar respuestas y adjuntar evidencias sin conexión; se sincronizarán al volver la red.',
-      )
-    } catch (caught) {
-      await alerts.error(caught, 'No se pudo preparar la evaluación offline')
-    } finally {
-      setPreparingOfflineId('')
     }
   }
 
@@ -332,20 +305,6 @@ export function EvaluationsManagement() {
                           {item.status === 'NO_APROBADA'
                             ? 'Cerrar y programar reinspección'
                             : 'Cerrar expediente'}
-                        </button>
-                      )}
-                      {canEditInspection(item.status, canExecute, item.canEdit) && (
-                        <button
-                          type="button"
-                          onClick={() => void prepareOffline(item)}
-                          disabled={preparingOfflineId === item.id}
-                          className="border-brand-300 text-brand-800 rounded-lg border px-3 py-2 font-bold disabled:opacity-50"
-                        >
-                          {preparingOfflineId === item.id
-                            ? 'Preparando…'
-                            : offlineReadyIds.has(item.id)
-                              ? 'Disponible offline'
-                              : 'Preparar offline'}
                         </button>
                       )}
                       <button

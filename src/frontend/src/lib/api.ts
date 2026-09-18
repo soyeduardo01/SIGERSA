@@ -533,6 +533,19 @@ export interface EvaluationWorkspace {
   evidences?: EvaluationSavedEvidence[]
   supplement: EvaluationSupplement
   policy: EvaluationInspectionPolicy
+  calculationContext: EvaluationCalculationContext
+}
+
+export interface EvaluationCalculationContext {
+  productRisk: number | null
+  monthlyProduction: number | null
+  haccpImplemented: boolean | null
+  haccpPercentage: number | null
+  isInabieSupplier: boolean | null
+  inabieDistributionCode: string | null
+  microbiologicalRejectionsLastFiveYears: number
+  microbiologicalSamplingPlan: boolean | null
+  samplingApplicationCode: string | null
 }
 
 export interface EvaluationInspectionPolicy {

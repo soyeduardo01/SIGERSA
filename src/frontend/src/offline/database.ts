@@ -2,13 +2,22 @@ import Dexie, { type EntityTable } from 'dexie'
 
 export type SyncStatus = 'pending' | 'processing' | 'failed'
 export type SyncMutationKind =
-  'answer' | 'evidence' | 'request' | 'case' | 'schedule' | 'correction'
+  | 'answer'
+  | 'evidence'
+  | 'request'
+  | 'case'
+  | 'schedule'
+  | 'correction'
+  | 'supplement'
+  | 'calculate'
+  | 'finalize'
 
 export interface CachedEvaluation {
   id: string
+  ownerUserId: string
   establishmentId: string
   status: string
-  riskLevel?: 'BAJO' | 'MEDIO' | 'ALTO'
+  riskLevel?: string
   snapshot: unknown
   updatedAt: string
 }
@@ -90,6 +99,11 @@ export interface CorrectionPayload {
   fields: Array<{ sourceItem: number; reason: string }>
 }
 
+export interface EvaluationActionPayload {
+  evaluationId: string
+  supplement?: import('../lib/api').EvaluationSupplement
+}
+
 export interface SyncQueueItem {
   idempotencyKey: string
   ownerUserId: string
@@ -102,6 +116,7 @@ export interface SyncQueueItem {
     | CasePayload
     | SchedulePayload
     | CorrectionPayload
+    | EvaluationActionPayload
   attempts: number
   createdAt: string
   nextAttemptAt: string
@@ -126,6 +141,12 @@ class SigersaOfflineDatabase extends Dexie {
     })
     this.version(2).stores({
       evaluations: '&id, establishmentId, status, riskLevel, updatedAt',
+      inspectionTemplates: '&key, id, code, version, status, updatedAt',
+      syncQueue:
+        '&idempotencyKey, ownerUserId, kind, status, createdAt, nextAttemptAt, [ownerUserId+status+nextAttemptAt]',
+    })
+    this.version(3).stores({
+      evaluations: '&id, ownerUserId, establishmentId, status, riskLevel, updatedAt',
       inspectionTemplates: '&key, id, code, version, status, updatedAt',
       syncQueue:
         '&idempotencyKey, ownerUserId, kind, status, createdAt, nextAttemptAt, [ownerUserId+status+nextAttemptAt]',

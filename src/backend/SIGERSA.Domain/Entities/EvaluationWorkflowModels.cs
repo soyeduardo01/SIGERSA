@@ -114,7 +114,19 @@ public sealed record EvaluationWorkspace(
     IReadOnlyList<EvaluationSavedAnswer> Answers,
     IReadOnlyList<EvaluationSavedEvidence> Evidences,
     EvaluationSupplement Supplement,
-    EvaluationInspectionPolicy Policy);
+    EvaluationInspectionPolicy Policy,
+    EvaluationCalculationContext CalculationContext);
+
+public sealed record EvaluationCalculationContext(
+    decimal? ProductRisk,
+    decimal? MonthlyProduction,
+    bool? HaccpImplemented,
+    decimal? HaccpPercentage,
+    bool? IsInabieSupplier,
+    string? InabieDistributionCode,
+    int MicrobiologicalRejectionsLastFiveYears,
+    bool? MicrobiologicalSamplingPlan,
+    string? SamplingApplicationCode);
 
 public sealed record SaveEvaluationSupplementDraft(
     DateOnly? PreviousInspectionDate,

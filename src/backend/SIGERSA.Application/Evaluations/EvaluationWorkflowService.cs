@@ -74,12 +74,19 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         var userId = Required(actorId, nameof(actorId));
         var workspace = await repository.GetWorkspaceAsync(id, userId, cancellationToken);
         var context = await repository.GetInspectionContextAsync(id, userId, cancellationToken);
+        var calculation = await repository.GetCalculationInputAsync(id, userId, cancellationToken);
         var policy = InspectionQualificationPolicy.Resolve(
             context,
             workspace.Items,
             workspace.Answers.Select(answer => answer.SourceItem).ToHashSet());
         return new EvaluationWorkspace(
-            workspace.Items, workspace.Answers, workspace.Evidences, workspace.Supplement, policy);
+            workspace.Items, workspace.Answers, workspace.Evidences, workspace.Supplement, policy,
+            new EvaluationCalculationContext(
+                calculation.ProductRisk, calculation.MonthlyProduction,
+                calculation.HaccpImplemented, calculation.HaccpPercentage,
+                calculation.IsInabieSupplier, calculation.InabieDistributionCode,
+                calculation.MicrobiologicalRejectionsLastFiveYears,
+                calculation.MicrobiologicalSamplingPlan, calculation.SamplingApplicationCode));
     }
 
     public Task<EvaluationSupplement> SaveSupplementAsync(

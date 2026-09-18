@@ -2,6 +2,7 @@ import {
   getEvaluationWorkspace,
   type EvaluationFormItem,
   type EvaluationInspectionPolicy,
+  type EvaluationCalculationContext,
   type EvaluationSavedAnswer,
   type EvaluationSavedEvidence,
   type EvaluationSupplement,
@@ -15,6 +16,7 @@ export interface CachedEvaluationWorkspace {
   answers: EvaluationSavedAnswer[]
   evidences: EvaluationSavedEvidence[]
   supplement: EvaluationSupplement
+  calculationContext: EvaluationCalculationContext
 }
 
 export async function readCachedEvaluationWorkspace(evaluationId: string) {
@@ -33,6 +35,7 @@ export async function cacheEvaluationWorkspace(
     answers: workspace.answers,
     evidences: workspace.evidences ?? [],
     supplement: workspace.supplement,
+    calculationContext: workspace.calculationContext,
   }
   await offlineDb.inspectionTemplates.put({
     key: `evaluation-${evaluationId}`,

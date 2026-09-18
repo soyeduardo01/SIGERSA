@@ -298,16 +298,16 @@ internal static class InstitutionalPdfReportBuilder
         gfx.DrawString("Escala de Clasificación de Riesgo Total", Font(9, true), new XSolidBrush(Ink), 58, y + 20);
         const double trackX = 62;
         const double trackWidth = 488;
-        gfx.DrawRectangle(new XSolidBrush(Leaf), trackX, y + 35, trackWidth * .4, 13);
-        gfx.DrawRectangle(new XSolidBrush(Amber), trackX + trackWidth * .4, y + 35, trackWidth * .3, 13);
-        gfx.DrawRectangle(new XSolidBrush(Red), trackX + trackWidth * .7, y + 35, trackWidth * .3, 13);
-        var normalized = Math.Clamp((double)(risk ?? 0) / 5d, 0, 1);
+        gfx.DrawRectangle(new XSolidBrush(Leaf), trackX, y + 35, trackWidth * .325, 13);
+        gfx.DrawRectangle(new XSolidBrush(Amber), trackX + trackWidth * .325, y + 35, trackWidth * .3375, 13);
+        gfx.DrawRectangle(new XSolidBrush(Red), trackX + trackWidth * .6625, y + 35, trackWidth * .3375, 13);
+        var normalized = Math.Clamp(((double)(risk ?? 1) - 1d) / 8d, 0, 1);
         var markerX = trackX + trackWidth * normalized;
         gfx.DrawLine(new XPen(Ink, 2), markerX, y + 29, markerX, y + 54);
         gfx.DrawString(Number(risk), Font(7, true), new XSolidBrush(Ink), markerX - 10, y + 27);
-        gfx.DrawString("Bajo (0-2.0)", Font(6.5), new XSolidBrush(Muted), trackX, y + 65);
-        gfx.DrawString("Medio (2.0-3.5)", Font(6.5), new XSolidBrush(Muted), 260, y + 65);
-        gfx.DrawString("Alto (3.5-5.0)", Font(6.5), new XSolidBrush(Muted), 463, y + 65);
+        gfx.DrawString("Bajo (1.0-3.6)", Font(6.5), new XSolidBrush(Muted), trackX, y + 65);
+        gfx.DrawString("Medio (>3.6-6.3)", Font(6.5), new XSolidBrush(Muted), 260, y + 65);
+        gfx.DrawString("Alto (>6.3-9.0)", Font(6.5), new XSolidBrush(Muted), 456, y + 65);
     }
 
     private static void DrawFindingHeader(XGraphics gfx, double y)

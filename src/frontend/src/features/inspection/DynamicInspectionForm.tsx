@@ -22,9 +22,13 @@ import {
 import {
   flushSyncQueue,
   queueAnswer,
+  queueEvaluationCalculation,
+  queueEvaluationFinalization,
+  queueEvaluationSupplement,
   queueEvidence,
   retryEvaluationMutations,
 } from '../../offline/syncQueue'
+import { calculateEvaluationOffline } from '../../offline/evaluationCalculation'
 import { alerts } from '../../lib/alerts'
 import { getOptionalLocation } from '../../lib/geolocation'
 import { formatStatusLabel } from '../../lib/formatters'
@@ -170,7 +174,7 @@ export function DynamicInspectionForm({
       if (!navigator.onLine) {
         if (!cached && !legacyCached)
           setMessage(
-            'No hay una copia local de esta evaluación. Cuando recupere conexión, use “Preparar offline” antes de salir a campo.',
+            'Esta evaluación todavía no se ha sincronizado con este dispositivo. Se descargará automáticamente al recuperar conexión.',
           )
         setLoadingForm(false)
         return
@@ -396,16 +400,35 @@ export function DynamicInspectionForm({
   }
 
   async function calculate() {
-    if (!evaluationId || !navigator.onLine) {
-      await alerts.error(
-        new Error('Conéctese y cargue una evaluación.'),
-        'No es posible calcular ahora',
-      )
-      return
-    }
+    if (!evaluationId || !policy) return
     try {
-      await ensureEvaluationSynced()
-      const result = await calculateEvaluation(evaluationId)
+      let result: EvaluationCalculation
+      if (navigator.onLine) {
+        await ensureEvaluationSynced()
+        result = await calculateEvaluation(evaluationId)
+      } else {
+        const cached = await readCachedEvaluationWorkspace(evaluationId)
+        if (!cached?.calculationContext)
+          throw new Error(
+            'Los datos de cálculo de esta evaluación aún no están disponibles en el dispositivo.',
+          )
+        const localAnswers: EvaluationSavedAnswer[] = items
+          .filter((item) => item.isEvaluable && ratings[item.sourceItem])
+          .map((item) => ({
+            sourceItem: item.sourceItem,
+            rating: ratings[item.sourceItem],
+            criticalityCode: criticalities[item.sourceItem] ?? null,
+            observation: observations[item.sourceItem] ?? null,
+            comment: comments[item.sourceItem] ?? null,
+          }))
+        result = calculateEvaluationOffline(
+          evaluationId,
+          localAnswers,
+          policy,
+          cached.calculationContext,
+        )
+        await queueEvaluationCalculation(evaluationId)
+      }
       setCalculation(result)
       const suggested = qualificationForPercentage(result.compliancePercentage)
       if (suggested) {
@@ -414,10 +437,16 @@ export function DynamicInspectionForm({
           currentQualification: current.currentQualification ?? suggested,
         }))
       }
-      setMessage('Todas las respuestas están en la base de datos y el riesgo fue calculado.')
+      setMessage(
+        navigator.onLine
+          ? 'Todas las respuestas están en la base de datos y el riesgo fue calculado.'
+          : 'Riesgo y frecuencia calculados localmente; se persistirán al recuperar conexión.',
+      )
       await alerts.success(
         'Evaluación calculada',
-        'Las respuestas y evidencias están sincronizadas.',
+        navigator.onLine
+          ? 'Las respuestas y evidencias están sincronizadas.'
+          : 'El cálculo quedó guardado en este dispositivo.',
       )
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'No fue posible calcular el riesgo.')
@@ -426,13 +455,27 @@ export function DynamicInspectionForm({
   }
 
   async function persistSupplement(showSuccess = true) {
-    if (!evaluationId || !navigator.onLine)
-      throw new Error('Se requiere conexión para guardar los datos complementarios.')
+    if (!evaluationId) throw new Error('Seleccione una evaluación.')
     setSavingSupplement(true)
     try {
-      const saved = await saveEvaluationSupplement(evaluationId, supplement)
+      const saved = navigator.onLine
+        ? await saveEvaluationSupplement(evaluationId, supplement)
+        : supplement
+      if (!navigator.onLine) await queueEvaluationSupplement({ evaluationId, supplement })
       setSupplement(saved)
-      if (showSuccess) await alerts.success('Datos complementarios guardados')
+      const cached = await readCachedEvaluationWorkspace(evaluationId)
+      if (cached) {
+        await offlineDb.inspectionTemplates.update(`evaluation-${evaluationId}`, {
+          definition: { ...cached, supplement: saved },
+          updatedAt: new Date().toISOString(),
+        })
+      }
+      if (showSuccess)
+        await alerts.success(
+          navigator.onLine
+            ? 'Datos complementarios guardados'
+            : 'Datos guardados en el dispositivo',
+        )
       return saved
     } finally {
       setSavingSupplement(false)
@@ -449,20 +492,25 @@ export function DynamicInspectionForm({
   }
 
   async function finalize() {
-    if (!evaluationId || !navigator.onLine) {
-      await alerts.error(
-        new Error('Conéctese para sincronizar y finalizar la evaluación.'),
-        'No es posible finalizar',
-      )
-      return
-    }
+    if (!evaluationId) return
     const confirmed = await alerts.confirm({
       title: '¿Finalizar la evaluación?',
-      text: 'Se comprobará que todas las respuestas estén persistidas y se guardarán los datos complementarios.',
+      text: navigator.onLine
+        ? 'Se comprobará que todas las respuestas estén persistidas y se guardarán los datos complementarios.'
+        : 'Las respuestas, el cálculo y la finalización quedarán guardados en el dispositivo y se sincronizarán cuando vuelva la conexión.',
       confirmText: 'Finalizar',
     })
     if (!confirmed) return
     try {
+      if (!navigator.onLine) {
+        await persistSupplement(false)
+        await queueEvaluationCalculation(evaluationId)
+        await queueEvaluationFinalization(evaluationId)
+        setMessage('Evaluación finalizada localmente; se persistirá al recuperar conexión.')
+        await alerts.success('Evaluación guardada sin conexión')
+        onFinalized?.()
+        return
+      }
       await ensureEvaluationSynced()
       await persistSupplement(false)
       const result = await finalizeEvaluation(evaluationId)
