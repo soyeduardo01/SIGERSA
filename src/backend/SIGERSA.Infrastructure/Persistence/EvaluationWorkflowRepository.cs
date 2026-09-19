@@ -780,11 +780,42 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                        version_fila = version_fila + 1
                  WHERE evaluacion_id = @EvaluationId AND item_ficha_id = @ItemId
                    AND @Rating <> 'NO_CUMPLE' AND estado <> 'CERRADO';
+
+                WITH RECURSIVE inspection_lineage AS (
+                    SELECT (inspection_case.metadatos_origen ->> 'evaluacionAnteriorId')::uuid AS evaluation_id
+                      FROM "SIGERSA"."EVALUACION" evaluation
+                      JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
+                     WHERE evaluation.id = @EvaluationId
+                       AND inspection_case.metadatos_origen ->> 'tipo' = 'REINSPECCION_NO_CONFORMIDADES'
+                       AND inspection_case.metadatos_origen ->> 'evaluacionAnteriorId' IS NOT NULL
+                    UNION ALL
+                    SELECT (ancestor_case.metadatos_origen ->> 'evaluacionAnteriorId')::uuid
+                      FROM inspection_lineage lineage
+                      JOIN "SIGERSA"."EVALUACION" ancestor ON ancestor.id = lineage.evaluation_id
+                      JOIN "SIGERSA"."CASO" ancestor_case ON ancestor_case.id = ancestor.caso_id
+                     WHERE ancestor_case.metadatos_origen ->> 'tipo' = 'REINSPECCION_NO_CONFORMIDADES'
+                       AND ancestor_case.metadatos_origen ->> 'evaluacionAnteriorId' IS NOT NULL
+                )
+                UPDATE "SIGERSA"."NO_CONFORMIDAD" nonconformity
+                   SET estado = CASE WHEN @Rating = 'NO_CUMPLE' THEN 'EN_CORRECCION' ELSE 'VALIDADO' END,
+                       cerrada_en = NULL,
+                       cierre_justificacion = NULL,
+                       modificado_en = CURRENT_TIMESTAMP,
+                       modificado_por = @ActorId,
+                       version_fila = nonconformity.version_fila + 1
+                  FROM "SIGERSA"."ITEM_FICHA" finding_item
+                 WHERE nonconformity.evaluacion_id IN (SELECT evaluation_id FROM inspection_lineage)
+                   AND finding_item.id = nonconformity.item_ficha_id
+                   AND finding_item.source_allitems_item = @SourceItem
+                   AND nonconformity.estado <> 'CERRADO'
+                   AND nonconformity.estado IS DISTINCT FROM
+                       CASE WHEN @Rating = 'NO_CUMPLE' THEN 'EN_CORRECCION' ELSE 'VALIDADO' END;
                 """), new
             {
                 ResponseId = answer.Id,
                 draft.EvaluationId,
                 ItemId = itemId.Value,
+                draft.SourceItem,
                 draft.Rating,
                 ActorId = actorId
             }, transaction, cancellationToken: cancellationToken));
@@ -1045,7 +1076,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         CancellationToken cancellationToken = default)
     {
         const string sql = """
-            WITH updated AS (
+            WITH RECURSIVE updated AS (
                 UPDATE "SIGERSA"."EVALUACION" evaluation
                    SET estado = CASE @Action
                            WHEN 'START' THEN 'EN_EJECUCION'
@@ -1106,6 +1137,33 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                           evaluation.ficha_inspeccion_id AS InspectionTemplateId,
                           evaluation.evaluador_principal_id AS EvaluatorId,
                           evaluation.version_regla_riesgo_id AS RiskRuleVersionId
+            ), inspection_lineage AS (
+                SELECT (inspection_case.metadatos_origen ->> 'evaluacionAnteriorId')::uuid AS evaluation_id
+                  FROM updated
+                  JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = updated.CaseId
+                 WHERE inspection_case.metadatos_origen ->> 'tipo' = 'REINSPECCION_NO_CONFORMIDADES'
+                   AND inspection_case.metadatos_origen ->> 'evaluacionAnteriorId' IS NOT NULL
+                UNION ALL
+                SELECT (ancestor_case.metadatos_origen ->> 'evaluacionAnteriorId')::uuid
+                  FROM inspection_lineage lineage
+                  JOIN "SIGERSA"."EVALUACION" ancestor ON ancestor.id = lineage.evaluation_id
+                  JOIN "SIGERSA"."CASO" ancestor_case ON ancestor_case.id = ancestor.caso_id
+                 WHERE ancestor_case.metadatos_origen ->> 'tipo' = 'REINSPECCION_NO_CONFORMIDADES'
+                   AND ancestor_case.metadatos_origen ->> 'evaluacionAnteriorId' IS NOT NULL
+            ), progressed_ancestor_findings AS (
+                UPDATE "SIGERSA"."NO_CONFORMIDAD" nonconformity
+                   SET estado = CASE WHEN @Action = 'START' THEN 'EN_CORRECCION' ELSE 'CERRADO' END,
+                       cerrada_en = CASE WHEN @Action = 'CLOSE' THEN CURRENT_TIMESTAMP ELSE NULL END,
+                       cierre_justificacion = CASE WHEN @Action = 'CLOSE'
+                           THEN 'Cerrada automáticamente al cerrar la reinspección que validó el cumplimiento.'
+                           ELSE NULL END,
+                       modificado_en = CURRENT_TIMESTAMP,
+                       modificado_por = @ActorId,
+                       version_fila = nonconformity.version_fila + 1
+                 WHERE nonconformity.evaluacion_id IN (SELECT evaluation_id FROM inspection_lineage)
+                   AND ((@Action = 'START' AND nonconformity.estado = 'ABIERTA')
+                        OR (@Action = 'CLOSE' AND nonconformity.estado = 'VALIDADO'))
+                RETURNING nonconformity.id
             ), follow_up_seed AS MATERIALIZED (
                 SELECT gen_random_uuid() AS FollowUpCaseId,
                        gen_random_uuid() AS FollowUpScheduleId,

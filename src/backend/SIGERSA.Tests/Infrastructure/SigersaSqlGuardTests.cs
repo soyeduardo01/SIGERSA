@@ -76,6 +76,23 @@ public sealed class SigersaSqlGuardTests
     }
 
     [Fact]
+    public void EnsureQualifiedShouldAcceptRecursiveCommonTableExpression()
+    {
+        const string sql = """
+            WITH RECURSIVE records AS (
+                SELECT id FROM "SIGERSA"."USUARIO"
+                UNION ALL
+                SELECT usuario.id
+                  FROM records
+                  JOIN "SIGERSA"."USUARIO" usuario ON usuario.id = records.id
+            )
+            SELECT * FROM records;
+            """;
+
+        Assert.Equal(sql, SigersaSqlGuard.EnsureQualified(sql));
+    }
+
+    [Fact]
     public void EnsureQualifiedShouldNotTreatFromParameterAsTableKeyword()
     {
         const string sql = "SELECT id FROM \"SIGERSA\".\"USUARIO\" WHERE (@From IS NULL);";

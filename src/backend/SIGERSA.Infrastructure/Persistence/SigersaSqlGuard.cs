@@ -73,7 +73,7 @@ public static partial class SigersaSqlGuard
     private static partial Regex DataObjectRegex();
 
     [GeneratedRegex(
-        @"(?:\bWITH|,)\s*""?([A-Za-z_][A-Za-z0-9_]*)""?\s+AS\s+(?:(?:NOT\s+)?MATERIALIZED\s+)?\(",
+        @"(?:\bWITH(?:\s+RECURSIVE)?|,)\s*""?([A-Za-z_][A-Za-z0-9_]*)""?\s+AS\s+(?:(?:NOT\s+)?MATERIALIZED\s+)?\(",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex CteRegex();
 }
