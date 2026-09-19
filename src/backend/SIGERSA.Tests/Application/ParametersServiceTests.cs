@@ -20,6 +20,18 @@ public sealed class ParametersServiceTests
     }
 
     [Fact]
+    public async Task OfflineSnapshotLoadsTheCompleteParametersMirror()
+    {
+        var repository = new FakeRepository();
+        var service = new ParametersService(repository);
+
+        await service.GetOfflineSnapshotAsync(CancellationToken.None);
+
+        Assert.True(repository.AllRequested);
+        Assert.Null(repository.Search);
+    }
+
+    [Fact]
     public async Task CreateRejectsCodesLongerThanTheDatabaseColumn()
     {
         var service = new ParametersService(new FakeRepository());
@@ -48,9 +60,11 @@ public sealed class ParametersServiceTests
         public string? Search { get; private set; }
         public string? KeyWord { get; private set; }
         public bool MutationResult { get; init; } = true;
+        public bool AllRequested { get; private set; }
 
         public Task<IReadOnlyList<ParameterControl>> GetAllAsync(string? search, CancellationToken cancellationToken = default)
         {
+            AllRequested = true;
             Search = search;
             return Task.FromResult<IReadOnlyList<ParameterControl>>([]);
         }

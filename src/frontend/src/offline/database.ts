@@ -1,7 +1,9 @@
 import Dexie, { type EntityTable } from 'dexie'
+import type { EvaluationSupplement, ParameterControl } from '../lib/api'
 
 export type SyncStatus = 'pending' | 'processing' | 'failed'
 export type SyncMutationKind =
+  | 'start'
   | 'answer'
   | 'evidence'
   | 'request'
@@ -22,6 +24,16 @@ export interface CachedEvaluation {
   updatedAt: string
 }
 
+export interface CachedParameterControl {
+  key: string
+  ownerUserId: string
+  parametersId: number
+  keyWord: string
+  companyCode: number | null
+  snapshot: ParameterControl
+  updatedAt: string
+}
+
 export interface CachedInspectionTemplate {
   key: string
   id: string
@@ -29,6 +41,14 @@ export interface CachedInspectionTemplate {
   version: number
   status: 'PUBLICADA' | 'RETIRADA' | 'ARCHIVADA'
   definition: unknown
+  updatedAt: string
+}
+
+export interface CachedResourceSnapshot {
+  key: string
+  ownerUserId: string
+  path: string
+  snapshot: unknown
   updatedAt: string
 }
 
@@ -101,7 +121,11 @@ export interface CorrectionPayload {
 
 export interface EvaluationActionPayload {
   evaluationId: string
-  supplement?: import('../lib/api').EvaluationSupplement
+  rowVersion?: number
+  latitude?: number | null
+  longitude?: number | null
+  accuracyMeters?: number | null
+  supplement?: EvaluationSupplement
 }
 
 export interface SyncQueueItem {
@@ -128,6 +152,8 @@ export interface SyncQueueItem {
 
 class SigersaOfflineDatabase extends Dexie {
   evaluations!: EntityTable<CachedEvaluation, 'id'>
+  parameterControls!: EntityTable<CachedParameterControl, 'key'>
+  resourceSnapshots!: EntityTable<CachedResourceSnapshot, 'key'>
   inspectionTemplates!: EntityTable<CachedInspectionTemplate, 'key'>
   syncQueue!: EntityTable<SyncQueueItem, 'idempotencyKey'>
 
@@ -147,6 +173,23 @@ class SigersaOfflineDatabase extends Dexie {
     })
     this.version(3).stores({
       evaluations: '&id, ownerUserId, establishmentId, status, riskLevel, updatedAt',
+      inspectionTemplates: '&key, id, code, version, status, updatedAt',
+      syncQueue:
+        '&idempotencyKey, ownerUserId, kind, status, createdAt, nextAttemptAt, [ownerUserId+status+nextAttemptAt]',
+    })
+    this.version(4).stores({
+      evaluations: '&id, ownerUserId, establishmentId, status, riskLevel, updatedAt',
+      parameterControls:
+        '&key, ownerUserId, parametersId, keyWord, companyCode, [ownerUserId+keyWord], updatedAt',
+      inspectionTemplates: '&key, id, code, version, status, updatedAt',
+      syncQueue:
+        '&idempotencyKey, ownerUserId, kind, status, createdAt, nextAttemptAt, [ownerUserId+status+nextAttemptAt]',
+    })
+    this.version(5).stores({
+      evaluations: '&id, ownerUserId, establishmentId, status, riskLevel, updatedAt',
+      parameterControls:
+        '&key, ownerUserId, parametersId, keyWord, companyCode, [ownerUserId+keyWord], updatedAt',
+      resourceSnapshots: '&key, ownerUserId, path, [ownerUserId+path], updatedAt',
       inspectionTemplates: '&key, id, code, version, status, updatedAt',
       syncQueue:
         '&idempotencyKey, ownerUserId, kind, status, createdAt, nextAttemptAt, [ownerUserId+status+nextAttemptAt]',

@@ -15,8 +15,12 @@ import {
 import { alerts } from '../../lib/alerts'
 import { formatStatusLabel } from '../../lib/formatters'
 import { useParameterOptions } from '../../hooks/useParameterOptions'
-import { prepareEvaluationOffline } from '../../offline/evaluationCache'
+import {
+  prepareEvaluationOffline,
+  readCachedEvaluationWorkspace,
+} from '../../offline/evaluationCache'
 import { cacheEvaluationPage, readCachedEvaluationPage } from '../../offline/evaluationListCache'
+import { queueEvaluationStart } from '../../offline/syncQueue'
 import { DynamicInspectionForm } from '../inspection/DynamicInspectionForm'
 import { useAuth } from '../../contexts/useAuth'
 import {
@@ -49,6 +53,13 @@ export function EvaluationsManagement() {
   async function load() {
     setLoading(true)
     try {
+      const cached = await readCachedEvaluationPage(search, status, pageNumber, 10)
+      setResult(cached)
+      setLoading(false)
+      if (!navigator.onLine) {
+        setError('')
+        return
+      }
       const page = await getEvaluations({ search, status, page: pageNumber, pageSize: 10 })
       await cacheEvaluationPage(page)
       setResult(page)
@@ -65,24 +76,33 @@ export function EvaluationsManagement() {
 
   useEffect(() => {
     let active = true
-    void Promise.all([
-      navigator.onLine
-        ? getEvaluations({ search, status, page: pageNumber, pageSize: 10 })
-        : readCachedEvaluationPage(search, status, pageNumber, 10),
-      navigator.onLine ? getEvaluationOptions() : Promise.resolve(null),
-    ])
-      .then(([page, choices]) => {
+    let hadCachedData = false
+    void readCachedEvaluationPage(search, status, pageNumber, 10)
+      .then((page) => {
         if (!active) return
+        hadCachedData = page.items.length > 0
         setResult(page)
-        if (choices) setOptions(choices)
-        if (navigator.onLine) void cacheEvaluationPage(page)
         const requestedId = new URLSearchParams(window.location.search).get('evaluation')
         const requested = page.items.find((item) => item.id === requestedId)
         if (requested) setSelected(requested)
         setError('')
+        setLoading(false)
+
+        if (!navigator.onLine) return
+        return Promise.all([
+          getEvaluations({ search, status, page: pageNumber, pageSize: 10 }),
+          getEvaluationOptions(),
+        ]).then(async ([freshPage, choices]) => {
+          await cacheEvaluationPage(freshPage)
+          if (!active) return
+          setResult(freshPage)
+          setOptions(choices)
+          const freshRequested = freshPage.items.find((item) => item.id === requestedId)
+          if (freshRequested) setSelected(freshRequested)
+        })
       })
       .catch((caught) => {
-        if (active)
+        if (active && !hadCachedData)
           setError(
             caught instanceof Error ? caught.message : 'No se pudieron cargar las evaluaciones.',
           )
@@ -95,7 +115,9 @@ export function EvaluationsManagement() {
 
   useEffect(() => {
     if (!navigator.onLine || !canExecute) return
-    const candidates = result.items.filter((item) => item.status === 'EN_EJECUCION' && item.canEdit)
+    const candidates = result.items.filter(
+      (item) => item.status === 'ASIGNADA' || (item.status === 'EN_EJECUCION' && item.canEdit),
+    )
     if (candidates.length === 0) return
     void Promise.allSettled(
       candidates.map(async (item) => {
@@ -141,14 +163,40 @@ export function EvaluationsManagement() {
     })
     if (!confirmed) return
     try {
-      if (action === 'start') await startEvaluation(item.id, item.rowVersion)
-      else await transitionEvaluation(item.id, action, item.rowVersion)
-      await load()
+      if (action === 'start') {
+        if (navigator.onLine) {
+          await prepareEvaluationOffline(item.id)
+          const rowVersion = await startEvaluation(item.id, item.rowVersion)
+          setSelected({ ...item, status: 'EN_EJECUCION', canEdit: true, rowVersion })
+          await load()
+        } else {
+          const workspace = await readCachedEvaluationWorkspace(item.id)
+          if (!workspace) {
+            throw new Error(
+              'La ficha aún no está preparada en este dispositivo. Conéctese una vez para descargarla antes de iniciar la evaluación sin internet.',
+            )
+          }
+          await queueEvaluationStart({ evaluationId: item.id, rowVersion: item.rowVersion })
+          const started = { ...item, status: 'EN_EJECUCION', canEdit: true }
+          setResult((current) => ({
+            ...current,
+            items: current.items.map((value) => (value.id === item.id ? started : value)),
+          }))
+          setSelected(started)
+        }
+      } else {
+        await transitionEvaluation(item.id, action, item.rowVersion)
+        await load()
+      }
       await alerts.success(
         labels[action],
-        action === 'close' && item.status === 'NO_APROBADA'
-          ? 'El sistema creó automáticamente una reinspección a 30 días cuando existían no conformidades pendientes.'
-          : undefined,
+        action === 'start'
+          ? navigator.onLine
+            ? 'La ficha fue cargada y está lista para completar.'
+            : 'La ficha se abrió desde el dispositivo. El inicio y los cambios se sincronizarán al recuperar conexión.'
+          : action === 'close' && item.status === 'NO_APROBADA'
+            ? 'El sistema creó automáticamente una reinspección a 30 días cuando existían no conformidades pendientes.'
+            : undefined,
       )
     } catch (caught) {
       await alerts.error(caught, `No se pudo ${labels[action].toLowerCase()}`)
@@ -196,17 +244,6 @@ export function EvaluationsManagement() {
           </button>
         )}
       </div>
-
-      {roles.includes('COORDINADOR') && (
-        <div className="mt-5 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm text-ink-body">
-          <strong className="text-brand-900">¿Necesita una reinspección?</strong>
-          <p className="mt-1">
-            Marque la evaluación como no aprobada, genere y emita su informe oficial desde Informes
-            e histórico, y luego use “Cerrar y programar reinspección”. Si hay no conformidades
-            pendientes, el sistema creará el seguimiento para dentro de 30 días.
-          </p>
-        </div>
-      )}
 
       <div className="mt-6 rounded-card bg-white p-5 shadow-card">
         <form

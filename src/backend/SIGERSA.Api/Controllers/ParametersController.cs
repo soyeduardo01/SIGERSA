@@ -14,6 +14,11 @@ public sealed class ParametersController(ParametersService service) : Controller
     public Task<IReadOnlyList<ParameterControl>> GetAll(string? search, CancellationToken cancellationToken) =>
         service.GetAllAsync(search, cancellationToken);
 
+    [HttpGet("offline-snapshot")]
+    [Authorize]
+    public Task<IReadOnlyList<ParameterControl>> GetOfflineSnapshot(CancellationToken cancellationToken) =>
+        service.GetOfflineSnapshotAsync(cancellationToken);
+
     [HttpGet("{keyWord}")]
     [Authorize]
     public Task<IReadOnlyList<ParameterControl>> Get(string keyWord, int? companyCode, CancellationToken cancellationToken) =>

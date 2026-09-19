@@ -61,11 +61,11 @@ describe('evaluation workspace helpers', () => {
       requiredSourceItems: [required.sourceItem],
     } as EvaluationInspectionPolicy
 
-    expect(itemsForInspectionPolicy([root, chapter, excluded, required], policy).map((value) => value.id)).toEqual([
-      'raíz',
-      'capítulo',
-      '1.1.3',
-    ])
+    expect(
+      itemsForInspectionPolicy([root, chapter, excluded, required], policy).map(
+        (value) => value.id,
+      ),
+    ).toEqual(['raíz', 'capítulo', '1.1.3'])
   })
 
   it('restaura hasta tres indicadores de evidencia por ítem después de recargar', () => {
@@ -85,5 +85,18 @@ describe('evaluation workspace helpers', () => {
   it('tolera workspaces antiguos que no incluyen la colección de evidencias', () => {
     expect(evidenceStatusBySlot(undefined)).toEqual({})
     expect(evidenceStatusBySlot(null)).toEqual({})
+  })
+
+  it('restaura evidencias pendientes guardadas localmente después de recargar', () => {
+    expect(
+      evidenceStatusBySlot(
+        [{ id: '1', sourceItem: 42, originalName: 'remota.png', uploadedAt: '2026-09-17' }],
+        [{ sourceItem: 42 }, { sourceItem: 7 }],
+      ),
+    ).toEqual({
+      '42-0': 'Archivo guardado',
+      '42-1': 'Pendiente sin conexión',
+      '7-0': 'Pendiente sin conexión',
+    })
   })
 })

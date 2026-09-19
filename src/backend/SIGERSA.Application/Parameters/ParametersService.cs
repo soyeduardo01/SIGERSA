@@ -10,6 +10,10 @@ public sealed class ParametersService(IParametersControlRepository repository)
         CancellationToken cancellationToken) =>
         repository.GetAllAsync(string.IsNullOrWhiteSpace(search) ? null : search.Trim(), cancellationToken);
 
+    public Task<IReadOnlyList<ParameterControl>> GetOfflineSnapshotAsync(
+        CancellationToken cancellationToken) =>
+        repository.GetAllAsync(null, cancellationToken);
+
     public Task<IReadOnlyList<ParameterControl>> GetActiveAsync(
         string keyWord,
         int? companyCode,

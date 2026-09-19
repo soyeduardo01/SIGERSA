@@ -171,10 +171,6 @@ export function LandingPage() {
           className="relative z-10 mx-auto grid max-w-[90rem] gap-12 px-5 pt-16 pb-32 lg:grid-cols-[.92fr_1.08fr] lg:items-center lg:px-8 lg:pt-24 lg:pb-44"
         >
           <div className="landing-reveal">
-            <p className="inline-flex items-center gap-2 rounded-full border border-emerald-300/25 bg-white/8 px-4 py-2 text-xs font-bold tracking-[.16em] text-emerald-100 uppercase backdrop-blur">
-              <span className="size-2 animate-pulse rounded-full bg-[#b8ee45]" /> República
-              Dominicana avanza
-            </p>
             <h1 className="mt-7 max-w-3xl text-[clamp(3rem,7vw,6.8rem)] leading-[.9] font-black tracking-[-.055em]">
               Salud segura.
               <br />

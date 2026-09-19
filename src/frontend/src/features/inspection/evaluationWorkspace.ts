@@ -20,6 +20,7 @@ export function isValidEvaluationId(value: string) {
 
 export function evidenceStatusBySlot(
   evidences: readonly EvaluationSavedEvidence[] | null | undefined,
+  pending: readonly { sourceItem?: number }[] = [],
 ) {
   const status: Record<string, string> = {}
   const slotBySource = new Map<number, number>()
@@ -27,6 +28,12 @@ export function evidenceStatusBySlot(
     const slot = slotBySource.get(evidence.sourceItem) ?? 0
     if (slot >= 3) continue
     status[`${evidence.sourceItem}-${slot}`] = 'Archivo guardado'
+    slotBySource.set(evidence.sourceItem, slot + 1)
+  }
+  for (const evidence of pending) {
+    if (evidence.sourceItem === undefined) continue
+    const slot = slotBySource.get(evidence.sourceItem) ?? 0
+    if (slot < 3) status[`${evidence.sourceItem}-${slot}`] = 'Pendiente sin conexión'
     slotBySource.set(evidence.sourceItem, slot + 1)
   }
   return status

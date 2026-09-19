@@ -11,6 +11,7 @@ import {
   type ParameterControlDraft,
 } from '../../lib/api'
 import { alerts } from '../../lib/alerts'
+import { readAllCachedParameters, replaceCachedParameters } from '../../offline/parameterCache'
 
 const emptyDraft: ParameterControlDraft = {
   keyWord: '',
@@ -36,11 +37,30 @@ export function ParametersManagement() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    let hadCachedData = false
     try {
-      setItems(await getAllParameters(search))
+      const cached = await readAllCachedParameters(search)
+      hadCachedData = cached.length > 0
+      setItems(cached)
       setError('')
+    } catch {
+      // Continue with the API when browser storage is unavailable.
+    }
+
+    if (!navigator.onLine) {
+      setLoading(false)
+      return
+    }
+
+    try {
+      const fresh = await getAllParameters(search)
+      setItems(fresh)
+      setError('')
+      if (!search) await replaceCachedParameters(fresh).catch(() => undefined)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'No se pudieron cargar los parámetros.')
+      if (!hadCachedData) {
+        setError(caught instanceof Error ? caught.message : 'No se pudieron cargar los parámetros.')
+      }
     } finally {
       setLoading(false)
     }

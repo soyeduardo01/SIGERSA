@@ -3,6 +3,7 @@ import {
   apiFetch,
   clearSession,
   downloadUserAuthorizationLetter,
+  getAllParameters,
   getSession,
   login,
   requestPasswordRecovery,
@@ -180,5 +181,17 @@ describe('apiFetch', () => {
 
     expect(download.blob.type).toBe('image/png')
     expect(download.fileName).toBe('carta empresa.png')
+  })
+
+  it('usa el endpoint autenticado de instantánea para alimentar la base local', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      void input
+      return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getAllParameters('', true)
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain('/api/v1/parameters/offline-snapshot')
   })
 })

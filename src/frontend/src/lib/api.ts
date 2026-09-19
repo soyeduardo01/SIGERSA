@@ -1,3 +1,5 @@
+import { cacheResourceSnapshot, readResourceSnapshot } from '../offline/resourceCache'
+
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 const sessionKey = 'sigersa.auth.session'
 const sessionChangedEvent = 'sigersa.auth.session.changed'
@@ -1142,11 +1144,12 @@ export async function getParameters(keyWord: string, companyCode?: number) {
   return getJson<ParameterControl[]>(`/api/v1/parameters/${encodeURIComponent(keyWord)}${suffix}`)
 }
 
-export async function getAllParameters(search = '') {
+export async function getAllParameters(search = '', offlineSnapshot = false) {
   const query = new URLSearchParams()
   if (search) query.set('search', search)
   const suffix = query.size ? `?${query}` : ''
-  return getJson<ParameterControl[]>(`/api/v1/parameters${suffix}`)
+  const path = offlineSnapshot ? '/api/v1/parameters/offline-snapshot' : '/api/v1/parameters'
+  return getJson<ParameterControl[]>(`${path}${suffix}`)
 }
 
 export async function createParameter(draft: ParameterControlDraft) {
@@ -1851,9 +1854,42 @@ export async function downloadEvaluationReport(reportId: string) {
 }
 
 async function getJson<T>(path: string) {
-  const response = await apiFetch(path)
-  if (!response.ok) throw await apiError(response)
-  return (await response.json()) as T
+  const ownerUserId = currentSessionUserId()
+  const cacheable = isOfflineResourcePath(path) && Boolean(ownerUserId)
+  if (!navigator.onLine && cacheable) {
+    const cached = await readResourceSnapshot<T>(ownerUserId, path).catch(() => undefined)
+    if (cached !== undefined) return cached
+  }
+
+  try {
+    const response = await apiFetch(path)
+    if (!response.ok) throw await apiError(response)
+    const value = (await response.json()) as T
+    if (cacheable) {
+      await cacheResourceSnapshot(ownerUserId, path, value).catch(() => undefined)
+    }
+    return value
+  } catch (error) {
+    if (cacheable) {
+      const cached = await readResourceSnapshot<T>(ownerUserId, path).catch(() => undefined)
+      if (cached !== undefined) return cached
+    }
+    throw error
+  }
+}
+
+function currentSessionUserId() {
+  const session = getSession()
+  return session ? (getSessionIdentity(session).id ?? '') : ''
+}
+
+function isOfflineResourcePath(path: string) {
+  const pathname = path.split('?')[0]
+  return (
+    pathname === '/api/v1/all-items' ||
+    pathname.startsWith('/api/v1/parameters/') ||
+    pathname.endsWith('/options')
+  )
 }
 
 async function sendJson<T>(path: string, method: string, body: unknown) {

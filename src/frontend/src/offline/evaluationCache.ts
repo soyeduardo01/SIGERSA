@@ -64,10 +64,7 @@ export async function hasPendingEvaluationChanges(evaluationId: string) {
   return (
     (await offlineDb.syncQueue
       .filter(
-        (item) =>
-          (item.kind === 'answer' || item.kind === 'evidence') &&
-          'evaluationId' in item.payload &&
-          item.payload.evaluationId === evaluationId,
+        (item) => 'evaluationId' in item.payload && item.payload.evaluationId === evaluationId,
       )
       .count()) > 0
   )

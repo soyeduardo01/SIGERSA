@@ -21,6 +21,7 @@ import {
 } from '../../offline/evaluationCache'
 import {
   flushSyncQueue,
+  getPendingEvaluationEvidences,
   queueAnswer,
   queueEvaluationCalculation,
   queueEvaluationFinalization,
@@ -137,7 +138,8 @@ export function DynamicInspectionForm({
       if (cached) {
         setItems(cached.items)
         setPolicy(cached.policy)
-        setEvidenceStatus(evidenceStatusBySlot(cached.evidences))
+        const pendingEvidences = await getPendingEvaluationEvidences(id)
+        setEvidenceStatus(evidenceStatusBySlot(cached.evidences, pendingEvidences))
         const cachedAnswers = cached.answers
         setRatings(
           Object.fromEntries(cachedAnswers.map((answer) => [answer.sourceItem, answer.rating])),
@@ -166,10 +168,12 @@ export function DynamicInspectionForm({
         )
         setSupplement(cached.supplement)
         setMessage('Ficha disponible desde el almacenamiento local.')
+        setLoadingForm(false)
       } else if (legacyCached && Array.isArray(legacyCached.definition)) {
         setItems(legacyCached.definition as EvaluationFormItem[])
         setPolicy(null)
         setMessage('Ficha básica disponible desde el almacenamiento local.')
+        setLoadingForm(false)
       }
       if (!navigator.onLine) {
         if (!cached && !legacyCached)
@@ -228,10 +232,18 @@ export function DynamicInspectionForm({
         setMessage('Ficha y respuestas actualizadas desde la base de datos.')
         await cacheEvaluationWorkspace(id, { ...workspace, supplement: normalizedSupplement })
       } catch (error) {
-        setMessage(
-          error instanceof Error ? error.message : 'No fue posible cargar la evaluación asignada.',
-        )
-        await alerts.error(error, 'No se pudo cargar la evaluación')
+        if (!cached && !legacyCached) {
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : 'No fue posible cargar la evaluación asignada.',
+          )
+          await alerts.error(error, 'No se pudo cargar la evaluación')
+        } else {
+          setMessage(
+            'Ficha cargada desde el dispositivo. La actualización remota se reintentará en segundo plano.',
+          )
+        }
       } finally {
         setLoadingForm(false)
       }

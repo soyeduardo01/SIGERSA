@@ -34,6 +34,19 @@ export async function queueAnswer(payload: AnswerPayload, idempotencyKey = crypt
   return enqueueMutation('answer', payload, idempotencyKey)
 }
 
+export async function queueEvaluationStart(payload: EvaluationActionPayload) {
+  const key = await enqueueMutation('start', payload, `offline-start-${payload.evaluationId}`)
+  const cached = await offlineDb.evaluations.get(payload.evaluationId)
+  if (cached?.ownerUserId === currentUserId()) {
+    await offlineDb.evaluations.update(payload.evaluationId, {
+      status: 'EN_EJECUCION',
+      snapshot: { ...asRecord(cached.snapshot), status: 'EN_EJECUCION', canEdit: true },
+      updatedAt: new Date().toISOString(),
+    })
+  }
+  return key
+}
+
 export async function queueEvidence(
   payload: Omit<EvidencePayload, 'sha256Hash'>,
   idempotencyKey = crypto.randomUUID(),
@@ -67,7 +80,20 @@ export async function queueEvaluationCalculation(evaluationId: string) {
 }
 
 export async function queueEvaluationFinalization(evaluationId: string) {
-  return enqueueMutation('finalize', { evaluationId }, `offline-finalize-${evaluationId}`)
+  const key = await enqueueMutation(
+    'finalize',
+    { evaluationId },
+    `offline-finalize-${evaluationId}`,
+  )
+  const cached = await offlineDb.evaluations.get(evaluationId)
+  if (cached?.ownerUserId === currentUserId()) {
+    await offlineDb.evaluations.update(evaluationId, {
+      status: 'FINALIZADA',
+      snapshot: { ...asRecord(cached.snapshot), status: 'FINALIZADA' },
+      updatedAt: new Date().toISOString(),
+    })
+  }
+  return key
 }
 
 export async function getPendingMutationCount() {
@@ -77,6 +103,21 @@ export async function getPendingMutationCount() {
     .anyOf('pending', 'processing', 'failed')
     .filter((item) => item.ownerUserId === ownerUserId)
     .count()
+}
+
+export async function getPendingEvaluationEvidences(evaluationId: string) {
+  const ownerUserId = currentUserId()
+  return offlineDb.syncQueue
+    .where('kind')
+    .equals('evidence')
+    .filter(
+      (item) =>
+        item.ownerUserId === ownerUserId &&
+        'evaluationId' in item.payload &&
+        item.payload.evaluationId === evaluationId,
+    )
+    .sortBy('createdAt')
+    .then((items) => items.map((item) => item.payload as EvidencePayload))
 }
 
 export function flushSyncQueue() {
@@ -143,7 +184,7 @@ async function processSyncQueue() {
     .sortBy('createdAt')
 
   for (const item of queuedItems) {
-    await processQueueItem(item)
+    if (!(await processQueueItem(item))) break
   }
 }
 
@@ -184,7 +225,19 @@ async function processQueueItem(item: SyncQueueItem) {
   notifyQueueChanged()
 
   try {
-    if (item.kind === 'answer') {
+    if (item.kind === 'start') {
+      const action = item.payload as EvaluationActionPayload
+      await postJson(
+        `/api/v1/evaluations/${action.evaluationId}/start`,
+        {
+          rowVersion: action.rowVersion,
+          latitude: action.latitude ?? null,
+          longitude: action.longitude ?? null,
+          accuracyMeters: action.accuracyMeters ?? null,
+        },
+        item.idempotencyKey,
+      )
+    } else if (item.kind === 'answer') {
       const answer = item.payload as AnswerPayload
       await postJson(
         `/api/v1/evaluations/${answer.evaluationId}/answers`,
@@ -258,6 +311,7 @@ async function processQueueItem(item: SyncQueueItem) {
     }
 
     await offlineDb.syncQueue.delete(item.idempotencyKey)
+    return true
   } catch (error) {
     const permanent = error instanceof ApiError && [400, 403, 404, 409].includes(error.status ?? 0)
     const attempts = permanent ? maxAttempts : item.attempts + 1
@@ -268,6 +322,7 @@ async function processQueueItem(item: SyncQueueItem) {
       nextAttemptAt: new Date(Date.now() + retryDelaySeconds * 1000).toISOString(),
       lastError: error instanceof Error ? error.message : 'Error de sincronización',
     })
+    return false
   } finally {
     notifyQueueChanged()
   }

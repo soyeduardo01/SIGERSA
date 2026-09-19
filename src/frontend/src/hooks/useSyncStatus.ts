@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { refreshOfflineMirror } from '../offline/evaluationBootstrap'
 import { flushSyncQueue, getPendingMutationCount, subscribeToSyncQueue } from '../offline/syncQueue'
 
 export function useSyncStatus() {
@@ -11,18 +12,30 @@ export function useSyncStatus() {
       void getPendingMutationCount().then(setPendingCount)
     }
 
-    const handleOnline = () => {
+    const synchronize = async (refreshEvaluations = false) => {
+      if (!navigator.onLine) return
       setIsOnline(true)
-      setIsSyncing(true)
-      void flushSyncQueue().finally(() => {
-        setIsSyncing(false)
-        refreshCount()
-      })
+      const count = await getPendingMutationCount()
+      let remaining = count
+      setPendingCount(count)
+      if (count > 0) {
+        setIsSyncing(true)
+        await flushSyncQueue().finally(async () => {
+          setIsSyncing(false)
+          remaining = await getPendingMutationCount()
+          setPendingCount(remaining)
+        })
+      }
+      if (refreshEvaluations) await refreshOfflineMirror(remaining === 0).catch(() => undefined)
     }
+
+    const handleOnline = () => void synchronize(true)
 
     const handleOffline = () => setIsOnline(false)
 
     refreshCount()
+    void synchronize(true)
+    const retryTimer = window.setInterval(() => void synchronize(), 30_000)
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
     const unsubscribe = subscribeToSyncQueue(refreshCount)
@@ -30,6 +43,7 @@ export function useSyncStatus() {
     return () => {
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
+      window.clearInterval(retryTimer)
       unsubscribe()
     }
   }, [])

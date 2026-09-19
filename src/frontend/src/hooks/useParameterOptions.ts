@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getParameters, type ParameterControl } from '../lib/api'
+import { readCachedParameters, replaceCachedParameterCatalog } from '../offline/parameterCache'
 
 export function useParameterOptions(keyWord: string) {
   const [options, setOptions] = useState<ParameterControl[]>([])
@@ -8,28 +9,49 @@ export function useParameterOptions(keyWord: string) {
 
   useEffect(() => {
     let active = true
-    queueMicrotask(() => active && setLoading(true))
-    void getParameters(keyWord)
-      .then((values) => {
+    const load = async () => {
+      setLoading(true)
+      let hadCachedData = false
+      try {
+        const cached = await readCachedParameters(keyWord)
         if (!active) return
-        setOptions(
-          [...values].sort(
-            (left, right) =>
-              (left.numericData ?? Number.MAX_SAFE_INTEGER) -
-              (right.numericData ?? Number.MAX_SAFE_INTEGER),
-          ),
-        )
+        hadCachedData = cached.length > 0
+        setOptions(cached)
         setError('')
-      })
-      .catch((caught) => {
+      } catch {
+        // IndexedDB can be unavailable (private mode/storage policy). Online
+        // loading must still work in that case.
+      }
+
+      if (!navigator.onLine) {
+        if (active) setLoading(false)
+        return
+      }
+
+      try {
+        const values = await getParameters(keyWord)
+        if (active) {
+          setOptions(values)
+          setError('')
+        }
+        await replaceCachedParameterCatalog(keyWord, undefined, values).catch(() => undefined)
+      } catch (caught) {
         if (!active) return
-        setOptions([])
-        setError(caught instanceof Error ? caught.message : 'No se pudo cargar el catálogo.')
-      })
-      .finally(() => active && setLoading(false))
+        if (!hadCachedData) {
+          setError(caught instanceof Error ? caught.message : 'No se pudo cargar el catálogo.')
+        }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    queueMicrotask(() => active && void load())
+    const handleOnline = () => void load()
+    window.addEventListener('online', handleOnline)
 
     return () => {
       active = false
+      window.removeEventListener('online', handleOnline)
     }
   }, [keyWord])
 
