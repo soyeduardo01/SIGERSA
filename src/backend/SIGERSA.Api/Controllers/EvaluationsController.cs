@@ -157,6 +157,15 @@ public sealed class EvaluationsController(EvaluationWorkflowService service) : C
             new EvaluationTransitionDraft("CLOSE", request.RowVersion),
             ActorContext(), cancellationToken);
 
+    [HttpPost("evaluations/{evaluationId:guid}/cancel")]
+    [Authorize(Roles = "COORDINADOR")]
+    public Task<long> Cancel(
+        Guid evaluationId, CancelEvaluationRequest request,
+        CancellationToken cancellationToken) =>
+        service.TransitionAsync(evaluationId,
+            new EvaluationTransitionDraft("CANCEL", request.RowVersion, Reason: request.Reason),
+            ActorContext(), cancellationToken);
+
     private Guid Actor()
     {
         var subject = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
@@ -200,3 +209,4 @@ public sealed record SaveAnswerRequest(
 
 public sealed record StartEvaluationRequest(long RowVersion, decimal? Latitude, decimal? Longitude, decimal? AccuracyMeters);
 public sealed record EvaluationTransitionRequest(long RowVersion);
+public sealed record CancelEvaluationRequest(long RowVersion, string Reason);

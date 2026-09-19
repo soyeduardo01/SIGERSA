@@ -21,6 +21,7 @@ import { DynamicInspectionForm } from '../inspection/DynamicInspectionForm'
 import { useAuth } from '../../contexts/useAuth'
 import {
   canEditInspection,
+  canCancelInspection,
   canCloseEvaluation,
   canExecuteInspection,
   canFinalizeReview,
@@ -34,6 +35,8 @@ export function EvaluationsManagement() {
   const [result, setResult] = useState(emptyPage)
   const [options, setOptions] = useState<EvaluationCreateOptions | null>(null)
   const [status, setStatus] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
@@ -46,7 +49,7 @@ export function EvaluationsManagement() {
   async function load() {
     setLoading(true)
     try {
-      const page = await getEvaluations({ status, page: pageNumber, pageSize: 10 })
+      const page = await getEvaluations({ search, status, page: pageNumber, pageSize: 10 })
       await cacheEvaluationPage(page)
       setResult(page)
       setSelected((current) =>
@@ -64,8 +67,8 @@ export function EvaluationsManagement() {
     let active = true
     void Promise.all([
       navigator.onLine
-        ? getEvaluations({ status, page: pageNumber, pageSize: 10 })
-        : readCachedEvaluationPage(status, pageNumber, 10),
+        ? getEvaluations({ search, status, page: pageNumber, pageSize: 10 })
+        : readCachedEvaluationPage(search, status, pageNumber, 10),
       navigator.onLine ? getEvaluationOptions() : Promise.resolve(null),
     ])
       .then(([page, choices]) => {
@@ -88,7 +91,7 @@ export function EvaluationsManagement() {
     return () => {
       active = false
     }
-  }, [pageNumber, status])
+  }, [pageNumber, search, status])
 
   useEffect(() => {
     if (!navigator.onLine || !canExecute) return
@@ -152,6 +155,22 @@ export function EvaluationsManagement() {
     }
   }
 
+  async function cancelInspection(item: EvaluationSummary) {
+    const reason = await alerts.textInput({
+      title: 'Cancelar inspección',
+      label: 'Indique el motivo de la cancelación.',
+      confirmText: 'Cancelar inspección',
+    })
+    if (!reason) return
+    try {
+      await transitionEvaluation(item.id, 'cancel', item.rowVersion, reason)
+      await load()
+      await alerts.success('Inspección cancelada', 'El motivo quedó registrado en la trazabilidad.')
+    } catch (caught) {
+      await alerts.error(caught, 'No se pudo cancelar la inspección')
+    }
+  }
+
   return (
     <section aria-labelledby="evaluations-title">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -182,37 +201,76 @@ export function EvaluationsManagement() {
         <div className="mt-5 rounded-xl border border-brand-200 bg-brand-50 p-4 text-sm text-ink-body">
           <strong className="text-brand-900">¿Necesita una reinspección?</strong>
           <p className="mt-1">
-            Marque la evaluación como no aprobada y use “Cerrar y programar reinspección”. Si hay no
-            conformidades pendientes, el sistema creará el caso, la programación y la evaluación de
-            seguimiento para dentro de 30 días.
+            Marque la evaluación como no aprobada, genere y emita su informe oficial desde Informes
+            e histórico, y luego use “Cerrar y programar reinspección”. Si hay no conformidades
+            pendientes, el sistema creará el seguimiento para dentro de 30 días.
           </p>
         </div>
       )}
 
       <div className="mt-6 rounded-card bg-white p-5 shadow-card">
-        <label className="block max-w-xs text-sm font-bold">
-          Estado
-          <select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value)
-              setPageNumber(1)
-            }}
-            className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
+        <form
+          className="flex flex-wrap items-end gap-4"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault()
+            setSearch(searchInput.trim())
+            setPageNumber(1)
+          }}
+        >
+          <label className="block min-w-64 flex-1 text-sm font-bold">
+            Buscar evaluaciones
+            <input
+              type="search"
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Número, caso, establecimiento o técnico"
+              className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
+            />
+          </label>
+          <button
+            type="submit"
+            className="min-h-11 rounded-xl bg-brand-700 px-5 font-bold text-white"
           >
-            <option value="">Todos</option>
-            {evaluationStates.options.map((option) => (
-              <option key={option.parametersId} value={option.stringData ?? ''}>
-                {formatStatusLabel(option.stringData ?? '')}
-              </option>
-            ))}
-          </select>
-          {!evaluationStates.loading && evaluationStates.options.length === 0 && (
-            <span className="mt-1 block text-xs font-normal text-amber-700">
-              El catálogo ESTADO_EVALUACION no tiene valores activos.
-            </span>
+            Buscar
+          </button>
+          {(search || searchInput) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput('')
+                setSearch('')
+                setPageNumber(1)
+              }}
+              className="min-h-11 rounded-xl border border-slate-300 px-4 font-bold"
+            >
+              Limpiar
+            </button>
           )}
-        </label>
+          <label className="block min-w-56 text-sm font-bold">
+            Estado
+            <select
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value)
+                setPageNumber(1)
+              }}
+              className="mt-1.5 min-h-11 w-full rounded-xl border px-3 font-normal"
+            >
+              <option value="">Todos</option>
+              {evaluationStates.options.map((option) => (
+                <option key={option.parametersId} value={option.stringData ?? ''}>
+                  {formatStatusLabel(option.stringData ?? '')}
+                </option>
+              ))}
+            </select>
+          </label>
+        </form>
+        {!evaluationStates.loading && evaluationStates.options.length === 0 && (
+          <span className="mt-2 block text-xs font-normal text-amber-700">
+            El catálogo ESTADO_EVALUACION no tiene valores activos.
+          </span>
+        )}
         {error && (
           <div
             role="alert"
@@ -296,7 +354,7 @@ export function EvaluationsManagement() {
                           </button>
                         </>
                       )}
-                      {canCloseEvaluation(item.status, roles) && (
+                      {canCloseEvaluation(item.status, roles, item.hasOfficialReport) && (
                         <button
                           type="button"
                           onClick={() => void runTransition(item, 'close')}
@@ -307,6 +365,22 @@ export function EvaluationsManagement() {
                             : 'Cerrar expediente'}
                         </button>
                       )}
+                      {canCancelInspection(item.status, roles) && (
+                        <button
+                          type="button"
+                          onClick={() => void cancelInspection(item)}
+                          className="rounded-lg border border-red-300 px-3 py-2 font-bold text-red-700"
+                        >
+                          Cancelar inspección
+                        </button>
+                      )}
+                      {roles.includes('COORDINADOR') &&
+                        ['APROBADA', 'NO_APROBADA'].includes(item.status) &&
+                        !item.hasOfficialReport && (
+                          <span className="self-center text-xs font-semibold text-amber-700">
+                            Emita el informe oficial antes de cerrar
+                          </span>
+                        )}
                       <button
                         type="button"
                         onClick={() => setSelected(item)}

@@ -1,4 +1,5 @@
 using Dapper;
+using System.Text.Json;
 using SIGERSA.Domain.Entities;
 using SIGERSA.Domain.Repositories;
 
@@ -822,6 +823,13 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
                   JOIN allowed ON allowed.id = evaluation.id
                   LEFT JOIN "SIGERSA"."USUARIO" creator ON creator.id = evaluation.creado_por
                 UNION ALL
+                SELECT evaluation.cancelada_en, 'EVALUACION', 'Inspección cancelada',
+                       evaluation.motivo_cancelacion, actor.nombre_completo
+                  FROM "SIGERSA"."EVALUACION" evaluation
+                  JOIN allowed ON allowed.id = evaluation.id
+                  LEFT JOIN "SIGERSA"."USUARIO" actor ON actor.id = evaluation.modificado_por
+                 WHERE evaluation.estado = 'CANCELADA' AND evaluation.cancelada_en IS NOT NULL
+                UNION ALL
                 SELECT transition.ejecutado_en, 'CASO',
                        'Cambio de estado: ' || transition.estado_nuevo,
                        transition.motivo, actor.nombre_completo
@@ -939,14 +947,17 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
                    evaluation.riesgo_establecimiento AS EstablishmentRisk,
                    evaluation.riesgo_total AS TotalRisk, evaluation.nivel_riesgo AS RiskLevel,
                    evaluation.frecuencia AS Frequency, evaluation.iniciada_en AS StartedAt,
-                   evaluation.finalizada_en AS FinishedAt
+                   evaluation.finalizada_en AS FinishedAt,
+                   COALESCE(complement.medidas_correctivas, '[]'::jsonb)::text AS CorrectiveMeasuresJson,
+                   COALESCE(complement.recomendaciones, '[]'::jsonb)::text AS RecommendationsJson
               FROM "SIGERSA"."EVALUACION" evaluation
               JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
               JOIN "SIGERSA"."EMPRESA" company ON company.id = inspection_case.empresa_id
               JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
               JOIN "SIGERSA"."USUARIO" evaluator ON evaluator.id = evaluation.evaluador_principal_id
+              LEFT JOIN "SIGERSA"."EVALUACION_COMPLEMENTO" complement ON complement.evaluacion_id = evaluation.id
              WHERE evaluation.id = @EvaluationId
-               AND evaluation.estado IN ('FINALIZADA', 'ENVIADA', 'EN_REVISION', 'EN_CORRECCION', 'APROBADA', 'CERRADA')
+               AND evaluation.estado IN ('FINALIZADA', 'ENVIADA', 'EN_REVISION', 'EN_CORRECCION', 'APROBADA', 'NO_APROBADA', 'CERRADA')
                AND EXISTS (
                     SELECT 1 FROM "SIGERSA"."USUARIO_ROL" user_role
                     JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
@@ -1000,8 +1011,9 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
                 """), new { EvaluationId = evaluationId }, transaction, cancellationToken: cancellationToken));
             if (status is null || status is "ASIGNADA" or "EN_EJECUCION")
                 throw new ArgumentException("La evaluación todavía no está lista para generar un informe.");
-            if (isOfficial && status != "APROBADA")
-                throw new InvalidOperationException("El informe solo puede emitirse como oficial después de aprobar la evaluación.");
+            if (isOfficial && status is not ("APROBADA" or "NO_APROBADA"))
+                throw new InvalidOperationException(
+                    "El informe oficial solo puede emitirse después de aprobar o no aprobar la evaluación.");
 
             var reportId = await connection.ExecuteScalarAsync<Guid>(new CommandDefinition(Sql("""
                 INSERT INTO "SIGERSA"."INFORME"
@@ -1273,6 +1285,9 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
 
     private sealed class ReportHeaderRow
     {
+        private static readonly JsonSerializerOptions FollowUpJsonOptions =
+            new() { PropertyNameCaseInsensitive = true };
+
         public Guid EvaluationId { get; init; }
         public string EvaluationNumber { get; init; } = string.Empty;
         public string CaseNumber { get; init; } = string.Empty; public string CompanyName { get; init; } = string.Empty;
@@ -1286,10 +1301,16 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
         public string? Frequency { get; init; }
         public DateTime? StartedAt { get; init; }
         public DateTime? FinishedAt { get; init; }
+        public string CorrectiveMeasuresJson { get; init; } = "[]";
+        public string RecommendationsJson { get; init; } = "[]";
         public ReportGenerationData ToDomain(IReadOnlyList<ReportFinding> findings, IReadOnlyList<ReportEvidence> evidences) =>
             new(EvaluationId, EvaluationNumber, CaseNumber, CompanyName, EstablishmentName, Address,
                 EvaluatorName, Status, CompliancePercentage, ProductRisk, EstablishmentRisk, TotalRisk,
                 RiskLevel, Frequency, StartedAt.HasValue ? Utc(StartedAt.Value) : null,
-                FinishedAt.HasValue ? Utc(FinishedAt.Value) : null, findings, evidences);
+                FinishedAt.HasValue ? Utc(FinishedAt.Value) : null, findings, evidences,
+                DeserializeFollowUps(CorrectiveMeasuresJson), DeserializeFollowUps(RecommendationsJson));
+
+        private static EvaluationFollowUpItem[] DeserializeFollowUps(string json) =>
+            JsonSerializer.Deserialize<EvaluationFollowUpItem[]>(json, FollowUpJsonOptions) ?? [];
     }
 }

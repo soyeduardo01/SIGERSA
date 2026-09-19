@@ -18,6 +18,18 @@ export function canFinalizeReview(status: string, roles: string[]) {
   return ['ENVIADA', 'EN_REVISION'].includes(status) && roles.includes('COORDINADOR')
 }
 
-export function canCloseEvaluation(status: string, roles: string[]) {
-  return ['APROBADA', 'NO_APROBADA'].includes(status) && roles.includes('COORDINADOR')
+export function canCloseEvaluation(status: string, roles: string[], hasOfficialReport: boolean) {
+  return (
+    ['APROBADA', 'NO_APROBADA'].includes(status) &&
+    roles.includes('COORDINADOR') &&
+    hasOfficialReport
+  )
+}
+
+export function canCancelInspection(status: string, roles: string[]) {
+  return (
+    ['ASIGNADA', 'EN_EJECUCION', 'EN_CORRECCION', 'FINALIZADA', 'ENVIADA', 'EN_REVISION'].includes(
+      status,
+    ) && roles.includes('COORDINADOR')
+  )
 }

@@ -260,7 +260,9 @@ public sealed record ReportGenerationData(
     DateTimeOffset? StartedAt,
     DateTimeOffset? FinishedAt,
     IReadOnlyList<ReportFinding> Findings,
-    IReadOnlyList<ReportEvidence> Evidences);
+    IReadOnlyList<ReportEvidence> Evidences,
+    IReadOnlyList<EvaluationFollowUpItem> CorrectiveMeasures,
+    IReadOnlyList<EvaluationFollowUpItem> Recommendations);
 
 public sealed record ReportFinding(string Code, string Criticality, string Description, string Status);
 public sealed record ReportEvidence(

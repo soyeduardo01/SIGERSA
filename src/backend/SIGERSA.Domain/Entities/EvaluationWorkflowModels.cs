@@ -26,6 +26,7 @@ public sealed record EvaluationSummary(
     string? Frequency,
     DateTimeOffset? NextInspectionAt,
     int AnsweredItems,
+    bool HasOfficialReport,
     bool CanEdit,
     long RowVersion);
 
@@ -231,4 +232,5 @@ public sealed record EvaluationTransitionDraft(
     long RowVersion,
     decimal? Latitude = null,
     decimal? Longitude = null,
-    decimal? AccuracyMeters = null);
+    decimal? AccuracyMeters = null,
+    string? Reason = null);

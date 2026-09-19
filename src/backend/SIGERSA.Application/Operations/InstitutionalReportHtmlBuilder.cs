@@ -11,7 +11,6 @@ public static class InstitutionalReportHtmlBuilder
         * { box-sizing: border-box; }
         html,body { margin:0; background:#eef3f0; color:#132420; font-family:Poppins,Arial,sans-serif; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
         .page { position:relative; width:8.5in; height:11in; margin:0 auto; padding:.58in .58in .78in; background:#fff; break-after:page; page-break-after:always; overflow:hidden; }
-        .page + .page { break-before:page; page-break-before:always; }
         .page:last-child { break-after:auto; page-break-after:auto; }
         .cover { background:#0f4436; color:#fff; padding:.52in .58in; }
         .cover::before,.cover::after { content:""; position:absolute; border-radius:50%; background:#1c6f53; opacity:.55; }
@@ -21,6 +20,7 @@ public static class InstitutionalReportHtmlBuilder
         .sigersa { width:1.25in; height:.32in; object-fit:contain; }
         .cover .sigersa { width:2.35in; height:.55in; filter:brightness(0) invert(1); }
         .cover-main { position:relative; z-index:1; margin-top:.68in; }
+        .rejected-stamp { position:absolute; z-index:3; right:.56in; top:.68in; width:3.25in; padding:12px 14px; border:5px double #d52b1e; border-radius:8px; color:#d52b1e; background:rgba(255,255,255,.94); font-size:20px; font-weight:900; letter-spacing:1px; text-align:center; transform:rotate(-7deg); box-shadow:0 2px 0 rgba(0,0,0,.12); }
         .eyebrow,.label,.kicker { font-size:8px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
         .eyebrow { color:#a6d887; }
         h1 { max-width:7in; font-size:43px; line-height:1.07; letter-spacing:-1.2px; margin:.18in 0 .2in; color:#fff; }
@@ -89,6 +89,10 @@ public static class InstitutionalReportHtmlBuilder
         ol.recs { list-style:none; padding:0; counter-reset:item; }
         ol.recs li { counter-increment:item; display:flex; gap:12px; margin:11px 0; font-size:9px; line-height:1.55; }
         ol.recs li::before { content:counter(item); flex:0 0 24px; height:24px; display:grid; place-items:center; border-radius:50%; background:#175a47; color:#fff; }
+        .followups { list-style:none; margin:0; padding:0; }
+        .followups li { display:grid; grid-template-columns:30px 1fr auto; gap:10px; align-items:start; margin:9px 0; padding:11px; border:1px solid #dce6e1; border-radius:8px; background:#f3f7f5; font-size:8px; line-height:1.5; }
+        .followups li>b { display:grid; place-items:center; width:25px; height:25px; border-radius:50%; background:#175a47; color:#fff; }
+        .followups time { white-space:nowrap; color:#b3382c; font-size:7px; font-weight:700; }
         .evidence { list-style:none; padding:0; }
         .evidence li { display:flex; align-items:center; gap:14px; border:1px solid #dce6e1; border-radius:8px; padding:12px; margin:9px 0; }
         .evidence li>b { display:grid; place-items:center; width:38px; height:34px; background:#175a47; color:#fff; border-radius:6px; }
@@ -103,13 +107,16 @@ public static class InstitutionalReportHtmlBuilder
 
     public static string Build(ReportGenerationData data, bool official, InstitutionalReportAssets assets)
     {
-        var recommendations = Recommendations(data);
         var openFindings = data.Findings.Count(item => !item.Status.Contains("CERR", StringComparison.OrdinalIgnoreCase));
         var priorityFindings = data.Findings.Count(item =>
             item.Criticality.Contains("ALT", StringComparison.OrdinalIgnoreCase)
             || item.Criticality.Contains("CRIT", StringComparison.OrdinalIgnoreCase));
-        var findingsPages = FindingsPages(data, assets, recommendations, openFindings, priorityFindings, 3);
-        var evidenceStartPage = 3 + Math.Max(1, (int)Math.Ceiling(data.Findings.Count / 8m));
+        var findingsPageCount = Math.Max(1, (int)Math.Ceiling(data.Findings.Count / 8m));
+        var findingsPages = FindingsPages(data, assets, openFindings, priorityFindings, 3);
+        var followUpStartPage = 3 + findingsPageCount;
+        var followUpPages = FollowUpPages(data, assets, followUpStartPage);
+        var followUpPageCount = Math.Max(1, (int)Math.Ceiling(Math.Max(1, data.CorrectiveMeasures.Count + data.Recommendations.Count) / 8m));
+        var evidenceStartPage = followUpStartPage + followUpPageCount;
         var evidenceChunks = SplitEvidence(data.Evidences);
         var evidencePages = EvidencePages(data, assets, evidenceStartPage, evidenceChunks);
         var validationPage = evidenceStartPage + evidenceChunks.Count;
@@ -119,11 +126,12 @@ public static class InstitutionalReportHtmlBuilder
             @font-face { font-family:Poppins; src:url('{{assets.PoppinsRegularDataUri}}') format('truetype'); font-weight:400; }
             @font-face { font-family:Poppins; src:url('{{assets.PoppinsSemiBoldDataUri}}') format('truetype'); font-weight:600 900; }
             {{Styles}}</style></head><body>
-            <section class="page cover"><div class="logos">{{Logos(assets)}}</div><div class="cover-main"><div class="eyebrow">{{(official ? "Informe oficial de auditoría sanitaria" : "Borrador para revisión")}}</div><h1>Evaluación de Buenas<br>Prácticas de Manufactura</h1><p class="lead">Reporte técnico de cumplimiento normativo, gestión de riesgo sanitario y trazabilidad institucional.</p><div class="chips"><div class="chip"><small>N.º de evaluación</small><b>{{E(data.EvaluationNumber)}}</b></div><div class="chip"><small>N.º de caso</small><b>{{E(data.CaseNumber)}}</b></div><div class="chip"><small>Clasificación de riesgo</small><b>{{E(data.RiskLevel ?? "No calculable")}}</b></div></div><div class="cover-card">{{Cell("Empresa", data.CompanyName)}}{{Cell("Establecimiento", data.EstablishmentName)}}{{Cell("Técnico evaluador", data.EvaluatorName)}}{{Cell("Cumplimiento BPM", Number(data.CompliancePercentage, "%"))}}</div></div><div class="cover-foot"><span>Sistema Integral de Gestión de Riesgos Sanitarios</span><span>{{DateTimeOffset.UtcNow:dd/MM/yyyy}}</span></div></section>
+            <section class="page cover"><div class="logos">{{Logos(assets)}}</div>{{RejectedStamp(data)}}<div class="cover-main"><div class="eyebrow">{{(official ? "Informe oficial de auditoría sanitaria" : "Borrador para revisión")}}</div><h1>Evaluación de Buenas<br>Prácticas de Manufactura</h1><p class="lead">Reporte técnico de cumplimiento normativo, gestión de riesgo sanitario y trazabilidad institucional.</p><div class="chips"><div class="chip"><small>N.º de evaluación</small><b>{{E(data.EvaluationNumber)}}</b></div><div class="chip"><small>N.º de caso</small><b>{{E(data.CaseNumber)}}</b></div><div class="chip"><small>Clasificación de riesgo</small><b>{{E(data.RiskLevel ?? "No calculable")}}</b></div></div><div class="cover-card">{{Cell("Empresa", data.CompanyName)}}{{Cell("Establecimiento", data.EstablishmentName)}}{{Cell("Técnico evaluador", data.EvaluatorName)}}{{Cell("Cumplimiento BPM", Number(data.CompliancePercentage, "%"))}}</div></div><div class="cover-foot"><span>Sistema Integral de Gestión de Riesgos Sanitarios</span><span>{{DateTimeOffset.UtcNow:dd/MM/yyyy}}</span></div></section>
             {{PageStart(assets, data, "Resumen ejecutivo", "Resultados generales de la evaluación")}}
             {{Title("1", "Identificación de la evaluación")}}<div class="grid">{{Cell("Empresa", data.CompanyName)}}{{Cell("Establecimiento", data.EstablishmentName)}}{{Cell("Dirección", data.Address)}}{{Cell("Técnico evaluador", data.EvaluatorName)}}{{Cell("Periodo de ejecución", DateRange(data))}}{{Cell("Estado", data.Status)}}</div>
             <div class="section">{{Title("2", "Indicadores de cumplimiento y riesgo")}}<div class="kpis">{{Kpi("Cumplimiento", Number(data.CompliancePercentage, "%"))}}{{Kpi("Riesgo producto", Number(data.ProductRisk))}}{{Kpi("Riesgo total", Number(data.TotalRisk))}}{{Kpi("Frecuencia", data.Frequency ?? "No aplica")}}</div><div class="visual-grid"><div class="visual-card"><div class="compliance-visual"><div class="ring" style="--pct:{{Percent(data.CompliancePercentage)}}"><b>{{CompactNumber(data.CompliancePercentage, "%")}}</b></div><div><h3>Cumplimiento BPM</h3><p>Porcentaje alcanzado sobre los criterios aplicables.</p><div class="mini-bar"><i style="width:{{Percent(data.CompliancePercentage)}}%"></i></div></div></div></div><div class="visual-card"><h3>Escala de clasificación de riesgo total</h3><div class="risk-scale"><span class="risk-value" style="left:{{RiskPercent(data.TotalRisk)}}%">{{Number(data.TotalRisk)}}</span><i class="risk-marker" style="left:{{RiskPercent(data.TotalRisk)}}%"></i><div class="risk-track"><span class="risk-low"></span><span class="risk-mid"></span><span class="risk-high"></span></div><div class="risk-labels"><span>Bajo (1.0-3.6)</span><span>Medio (&gt;3.6-6.3)</span><span>Alto (&gt;6.3-9.0)</span></div><p>El marcador ubica el resultado calculado dentro de la escala sanitaria.</p></div></div></div><h3 style="margin:14px 0 0;font-size:10px">Flujo de decisión sanitaria</h3><div class="decision-flow">{{FlowNode("Riesgo del producto", Number(data.ProductRisk))}}<span class="flow-arrow">×</span>{{FlowNode("Riesgo del establecimiento", Number(data.EstablishmentRisk))}}<span class="flow-arrow">→</span>{{FlowNode("Riesgo total", Number(data.TotalRisk))}}<span class="flow-arrow">→</span>{{FlowNode(data.RiskLevel ?? "Clasificación", data.Frequency ?? "No aplica")}}</div></div>{{Footer(data, 2)}}</section>
             {{findingsPages}}
+            {{followUpPages}}
             {{evidencePages}}
             {{PageStart(assets, data, "Validación y trazabilidad", "Control institucional del documento")}}<div class="signatures">{{Signature(data.EvaluatorName, "Técnico evaluador · SIGERSA")}}{{Signature(official ? "Supervisión técnica" : "Pendiente de validación", "DIGEMAPS · Validación de caso")}}</div><div class="process-flow">{{ProcessStep("01", "Generación", "Informe consolidado")}}<span class="flow-arrow">→</span>{{ProcessStep("02", "Revisión", "Control técnico")}}<span class="flow-arrow">→</span>{{ProcessStep("03", official ? "Emisión" : "Pendiente", official ? "Documento oficial" : "Borrador")}}</div><div class="section"><div class="grid">{{Cell("Evaluación", data.EvaluationNumber)}}{{Cell("Caso", data.CaseNumber)}}{{Cell("Estado", data.Status)}}{{Cell("Tipo de documento", official ? "Informe oficial" : "Borrador para revisión")}}</div></div><div class="section"><b>Aviso de confidencialidad y control documental</b><p style="font-size:9px;line-height:1.7;color:#5c6b66">Generado automáticamente por SIGERSA el {{DateTimeOffset.UtcNow:dd/MM/yyyy 'a las' HH:mm}} UTC. Se conserva como documento institucional trazable.</p></div>{{Footer(data, validationPage)}}</section>
             </body></html>
@@ -131,6 +139,10 @@ public static class InstitutionalReportHtmlBuilder
     }
 
     private static string Logos(InstitutionalReportAssets a) => $"<img class=\"sigersa\" src=\"{a.SigersaLogoDataUri}\" alt=\"SIGERSA\">";
+    private static string RejectedStamp(ReportGenerationData data) =>
+        data.Status.Equals("NO_APROBADA", StringComparison.OrdinalIgnoreCase)
+            ? "<div class=\"rejected-stamp\">EVALUACIÓN NO APROVADA</div>"
+            : string.Empty;
     private static string PageStart(InstitutionalReportAssets a, ReportGenerationData d, string title, string kicker) => $"<section class=\"page\"><header><div class=\"brand\">{Logos(a)}</div><span>{E(d.EvaluationNumber)}<br>{E(d.CaseNumber)}</span></header><h2>{E(title)}</h2><div class=\"kicker\">{E(kicker)}</div>";
     private static string Footer(ReportGenerationData d, int page) => $"<footer><span>Documento institucional · SIGERSA / DIGEMAPS</span><span>{E(d.EvaluationNumber)} · Página {page}</span></footer>";
     private static string Title(string n, string t) => $"<div class=\"section-title\"><i>{E(n)}</i>{E(t)}</div>";
@@ -143,7 +155,7 @@ public static class InstitutionalReportHtmlBuilder
     private static string FindingRow(ReportFinding f) => $"<tr><td>{E(f.Code)}</td><td><span class=\"severity\">{E(f.Criticality)}</span></td><td>{E(f.Description)}</td><td>{E(f.Status)}</td></tr>";
     private static string EvidenceRow(ReportEvidence e, int i) => $"<li><b>{i + 1:00}</b><span><strong>{E(e.Name)}</strong><small>{E(e.Type)} · {E(e.MimeType)}</small></span></li>";
     private static string FindingsPages(ReportGenerationData data, InstitutionalReportAssets assets,
-        string[] recommendations, int openFindings, int priorityFindings, int startPage)
+        int openFindings, int priorityFindings, int startPage)
     {
         var chunks = data.Findings.Chunk(8).ToArray();
         if (chunks.Length == 0) chunks = [[]];
@@ -155,13 +167,31 @@ public static class InstitutionalReportHtmlBuilder
             var summary = index == 0
                 ? $"<div class=\"summary-strip\">{SummaryPill(data.Findings.Count, "Hallazgos totales")}{SummaryPill(openFindings, "Pendientes de cierre")}{SummaryPill(priorityFindings, "Prioridad alta")}</div>"
                 : string.Empty;
-            var recs = index == chunks.Length - 1
-                ? $"<div class=\"section\">{Title("4", "Recomendaciones")}<ol class=\"recs\">{string.Join(string.Empty, recommendations.Select(item => $"<li>{E(item)}</li>"))}</ol></div>"
-                : string.Empty;
-            var heading = index == 0 ? "Hallazgos y recomendaciones" : "Hallazgos y recomendaciones (continuación)";
-            return $"{PageStart(assets, data, heading, "Detalle técnico de la inspección")}{Title("3", "Hallazgos y no conformidades")}{summary}{rows}{recs}{Footer(data, startPage + index)}</section>";
+            var heading = index == 0 ? "Hallazgos y no conformidades" : "Hallazgos y no conformidades (continuación)";
+            return $"{PageStart(assets, data, heading, "Detalle técnico de la inspección")}{Title("3", "Hallazgos y no conformidades")}{summary}{rows}{Footer(data, startPage + index)}</section>";
         }));
     }
+
+    private static string FollowUpPages(ReportGenerationData data, InstitutionalReportAssets assets, int startPage)
+    {
+        var items = data.CorrectiveMeasures.Select(item => (Kind: "Medida correctiva", Item: item))
+            .Concat(data.Recommendations.Select(item => (Kind: "Recomendación", Item: item))).ToArray();
+        var chunks = items.Chunk(8).ToArray();
+        if (chunks.Length == 0) chunks = [[]];
+        var offset = 0;
+        return string.Concat(chunks.Select((chunk, index) =>
+        {
+            var body = chunk.Length == 0
+                ? "<div class=\"empty\"><strong>No se registraron medidas correctivas ni recomendaciones.</strong></div>"
+                : $"<ul class=\"followups\">{string.Join(string.Empty, chunk.Select((entry, itemIndex) => FollowUpRow(entry.Kind, entry.Item, offset + itemIndex)))}</ul>";
+            offset += chunk.Length;
+            var heading = index == 0 ? "Medidas correctivas y recomendaciones" : "Medidas correctivas y recomendaciones (continuación)";
+            return $"{PageStart(assets, data, heading, "Acciones consignadas durante la evaluación")}{Title("4", heading)}{body}{Footer(data, startPage + index)}</section>";
+        }));
+    }
+
+    private static string FollowUpRow(string kind, EvaluationFollowUpItem item, int index) =>
+        $"<li><b>{index + 1:00}</b><span><strong>{E(kind)}</strong><br>{E(item.Detail)}</span><time>{E(item.DueDate?.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) ?? "Sin fecha")}</time></li>";
 
     private static List<ReportEvidence[]> SplitEvidence(IReadOnlyList<ReportEvidence> evidences)
     {
@@ -189,9 +219,6 @@ public static class InstitutionalReportHtmlBuilder
             return $"{PageStart(assets, data, heading, "Índice documental asociado")}{identity}<p style=\"font-size:9px;color:#5c6b66\">Los archivos originales se incorporan a continuación y conservan su formato.</p>{items}{Footer(data, startPage + index)}</section>";
         }));
     }
-    private static string[] Recommendations(ReportGenerationData d) => d.Findings.Count == 0
-        ? [$"Mantener los controles BPM y el cumplimiento alcanzado ({Number(d.CompliancePercentage, "%")}).", $"Conservar la frecuencia recomendada ({d.Frequency ?? "no determinada"}).", "Continuar documentando los controles internos para futuras auditorías."]
-        : ["Corregir las no conformidades dentro de los plazos asignados.", "Priorizar los hallazgos de mayor criticidad y documentar cada acción.", $"Revisar la frecuencia ({d.Frequency ?? "no determinada"}) después del cierre."];
     private static string E(string? value) => WebUtility.HtmlEncode(value ?? string.Empty);
     private static string Number(decimal? value, string suffix = "") => value.HasValue ? value.Value.ToString("0.00", CultureInfo.InvariantCulture) + suffix : "No calculable";
     private static string CompactNumber(decimal? value, string suffix = "") => value.HasValue ? value.Value.ToString("0.#", CultureInfo.InvariantCulture) + suffix : "N/D";

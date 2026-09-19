@@ -34,6 +34,7 @@ internal static class InstitutionalPdfReportBuilder
         DrawCover(document.AddPage(), data, official);
         DrawOverview(document, data);
         DrawFindings(document, data);
+        DrawFollowUps(document, data);
         DrawEvidenceIndex(document, data);
         DrawValidation(document, data, official);
         using var output = new MemoryStream();
@@ -52,6 +53,12 @@ internal static class InstitutionalPdfReportBuilder
         gfx.DrawString("SIGERSA", Font(30, true), XBrushes.White, Left, 70);
         gfx.DrawString(official ? "INFORME OFICIAL DE AUDITORÍA SANITARIA" : "BORRADOR PARA REVISIÓN",
             Font(8.5, true), new XSolidBrush(Leaf), Left, 170);
+        if (data.Status.Equals("NO_APROBADA", StringComparison.OrdinalIgnoreCase))
+        {
+            gfx.DrawRoundedRectangle(new XPen(Red, 4), XBrushes.White, 313, 85, 257, 55, 7, 7);
+            gfx.DrawString("EVALUACIÓN NO APROVADA", Font(15, true), new XSolidBrush(Red),
+                new XRect(318, 101, 247, 27), XStringFormats.Center);
+        }
         var formatter = new XTextFormatter(gfx);
         formatter.DrawString("Evaluación de Buenas\nPrácticas de Manufactura (BPM)", Font(34, true),
             XBrushes.White, new XRect(Left, 200, 520, 120));
@@ -138,35 +145,47 @@ internal static class InstitutionalPdfReportBuilder
                 y += rowHeight + 2;
             }
         }
-        if (y > 555)
+        gfx.Dispose();
+    }
+
+    private static void DrawFollowUps(PdfDocument document, ReportGenerationData data)
+    {
+        var entries = data.CorrectiveMeasures.Select(item => (Kind: "MEDIDA CORRECTIVA", Item: item))
+            .Concat(data.Recommendations.Select(item => (Kind: "RECOMENDACIÓN", Item: item))).ToArray();
+        var page = AddContentPage(document, data);
+        var gfx = XGraphics.FromPdfPage(page);
+        var y = SectionTitle(gfx, 96, "4", "Medidas Correctivas y Recomendaciones");
+        if (entries.Length == 0)
         {
+            gfx.DrawRoundedRectangle(new XSolidBrush(LeafLight), Left, y, 528, 58, 8, 8);
+            gfx.DrawString("No se registraron medidas correctivas ni recomendaciones.", Font(9),
+                new XSolidBrush(Green800), 60, y + 33);
             gfx.Dispose();
-            page = AddContentPage(document, data);
-            gfx = XGraphics.FromPdfPage(page);
-            y = 96;
+            return;
         }
-        y = SectionTitle(gfx, y + 12, "4", "Recomendaciones");
-        var recommendations = data.Findings.Count == 0
-            ? new[] {
-                $"Mantener los controles BPM implementados y el nivel de cumplimiento alcanzado ({Number(data.CompliancePercentage, "%")}).",
-                $"Conservar la frecuencia de inspección recomendada ({data.Frequency ?? "no determinada"}), sujeta a cambios en el perfil de riesgo.",
-                "Continuar documentando los controles internos como respaldo de trazabilidad para futuras auditorías." }
-            : new[] {
-                "Corregir las no conformidades dentro de los plazos asignados y conservar evidencia verificable.",
-                "Priorizar los hallazgos de mayor criticidad y documentar la validación de cada acción correctiva.",
-                $"Revisar la frecuencia recomendada ({data.Frequency ?? "no determinada"}) después del cierre de los hallazgos." };
-        for (var index = 0; index < recommendations.Length; index++)
+
+        for (var index = 0; index < entries.Length; index++)
         {
-            gfx.DrawEllipse(new XSolidBrush(Green800), Left, y, 22, 22);
-            gfx.DrawString((index + 1).ToString(CultureInfo.InvariantCulture), Font(8, true), XBrushes.White,
-                new XRect(Left, y + 2, 22, 16), XStringFormats.Center);
-            DrawWrapped(gfx, recommendations[index], Font(8.7), new XSolidBrush(Ink), 76, y + 2, 490, 38);
-            y += 42;
+            var entry = entries[index];
+            var rowHeight = Math.Max(58, EstimateHeight(entry.Item.Detail, 390, 8.3) + 30);
+            if (y + rowHeight > 700)
+            {
+                gfx.Dispose();
+                page = AddContentPage(document, data);
+                gfx = XGraphics.FromPdfPage(page);
+                y = SectionTitle(gfx, 96, "4", "Medidas Correctivas y Recomendaciones (continuación)");
+            }
+            gfx.DrawRoundedRectangle(new XPen(Border), new XSolidBrush(Surface), Left, y, 528, rowHeight, 7, 7);
+            gfx.DrawEllipse(new XSolidBrush(Green800), 54, y + 14, 26, 26);
+            gfx.DrawString((index + 1).ToString("00", CultureInfo.InvariantCulture), Font(7.5, true), XBrushes.White,
+                new XRect(54, y + 19, 26, 15), XStringFormats.Center);
+            gfx.DrawString(entry.Kind, Font(7, true), new XSolidBrush(Green800), 94, y + 19);
+            DrawWrapped(gfx, entry.Item.Detail, Font(8.3), new XSolidBrush(Ink), 94, y + 27, 390, rowHeight - 31);
+            var dueDate = entry.Item.DueDate?.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture) ?? "Sin fecha";
+            gfx.DrawString(dueDate, Font(7.2, true), new XSolidBrush(Red),
+                new XRect(484, y + 17, 75, 18), XStringFormats.Center);
+            y += rowHeight + 8;
         }
-        gfx.DrawRoundedRectangle(new XSolidBrush(Surface), Left, y + 4, 528, 49, 6, 6);
-        gfx.DrawRectangle(new XSolidBrush(Green600), Left, y + 4, 4, 49);
-        DrawWrapped(gfx, "Nota técnica: la clasificación y la frecuencia se calculan automáticamente a partir de los índices de riesgo del producto y del establecimiento.",
-            Font(8), new XSolidBrush(Muted), 56, y + 15, 500, 28);
         gfx.Dispose();
     }
 

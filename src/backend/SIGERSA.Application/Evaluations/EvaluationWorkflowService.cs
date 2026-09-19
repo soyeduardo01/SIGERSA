@@ -320,7 +320,7 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
         var action = transition.Action.Trim().ToUpperInvariant();
         var executionAction = action is "START" or "FINALIZE";
         var submitAction = action == "SUBMIT";
-        var reviewerAction = action is "REVIEW" or "APPROVE" or "REJECT" or "CLOSE";
+        var reviewerAction = action is "REVIEW" or "APPROVE" or "REJECT" or "CLOSE" or "CANCEL";
         if (!executionAction && !submitAction && !reviewerAction) throw new ArgumentException("La transición solicitada no es válida.");
         if (executionAction && !HasRole(actor, "TECNICO_EVALUADOR"))
             throw new ForbiddenException("La transición corresponde al técnico evaluador asignado.");
@@ -328,6 +328,12 @@ public sealed class EvaluationWorkflowService(IEvaluationWorkflowRepository repo
             throw new ForbiddenException("Solo el técnico evaluador puede enviar la evaluación a revisión.");
         if (reviewerAction && !HasRole(actor, "COORDINADOR"))
             throw new ForbiddenException("La transición corresponde al coordinador revisor.");
+        if (action == "CANCEL")
+        {
+            var reason = NormalizeLimited(transition.Reason, 2000, "El motivo de cancelación")
+                ?? throw new ArgumentException("El motivo de cancelación es obligatorio.");
+            transition = transition with { Reason = reason };
+        }
         if (action == "APPROVE")
             await EnsureApprovalCriteriaAsync(evaluationId, actor.UserId, cancellationToken);
         if (action == "REJECT")

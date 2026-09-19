@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canEditInspection,
+  canCancelInspection,
   canCloseEvaluation,
   canExecuteInspection,
   canFinalizeReview,
@@ -57,9 +58,19 @@ describe('flujo unificado de evaluaciones e inspecciones', () => {
     expect(canFinalizeReview('ENVIADA', ['TECNICO_EVALUADOR'])).toBe(false)
   })
 
-  it('permite cerrar expedientes aprobados o no aprobados', () => {
-    expect(canCloseEvaluation('APROBADA', ['COORDINADOR'])).toBe(true)
-    expect(canCloseEvaluation('NO_APROBADA', ['COORDINADOR'])).toBe(true)
-    expect(canCloseEvaluation('EN_REVISION', ['COORDINADOR'])).toBe(false)
+  it('permite cerrar expedientes aprobados o no aprobados solo después del informe oficial', () => {
+    expect(canCloseEvaluation('APROBADA', ['COORDINADOR'], true)).toBe(true)
+    expect(canCloseEvaluation('NO_APROBADA', ['COORDINADOR'], true)).toBe(true)
+    expect(canCloseEvaluation('NO_APROBADA', ['COORDINADOR'], false)).toBe(false)
+    expect(canCloseEvaluation('EN_REVISION', ['COORDINADOR'], true)).toBe(false)
+  })
+
+  it('permite al coordinador cancelar únicamente inspecciones activas', () => {
+    expect(canCancelInspection('ASIGNADA', ['COORDINADOR'])).toBe(true)
+    expect(canCancelInspection('EN_EJECUCION', ['COORDINADOR'])).toBe(true)
+    expect(canCancelInspection('EN_REVISION', ['COORDINADOR'])).toBe(true)
+    expect(canCancelInspection('CERRADA', ['COORDINADOR'])).toBe(false)
+    expect(canCancelInspection('CANCELADA', ['COORDINADOR'])).toBe(false)
+    expect(canCancelInspection('EN_EJECUCION', ['TECNICO_EVALUADOR'])).toBe(false)
   })
 })

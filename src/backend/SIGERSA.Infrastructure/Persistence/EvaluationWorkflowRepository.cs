@@ -51,6 +51,12 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                    inspection_case.proxima_inspeccion_en AS NextInspectionAt,
                    (SELECT COUNT(*) FROM "SIGERSA"."RESPUESTA_USUARIO" response
                      WHERE response.evaluacion_id = evaluation.id)::integer AS AnsweredItems,
+                   EXISTS (
+                       SELECT 1
+                         FROM "SIGERSA"."INFORME" report
+                         JOIN "SIGERSA"."INFORME_VERSION" version ON version.informe_id = report.id
+                        WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true
+                   ) AS HasOfficialReport,
                    (@CanExecute = true AND evaluation.estado = 'EN_EJECUCION' AND (
                        evaluation.evaluador_principal_id = @ActorId
                        OR EXISTS (
@@ -1021,11 +1027,13 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
         public string? Frequency { get; init; }
         public DateTime? NextInspectionAt { get; init; }
         public int AnsweredItems { get; init; }
+        public bool HasOfficialReport { get; init; }
         public bool CanEdit { get; init; }
         public long RowVersion { get; init; }
         public EvaluationSummary ToDomain() => new(Id, Number, CaseId, CaseNumber, EstablishmentId,
             EstablishmentName, EvaluatorId, EvaluatorName, Status, Utc(ScheduledStart), Utc(ScheduledEnd),
-            CompliancePercentage, TotalRisk, RiskLevel, Frequency, Utc(NextInspectionAt), AnsweredItems, CanEdit, RowVersion);
+            CompliancePercentage, TotalRisk, RiskLevel, Frequency, Utc(NextInspectionAt), AnsweredItems,
+            HasOfficialReport, CanEdit, RowVersion);
         private static DateTimeOffset? Utc(DateTime? value) => value.HasValue
             ? new DateTimeOffset(DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)) : null;
     }
@@ -1047,12 +1055,15 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                            WHEN 'APPROVE' THEN 'APROBADA'
                            WHEN 'REJECT' THEN 'NO_APROBADA'
                            WHEN 'CLOSE' THEN 'CERRADA'
+                           WHEN 'CANCEL' THEN 'CANCELADA'
                        END,
                        iniciada_en = CASE WHEN @Action = 'START' THEN CURRENT_TIMESTAMP ELSE iniciada_en END,
                        finalizada_en = CASE WHEN @Action = 'FINALIZE' THEN CURRENT_TIMESTAMP ELSE finalizada_en END,
                        enviada_en = CASE WHEN @Action = 'SUBMIT' THEN CURRENT_TIMESTAMP ELSE enviada_en END,
                        aprobada_en = CASE WHEN @Action = 'APPROVE' THEN CURRENT_TIMESTAMP ELSE aprobada_en END,
                        cerrada_en = CASE WHEN @Action = 'CLOSE' THEN CURRENT_TIMESTAMP ELSE cerrada_en END,
+                       cancelada_en = CASE WHEN @Action = 'CANCEL' THEN CURRENT_TIMESTAMP ELSE cancelada_en END,
+                       motivo_cancelacion = CASE WHEN @Action = 'CANCEL' THEN @Reason ELSE motivo_cancelacion END,
                        latitud_inicio = CASE WHEN @Action = 'START' THEN @Latitude ELSE latitud_inicio END,
                        longitud_inicio = CASE WHEN @Action = 'START' THEN @Longitude ELSE longitud_inicio END,
                        precision_m = CASE WHEN @Action = 'START' THEN @AccuracyMeters ELSE precision_m END,
@@ -1069,17 +1080,20 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                            AND evaluation.evaluador_principal_id <> @ActorId)
                        OR (@Action = 'REJECT' AND evaluation.estado IN ('ENVIADA', 'EN_REVISION')
                            AND evaluation.evaluador_principal_id <> @ActorId)
-                       OR (@Action = 'CLOSE' AND (
-                           evaluation.estado = 'NO_APROBADA'
-                           OR (evaluation.estado = 'APROBADA' AND EXISTS (
+                       OR (@Action = 'CLOSE'
+                           AND evaluation.estado IN ('APROBADA', 'NO_APROBADA')
+                           AND EXISTS (
                                SELECT 1 FROM "SIGERSA"."INFORME" report
                                JOIN "SIGERSA"."INFORME_VERSION" version ON version.informe_id = report.id
-                               WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true))))
+                               WHERE report.evaluacion_id = evaluation.id AND version.es_oficial = true))
+                       OR (@Action = 'CANCEL'
+                           AND evaluation.estado IN ('ASIGNADA', 'EN_EJECUCION', 'EN_CORRECCION',
+                                                     'FINALIZADA', 'ENVIADA', 'EN_REVISION'))
                    )
                    AND (
                        (@Action IN ('START', 'FINALIZE', 'SUBMIT')
                         AND evaluation.evaluador_principal_id = @ActorId)
-                       OR (@Action IN ('REVIEW', 'APPROVE', 'REJECT', 'CLOSE') AND EXISTS (
+                       OR (@Action IN ('REVIEW', 'APPROVE', 'REJECT', 'CLOSE', 'CANCEL') AND EXISTS (
                             SELECT 1 FROM "SIGERSA"."USUARIO_ROL" user_role
                             JOIN "SIGERSA"."ROL" role ON role.id = user_role.rol_id
                             WHERE user_role.usuario_id = @ActorId AND user_role.activo = true
@@ -1195,6 +1209,40 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                    AND request.id = inspection_case.solicitud_id
                    AND request.estado IN ('PENDIENTE_ASIGNACION', 'ASIGNADA')
                 RETURNING request.id
+            ), previous_schedule AS MATERIALIZED (
+                SELECT schedule.id, schedule.inicio_programado AS StartsAt,
+                       schedule.fin_programado AS EndsAt, schedule.prioridad AS Priority,
+                       schedule.estado AS PreviousStatus
+                  FROM "SIGERSA"."PROGRAMACION" schedule
+                 WHERE @Action = 'CANCEL' AND schedule.id IN (SELECT ScheduleId FROM updated)
+                   AND schedule.estado IN ('PROGRAMADA', 'REPROGRAMADA')
+            ), cancelled_schedule AS (
+                UPDATE "SIGERSA"."PROGRAMACION" schedule
+                   SET estado = 'CANCELADA', motivo_cambio = @Reason,
+                       modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
+                       version_fila = version_fila + 1
+                 WHERE schedule.id IN (SELECT id FROM previous_schedule)
+                RETURNING schedule.id
+            ), cancelled_assignments AS (
+                UPDATE "SIGERSA"."ASIGNACION" assignment
+                   SET estado = 'REVOCADA', revocado_en = CURRENT_TIMESTAMP,
+                       modificado_en = CURRENT_TIMESTAMP, modificado_por = @ActorId,
+                       version_fila = version_fila + 1
+                 WHERE @Action = 'CANCEL'
+                   AND assignment.programacion_id IN (SELECT id FROM cancelled_schedule)
+                   AND assignment.estado = 'ACTIVA'
+                RETURNING assignment.id
+            ), cancellation_history AS (
+                INSERT INTO "SIGERSA"."PROGRAMACION_HISTORIAL"
+                    (id, programacion_id, accion, inicio_anterior, fin_anterior,
+                     prioridad_anterior, estado_anterior, estado_nuevo, motivo,
+                     realizado_por, creado_por)
+                SELECT gen_random_uuid(), schedule.id, 'CANCELADA', schedule.StartsAt,
+                       schedule.EndsAt, schedule.Priority, schedule.PreviousStatus, 'CANCELADA',
+                       @Reason, @ActorId, @ActorId
+                  FROM previous_schedule schedule
+                  JOIN cancelled_schedule cancelled ON cancelled.id = schedule.id
+                RETURNING id
             ), closed_case AS (
                 UPDATE "SIGERSA"."CASO" inspection_case
                    SET estado = 'CERRADO', cerrado_en = CURRENT_TIMESTAMP,
@@ -1232,6 +1280,7 @@ public sealed class EvaluationWorkflowRepository(IDbConnectionFactory connection
                 transition.Latitude,
                 transition.Longitude,
                 transition.AccuracyMeters,
+                transition.Reason,
                 ActorId = actorId
             }, cancellationToken: cancellationToken));
         }

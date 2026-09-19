@@ -32,6 +32,19 @@ public sealed class PdfReportBuilderTests
     }
 
     [Fact]
+    public void RejectedReportShowsStampAndSavedFollowUps()
+    {
+        var data = SampleData() with { Status = "NO_APROBADA" };
+        var html = InstitutionalReportHtmlBuilder.Build(data, true,
+            new InstitutionalReportAssets("logo", "regular", "semibold"));
+
+        Assert.Contains("EVALUACIÓN NO APROVADA", html, StringComparison.Ordinal);
+        Assert.Contains("Completar y firmar el registro de control.", html, StringComparison.Ordinal);
+        Assert.Contains("30/09/2026", html, StringComparison.Ordinal);
+        Assert.Contains("Verificar el registro en la pr&#243;xima inspecci&#243;n.", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ChromiumRendererCanProduceQaPdfWhenRequested()
     {
         var output = Environment.GetEnvironmentVariable("SIGERSA_CHROMIUM_PDF_QA_OUTPUT");
@@ -58,7 +71,9 @@ public sealed class PdfReportBuilderTests
             DateTimeOffset.Parse("2026-09-14T13:00:00Z", CultureInfo.InvariantCulture),
             DateTimeOffset.Parse("2026-09-14T16:00:00Z", CultureInfo.InvariantCulture),
             [new ReportFinding("NC-001", "MENOR", "Registro de control pendiente de firma.", "ABIERTA")],
-            [new ReportEvidence("evidencia-planta.jpg", "FOTOGRAFIA", "image/jpeg")]);
+            [new ReportEvidence("evidencia-planta.jpg", "FOTOGRAFIA", "image/jpeg")],
+            [new EvaluationFollowUpItem("Completar y firmar el registro de control.", new DateOnly(2026, 9, 30))],
+            [new EvaluationFollowUpItem("Verificar el registro en la próxima inspección.", null)]);
 
         var pdf = InstitutionalPdfReportBuilder.Build(data, true);
         using var document = PdfReader.Open(new MemoryStream(pdf), PdfDocumentOpenMode.Import);
@@ -82,7 +97,7 @@ public sealed class PdfReportBuilderTests
             Guid.NewGuid(), "EVA-2026-001", "CAS-2026-001", "Empresa", "Planta",
             "Dirección", "Técnico", "APROBADA", 95m, 1m, 2m, 3m,
             "BAJO", "ANUAL", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
-            findings, evidences);
+            findings, evidences, [], []);
 
         var pdf = PdfReportBuilder.Build(data, true);
         var text = Encoding.Latin1.GetString(pdf);
@@ -108,5 +123,7 @@ public sealed class PdfReportBuilderTests
         DateTimeOffset.Parse("2026-09-14T13:00:00Z", CultureInfo.InvariantCulture),
         DateTimeOffset.Parse("2026-09-14T16:00:00Z", CultureInfo.InvariantCulture),
         [new ReportFinding("NC-001", "MENOR", "Registro de control pendiente de firma.", "ABIERTA")],
-        [new ReportEvidence("evidencia-planta.jpg", "FOTOGRAFIA", "image/jpeg")]);
+        [new ReportEvidence("evidencia-planta.jpg", "FOTOGRAFIA", "image/jpeg")],
+        [new EvaluationFollowUpItem("Completar y firmar el registro de control.", new DateOnly(2026, 9, 30))],
+        [new EvaluationFollowUpItem("Verificar el registro en la próxima inspección.", null)]);
 }

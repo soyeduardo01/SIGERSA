@@ -623,6 +623,7 @@ export interface EvaluationSummary {
   frequency: string | null
   nextInspectionAt: string | null
   answeredItems: number
+  hasOfficialReport: boolean
   canEdit: boolean
   rowVersion: number
 }
@@ -1368,10 +1369,14 @@ export async function finalizeEvaluation(evaluationId: string) {
 
 export async function transitionEvaluation(
   evaluationId: string,
-  action: 'submit' | 'review' | 'approve' | 'reject' | 'close',
+  action: 'submit' | 'review' | 'approve' | 'reject' | 'close' | 'cancel',
   rowVersion: number,
+  reason?: string,
 ) {
-  return sendJson<number>(`/api/v1/evaluations/${evaluationId}/${action}`, 'POST', { rowVersion })
+  return sendJson<number>(`/api/v1/evaluations/${evaluationId}/${action}`, 'POST', {
+    rowVersion,
+    ...(reason ? { reason } : {}),
+  })
 }
 
 export async function requestEvidenceUploadAuthorization(input: {

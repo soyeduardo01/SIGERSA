@@ -9,12 +9,39 @@ Esta guía permite verificar que SIGERSA crea una reinspección para corregir y 
 - Debe existir una evaluación en estado **En ejecución**.
 - La evaluación debe contener al menos una respuesta **IT · Incumplimiento total**, con criticidad C, M o Me.
 
+## Validación obligatoria de la evaluación base
+
+> **No todas las evaluaciones pueden marcarse como “No aprobada”.** Antes de iniciar la prueba, valide la evaluación original y toda su cadena de origen: **evaluación → caso → solicitud**, cuando corresponda. El botón puede mostrarse durante la revisión, pero el sistema rechazará la operación si el motivo del caso no admite una decisión de aprobación.
+
+La acción **No aprobar** solo aplica cuando el motivo de inspección asociado al caso es uno de los siguientes:
+
+- **Solicitud de Permiso Sanitario** (`SOLICITUD_PERMISO_SANITARIO`).
+- **Renovación de Permiso Sanitario** (`RENOVACION_PERMISO_SANITARIO`).
+- **Certificación BPM** (`CERTIFICACION_BPM` o `SOLICITUD_CERTIFICACION_BPM`).
+
+Compruebe lo siguiente antes de usar la evaluación como base:
+
+1. Abra la evaluación y confirme el número de caso al que pertenece.
+2. Abra el caso y verifique su origen y su motivo de inspección. Si el caso nació de una solicitud, confirme también que la solicitud vinculada corresponde al trámite que se desea aprobar o certificar.
+3. Confirme que la evaluación pertenece al mismo establecimiento, caso y solicitud; no use una evaluación programada, de denuncia, seguimiento, control o vigilancia como sustituta de la evaluación original del trámite.
+4. Verifique que la ficha completa esté respondida y calculada.
+5. Confirme que realmente incumple al menos una condición de aprobación: obtuvo menos de 81 %, tiene una o más no conformidades críticas, o tiene tres o más no conformidades mayores.
+
+| Evaluación base | ¿Admite “No aprobar”? | Resultado esperado |
+| --- | --- | --- |
+| Solicitud o renovación de Permiso Sanitario | Sí, si incumple los criterios de aprobación | Pasa a **No aprobada** y luego puede cerrarse para programar la reinspección. |
+| Solicitud de certificación BPM | Sí, si incumple los criterios de aprobación | Pasa a **No aprobada** y luego puede cerrarse para programar la reinspección. |
+| Programación ordinaria, denuncia, seguimiento, control o vigilancia | No | El sistema indica que la evaluación no corresponde a una solicitud de aprobación o certificación. |
+| Solicitud o certificación que cumple 81 % o más, no tiene NC críticas y tiene menos de tres NC mayores | No | El sistema indica que cumple las condiciones de aprobación y no puede marcarse como no aprobada. |
+
+Si aparece alguno de esos errores, no fuerce el cambio de estado. Regrese a la evaluación original y revise el motivo del caso, el vínculo con la solicitud, el establecimiento, las respuestas, el cálculo y las criticidades. Seleccione o genere la evaluación base correcta y repita el flujo.
+
 ## Paso a paso
 
 1. Inicie sesión como **Técnico evaluador**.
 2. Abra **Evaluaciones e inspecciones**.
-3. Localice una evaluación en estado **En ejecución** y pulse **Realizar inspección**.
-4. Responda la ficha. Para provocar el flujo de reinspección, marque al menos un punto como **IT · Incumplimiento total** y seleccione su nivel de criticidad.
+3. Localice una evaluación en estado **En ejecución** que haya superado la validación de la sección anterior y pulse **Realizar inspección**.
+4. Responda la ficha. Para provocar válidamente el flujo de reinspección, registre las no conformidades necesarias para que la evaluación incumpla los criterios de aprobación: menos de 81 %, al menos una NC crítica o tres o más NC mayores.
 5. Registre una observación que permita reconocer la no conformidad y, si lo desea, adjunte evidencia.
 6. Pulse **Calcular evaluación**. Confirme que se muestra el porcentaje, el riesgo y la frecuencia.
 7. Si el porcentaje es menor de 81 %, registre las medidas correctivas y sus fechas de cumplimiento.
@@ -22,7 +49,7 @@ Esta guía permite verificar que SIGERSA crea una reinspección para corregir y 
 9. Desde la lista de evaluaciones, pulse **Enviar a revisión**.
 10. Cierre sesión e ingrese como **Coordinador**.
 11. Abra **Evaluaciones e inspecciones**, localice la evaluación enviada y pulse **Comenzar revisión** si aparece esa acción.
-12. Pulse **No aprobar**.
+12. Revise nuevamente el motivo y el resultado calculado. Pulse **No aprobar** solo si la evaluación corresponde a una solicitud/renovación de Permiso Sanitario o certificación BPM y no cumple los criterios de aprobación.
 13. En la evaluación con estado **No aprobada**, pulse **Cerrar y programar reinspección**.
 14. Confirme la acción. SIGERSA debe cerrar el expediente anterior y crear automáticamente:
     - un caso de seguimiento;

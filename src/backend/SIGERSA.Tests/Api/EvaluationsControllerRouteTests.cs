@@ -14,7 +14,8 @@ public sealed class EvaluationsControllerRouteTests
             [nameof(EvaluationsController.Submit)] = "evaluations/{evaluationId:guid}/submit",
             [nameof(EvaluationsController.Review)] = "evaluations/{evaluationId:guid}/review",
             [nameof(EvaluationsController.Approve)] = "evaluations/{evaluationId:guid}/approve",
-            [nameof(EvaluationsController.Close)] = "evaluations/{evaluationId:guid}/close"
+            [nameof(EvaluationsController.Close)] = "evaluations/{evaluationId:guid}/close",
+            [nameof(EvaluationsController.Cancel)] = "evaluations/{evaluationId:guid}/cancel"
         };
 
         foreach (var (methodName, template) in expected)
@@ -32,6 +33,7 @@ public sealed class EvaluationsControllerRouteTests
     [InlineData(nameof(EvaluationsController.Finalize), "TECNICO_EVALUADOR")]
     [InlineData(nameof(EvaluationsController.Submit), "TECNICO_EVALUADOR")]
     [InlineData(nameof(EvaluationsController.Approve), "COORDINADOR")]
+    [InlineData(nameof(EvaluationsController.Cancel), "COORDINADOR")]
     public void WorkflowTransitionsEnforceTheResponsibleRole(string methodName, string roles)
     {
         var method = typeof(EvaluationsController).GetMethod(methodName);

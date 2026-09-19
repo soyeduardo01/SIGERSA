@@ -952,6 +952,7 @@ export function HistoryManagement() {
                 'EN_REVISION',
                 'EN_CORRECCION',
                 'APROBADA',
+                'NO_APROBADA',
                 'CERRADA',
               ].map((value) => (
                 <option key={value} value={value}>
@@ -1033,6 +1034,7 @@ export function HistoryManagement() {
                           'EN_REVISION',
                           'EN_CORRECCION',
                           'APROBADA',
+                          'NO_APROBADA',
                         ].includes(item.status) && (
                           <button
                             type="button"
@@ -1043,16 +1045,18 @@ export function HistoryManagement() {
                             {generatingReport === item.id ? 'Generando…' : 'Generar borrador'}
                           </button>
                         )}
-                      {canReview && item.status === 'APROBADA' && !item.hasOfficialReport && (
-                        <button
-                          type="button"
-                          onClick={() => void generateReport(item, true)}
-                          disabled={generatingReport !== null}
-                          className="rounded bg-brand-700 px-2 py-1 text-xs font-bold text-white"
-                        >
-                          {generatingReport === item.id ? 'Generando…' : 'Emitir oficial'}
-                        </button>
-                      )}
+                      {canReview &&
+                        ['APROBADA', 'NO_APROBADA'].includes(item.status) &&
+                        !item.hasOfficialReport && (
+                          <button
+                            type="button"
+                            onClick={() => void generateReport(item, true)}
+                            disabled={generatingReport !== null}
+                            className="rounded bg-brand-700 px-2 py-1 text-xs font-bold text-white"
+                          >
+                            {generatingReport === item.id ? 'Generando…' : 'Emitir oficial'}
+                          </button>
+                        )}
                       {item.reportId && (
                         <button
                           type="button"

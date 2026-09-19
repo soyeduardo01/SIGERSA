@@ -6,6 +6,16 @@ namespace SIGERSA.Tests.Application;
 
 public sealed class ReportServiceTests
 {
+    [Theory]
+    [InlineData("APROBADA", true)]
+    [InlineData("NO_APROBADA", true)]
+    [InlineData("EN_REVISION", false)]
+    [InlineData("CERRADA", false)]
+    public void OfficialReportRequiresFinalApprovalDecision(string status, bool expected)
+    {
+        Assert.Equal(expected, ReportService.CanIssueOfficialReport(status));
+    }
+
     [Fact]
     public async Task MissingEvidenceDoesNotPreventBuildingOfficialReportAttachments()
     {

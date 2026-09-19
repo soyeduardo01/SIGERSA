@@ -418,7 +418,7 @@ if (args.Contains("--check-official-report", StringComparer.Ordinal)
 }
 
 var requestedMigration = args.FirstOrDefault(argument =>
-    argument is "--apply-migration-022" or "--apply-migration-023" or "--apply-migration-024" or "--apply-migration-025" or "--apply-migration-026");
+    argument is "--apply-migration-022" or "--apply-migration-023" or "--apply-migration-024" or "--apply-migration-025" or "--apply-migration-026" or "--apply-migration-027");
 if (requestedMigration is not null)
 {
     var migrationNumber = requestedMigration[^3..];
@@ -428,7 +428,8 @@ if (requestedMigration is not null)
         "023" => "023_new_requirements_roles_evidence.sql",
         "024" => "024_operational_workflow_consistency.sql",
         "025" => "025_cross_module_audit.sql",
-        _ => "026_food_category_and_finding_workflow.sql"
+        "026" => "026_food_category_and_finding_workflow.sql",
+        _ => "027_evaluation_cancellation.sql"
     };
     var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations",
         migrationFile);
@@ -527,7 +528,8 @@ if (args.Contains("--migrate-latest", StringComparer.Ordinal))
         "023_new_requirements_roles_evidence.sql",
         "024_operational_workflow_consistency.sql",
         "025_cross_module_audit.sql",
-        "026_food_category_and_finding_workflow.sql"
+        "026_food_category_and_finding_workflow.sql",
+        "027_evaluation_cancellation.sql"
     })
     {
         var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations", fileName);

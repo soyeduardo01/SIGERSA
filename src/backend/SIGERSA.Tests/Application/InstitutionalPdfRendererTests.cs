@@ -43,6 +43,8 @@ public sealed class InstitutionalPdfRendererTests
         var data = Environment.GetEnvironmentVariable("SIGERSA_PDF_QA_LARGE") == "1"
             ? LargeSampleData()
             : SampleData();
+        if (Environment.GetEnvironmentVariable("SIGERSA_PDF_QA_REJECTED") == "1")
+            data = data with { Status = "NO_APROBADA" };
         var pdf = await renderer.RenderAsync(data, true);
 
         Assert.StartsWith("%PDF", Encoding.ASCII.GetString(pdf, 0, 4), StringComparison.Ordinal);
@@ -57,7 +59,9 @@ public sealed class InstitutionalPdfRendererTests
         DateTimeOffset.Parse("2026-09-14T13:00:00Z", CultureInfo.InvariantCulture),
         DateTimeOffset.Parse("2026-09-14T16:00:00Z", CultureInfo.InvariantCulture),
         [new ReportFinding("NC-001", "MENOR", "Registro de control pendiente de firma.", "ABIERTA")],
-        [new ReportEvidence("evidencia-planta.jpg", "FOTOGRAFIA", "image/jpeg")]);
+        [new ReportEvidence("evidencia-planta.jpg", "FOTOGRAFIA", "image/jpeg")],
+        [new EvaluationFollowUpItem("Completar y firmar el registro de control.", new DateOnly(2026, 9, 30))],
+        [new EvaluationFollowUpItem("Verificar el registro en la próxima inspección.", null)]);
 
     private static ReportGenerationData LargeSampleData() => SampleData() with
     {

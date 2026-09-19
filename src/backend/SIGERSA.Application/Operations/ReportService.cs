@@ -28,9 +28,9 @@ public sealed class ReportService(
                 "El informe oficial ya fue emitido y sus versiones quedaron cerradas para edición.");
         var data = await repository.GetReportDataAsync(evaluationId, actor.UserId, cancellationToken)
             ?? throw new KeyNotFoundException("La evaluación no existe o todavía no está lista para generar su informe.");
-        if (official && !string.Equals(data.Status, "APROBADA", StringComparison.Ordinal))
+        if (official && !CanIssueOfficialReport(data.Status))
             throw new InvalidOperationException(
-                "El informe solo puede emitirse como oficial después de aprobar la evaluación.");
+                "El informe oficial solo puede emitirse después de aprobar o no aprobar la evaluación.");
         // Resolve every remote attachment first. This lets Supabase finish serving
         // newly confirmed objects before the immutable PDF version is rendered.
         var attachments = await DownloadAvailableAttachmentsAsync(
@@ -94,6 +94,9 @@ public sealed class ReportService(
     private static TimeSpan RetryDelay(int attempt) =>
         TimeSpan.FromMilliseconds(500 * Math.Pow(2, attempt - 1));
 
+    internal static bool CanIssueOfficialReport(string status) =>
+        status is "APROBADA" or "NO_APROBADA";
+
     public async Task<ReportDownload> DownloadAsync(
         Guid reportId,
         OperationalActor actor,
@@ -133,6 +136,9 @@ internal static class PdfReportBuilder
         {
             "SIGERSA - INFORME DE EVALUACIÓN BPM",
             official ? "INFORME OFICIAL" : "BORRADOR PARA REVISIÓN",
+            data.Status.Equals("NO_APROBADA", StringComparison.OrdinalIgnoreCase)
+                ? "EVALUACIÓN NO APROVADA"
+                : string.Empty,
             $"Evaluación: {data.EvaluationNumber}",
             $"Caso: {data.CaseNumber}",
             $"Empresa: {data.CompanyName}",
@@ -155,10 +161,15 @@ internal static class PdfReportBuilder
         foreach (var finding in data.Findings)
             lines.Add($"{finding.Code} [{finding.Criticality}] {finding.Description} ({finding.Status})");
         lines.Add("");
+        lines.Add("MEDIDAS CORRECTIVAS");
+        if (data.CorrectiveMeasures.Count == 0) lines.Add("No se registraron medidas correctivas.");
+        foreach (var item in data.CorrectiveMeasures)
+            lines.Add($"- {item.Detail} | Fecha: {FormatDate(item.DueDate)}");
+        lines.Add("");
         lines.Add("RECOMENDACIONES");
-        lines.Add(data.Findings.Count == 0
-            ? "Mantener los controles BPM y la frecuencia de inspección determinada."
-            : "Corregir las no conformidades dentro de los plazos asignados y conservar evidencia verificable.");
+        if (data.Recommendations.Count == 0) lines.Add("No se registraron recomendaciones.");
+        foreach (var item in data.Recommendations)
+            lines.Add($"- {item.Detail} | Fecha: {FormatDate(item.DueDate)}");
         lines.Add("");
         lines.Add("ANEXO DE EVIDENCIAS");
         if (data.Evidences.Count == 0) lines.Add("No se adjuntaron evidencias.");
@@ -191,6 +202,9 @@ internal static class PdfReportBuilder
 
     private static string FormatDate(DateTimeOffset? value) =>
         value?.ToString("yyyy-MM-dd HH:mm 'UTC'", CultureInfo.InvariantCulture) ?? "No registrada";
+
+    private static string FormatDate(DateOnly? value) =>
+        value?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "Sin fecha";
 
     private static string FormatNumber(decimal? value, string suffix = "") =>
         value.HasValue ? value.Value.ToString("0.00", CultureInfo.InvariantCulture) + suffix : "No calculable";
