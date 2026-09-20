@@ -389,8 +389,9 @@ internal static class PdfAttachmentMerger
     {
         PdfSharp.Fonts.GlobalFontSettings.UseWindowsFontsUnderWindows = true;
         using var result = new PdfDocument();
-        using (var input = PdfReader.Open(new MemoryStream(mainReport), PdfDocumentOpenMode.Import))
-            for (var index = 0; index < input.PageCount; index++) result.AddPage(input.Pages[index]);
+        using var input = PdfReader.Open(new MemoryStream(mainReport), PdfDocumentOpenMode.Import);
+        for (var index = 0; index < Math.Max(0, input.PageCount - 1); index++)
+            result.AddPage(input.Pages[index]);
 
         foreach (var attachment in attachments)
         {
@@ -413,6 +414,7 @@ internal static class PdfAttachmentMerger
             gfx.DrawString(attachment.Name, new XFont("Arial", 11, XFontStyleEx.Bold), XBrushes.Black, margin, 38);
             gfx.DrawImage(image, (page.Width.Point - width) / 2, 62, width, height);
         }
+        if (input.PageCount > 0) result.AddPage(input.Pages[input.PageCount - 1]);
         using var output = new MemoryStream();
         result.Save(output, closeStream: false);
         return output.ToArray();

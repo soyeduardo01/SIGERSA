@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Options;
 using SIGERSA.Domain.Entities;
@@ -35,7 +36,9 @@ public sealed class ReportService(
         // newly confirmed objects before the immutable PDF version is rendered.
         var attachments = await DownloadAvailableAttachmentsAsync(
             data.Evidences, storage, cancellationToken);
-        var mainReport = await pdfRenderer.RenderAsync(data, official, cancellationToken);
+        var verificationToken = Convert.ToHexString(RandomNumberGenerator.GetBytes(24)).ToLowerInvariant();
+        var verificationUrl = $"{_options.VerificationBaseUrl.TrimEnd('/')}/{verificationToken}";
+        var mainReport = await pdfRenderer.RenderAsync(data, official, verificationUrl, cancellationToken);
         var content = PdfAttachmentMerger.Merge(mainReport, attachments);
         var path = $"informes/{evaluationId:N}/{Guid.NewGuid():N}.pdf";
         await using var stream = new MemoryStream(content, writable: false);
@@ -43,7 +46,7 @@ public sealed class ReportService(
             _options.BucketName, path, "application/pdf", stream), cancellationToken);
         return await repository.SaveReportVersionAsync(
             evaluationId, stored.BucketName, stored.SupabasePath, stored.FileSize,
-            stored.Sha256Hash, official, actor.UserId, cancellationToken);
+            stored.Sha256Hash, verificationToken, official, actor.UserId, cancellationToken);
     }
 
     internal static async Task<IReadOnlyList<ReportAttachment>> DownloadAvailableAttachmentsAsync(
@@ -107,6 +110,18 @@ public sealed class ReportService(
             ?? throw new KeyNotFoundException("El informe no existe o no está disponible para el usuario.");
         var content = await storage.DownloadAsync(reference.BucketName, reference.SupabasePath, cancellationToken);
         return new ReportDownload(content, reference.MimeType, reference.FileName);
+    }
+
+    public Task<ReportVerification?> VerifyAsync(
+        string verificationToken,
+        CancellationToken cancellationToken)
+    {
+        if (verificationToken.Length != 48
+            || verificationToken.Any(character => !Uri.IsHexDigit(character)))
+            return Task.FromResult<ReportVerification?>(null);
+
+        return repository.GetReportVerificationAsync(
+            verificationToken.ToLowerInvariant(), cancellationToken);
     }
 
     private static OperationalActorScope Scope(OperationalActor actor)

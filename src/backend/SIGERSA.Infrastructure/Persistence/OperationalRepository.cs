@@ -995,6 +995,7 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
         string supabasePath,
         long fileSize,
         string hash,
+        string verificationToken,
         bool isOfficial,
         Guid actorId,
         CancellationToken cancellationToken = default)
@@ -1043,9 +1044,9 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             await connection.ExecuteAsync(new CommandDefinition(Sql("""
                 INSERT INTO "SIGERSA"."INFORME_VERSION"
                     (id, informe_id, version, bucket_name, supabase_path, file_size,
-                     mime_type, hash, es_oficial, generado_por, emitido_por, emitido_en, creado_por)
+                     mime_type, hash, verification_token, es_oficial, generado_por, emitido_por, emitido_en, creado_por)
                 VALUES (@VersionId, @ReportId, @Version, @BucketName, @SupabasePath, @FileSize,
-                        'application/pdf', @Hash, @IsOfficial, @ActorId,
+                        'application/pdf', @Hash, @VerificationToken, @IsOfficial, @ActorId,
                         CASE WHEN @IsOfficial THEN @ActorId END,
                         CASE WHEN @IsOfficial THEN CURRENT_TIMESTAMP END, @ActorId);
 
@@ -1063,6 +1064,7 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
                 SupabasePath = supabasePath,
                 FileSize = fileSize,
                 Hash = hash,
+                VerificationToken = verificationToken,
                 IsOfficial = isOfficial,
                 ActorId = actorId
             }, transaction,
@@ -1103,6 +1105,35 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             return await connection.QuerySingleOrDefaultAsync<ReportFileReference>(new CommandDefinition(
                 Sql(sql), new { ReportId = reportId, scope.UserId, scope.CompanyId, scope.GlobalScope, scope.AssignedOnly, scope.OwnerOnly },
                 cancellationToken: cancellationToken));
+        }
+    }
+
+    public async Task<ReportVerification?> GetReportVerificationAsync(
+        string verificationToken,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            SELECT report.numero AS ReportNumber, version.version AS Version,
+                   evaluation.numero AS EvaluationNumber,
+                   company.razon_social AS CompanyName,
+                   establishment.nombre AS EstablishmentName,
+                   report.estado AS ReportStatus, version.es_oficial AS IsOfficial,
+                   version.hash AS Sha256Hash, version.generado_en AS GeneratedAt,
+                   version.emitido_en AS IssuedAt
+              FROM "SIGERSA"."INFORME_VERSION" version
+              JOIN "SIGERSA"."INFORME" report ON report.id = version.informe_id
+              JOIN "SIGERSA"."EVALUACION" evaluation ON evaluation.id = report.evaluacion_id
+              JOIN "SIGERSA"."CASO" inspection_case ON inspection_case.id = evaluation.caso_id
+              JOIN "SIGERSA"."EMPRESA" company ON company.id = inspection_case.empresa_id
+              JOIN "SIGERSA"."ESTABLECIMIENTO" establishment ON establishment.id = evaluation.establecimiento_id
+             WHERE version.verification_token = @VerificationToken
+             LIMIT 1;
+            """;
+        var connection = await ConnectionFactory.OpenConnectionAsync(cancellationToken);
+        await using (connection)
+        {
+            return await connection.QuerySingleOrDefaultAsync<ReportVerification>(new CommandDefinition(
+                Sql(sql), new { VerificationToken = verificationToken }, cancellationToken: cancellationToken));
         }
     }
 

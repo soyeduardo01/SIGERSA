@@ -16,7 +16,8 @@ public sealed class InstitutionalPdfRendererTests
             new InstitutionalReportAssets(
                 "data:image/png;base64,SIGERSA_LOGO",
                 "data:font/ttf;base64,POPPINS_REGULAR",
-                "data:font/ttf;base64,POPPINS_SEMIBOLD"));
+                "data:font/ttf;base64,POPPINS_SEMIBOLD"),
+            "https://sigersa.example/api/v1/reports/verify/0123456789abcdef0123456789abcdef0123456789abcdef");
 
         Assert.Contains("SIGERSA_LOGO", html, StringComparison.Ordinal);
         Assert.DoesNotContain("DIGEMAPS_LOGO", html, StringComparison.Ordinal);
@@ -28,6 +29,7 @@ public sealed class InstitutionalPdfRendererTests
         Assert.Contains("Medio (&gt;3.6-6.3)", html, StringComparison.Ordinal);
         Assert.Contains("Alto (&gt;6.3-9.0)", html, StringComparison.Ordinal);
         Assert.Contains("Flujo de decisión sanitaria", html, StringComparison.Ordinal);
+        Assert.Contains("Código QR de verificación", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -45,7 +47,8 @@ public sealed class InstitutionalPdfRendererTests
             : SampleData();
         if (Environment.GetEnvironmentVariable("SIGERSA_PDF_QA_REJECTED") == "1")
             data = data with { Status = "NO_APROBADA" };
-        var pdf = await renderer.RenderAsync(data, true);
+        var pdf = await renderer.RenderAsync(data, true,
+            "https://sigersa.example/api/v1/reports/verify/0123456789abcdef0123456789abcdef0123456789abcdef");
 
         Assert.StartsWith("%PDF", Encoding.ASCII.GetString(pdf, 0, 4), StringComparison.Ordinal);
         Assert.True(pdf.Length > 100_000);

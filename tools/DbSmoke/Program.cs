@@ -20,6 +20,34 @@ var localSettings = File.ReadLines(Path.Combine(root, ".env.local"))
 var connectionString = localSettings["Database__ConnectionString"];
 await using var dataSource = NpgsqlDataSource.Create(connectionString);
 
+if (args.Contains("--check-migration-state", StringComparer.Ordinal))
+{
+    await using var connection = await dataSource.OpenConnectionAsync();
+    var state = await connection.QuerySingleAsync<(bool Migration28, bool Migration29, bool Migration30)>("""
+        SELECT
+            to_regclass('"SIGERSA"."SUSCRIPCION_PUSH"') IS NOT NULL AS Migration28,
+            to_regclass('"SIGERSA"."DESPACHO_PUSH_RECORDATORIO"') IS NOT NULL AS Migration29,
+            EXISTS (
+                SELECT 1
+                  FROM information_schema.columns
+                 WHERE table_schema = 'SIGERSA'
+                   AND table_name = 'INFORME_VERSION'
+                   AND column_name = 'verification_token') AS Migration30;
+        """);
+    Console.WriteLine("Migration state: 028={0}, 029={1}, 030={2}",
+        state.Migration28, state.Migration29, state.Migration30);
+
+    var requestStates = await connection.QueryAsync<(string Status, int Count)>("""
+        SELECT estado AS Status, COUNT(*)::integer AS Count
+          FROM "SIGERSA"."SOLICITUD"
+         GROUP BY estado
+         ORDER BY estado;
+        """);
+    Console.WriteLine("Request states: {0}", string.Join(", ",
+        requestStates.Select(item => $"{item.Status}={item.Count}")));
+    return;
+}
+
 if (args.Contains("--check-web-push-state", StringComparer.Ordinal))
 {
     await using var connection = await dataSource.OpenConnectionAsync();
@@ -485,7 +513,7 @@ if (args.Contains("--check-official-report", StringComparer.Ordinal)
 }
 
 var requestedMigration = args.FirstOrDefault(argument =>
-    argument is "--apply-migration-022" or "--apply-migration-023" or "--apply-migration-024" or "--apply-migration-025" or "--apply-migration-026" or "--apply-migration-027" or "--apply-migration-028" or "--apply-migration-029");
+    argument is "--apply-migration-022" or "--apply-migration-023" or "--apply-migration-024" or "--apply-migration-025" or "--apply-migration-026" or "--apply-migration-027" or "--apply-migration-028" or "--apply-migration-029" or "--apply-migration-030");
 if (requestedMigration is not null)
 {
     var migrationNumber = requestedMigration[^3..];
@@ -498,7 +526,8 @@ if (requestedMigration is not null)
         "026" => "026_food_category_and_finding_workflow.sql",
         "027" => "027_evaluation_cancellation.sql",
         "028" => "028_web_push_subscriptions.sql",
-        _ => "029_inspection_reminder_push_dispatch.sql"
+        "029" => "029_inspection_reminder_push_dispatch.sql",
+        _ => "030_report_verification_tokens.sql"
     };
     var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations",
         migrationFile);
@@ -600,7 +629,8 @@ if (args.Contains("--migrate-latest", StringComparer.Ordinal))
         "026_food_category_and_finding_workflow.sql",
         "027_evaluation_cancellation.sql",
         "028_web_push_subscriptions.sql",
-        "029_inspection_reminder_push_dispatch.sql"
+        "029_inspection_reminder_push_dispatch.sql",
+        "030_report_verification_tokens.sql"
     })
     {
         var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations", fileName);

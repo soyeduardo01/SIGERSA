@@ -283,3 +283,15 @@ public sealed record ReportFileReference(
     string MimeType,
     string FileName,
     bool IsOfficial);
+
+public sealed record ReportVerification(
+    string ReportNumber,
+    int Version,
+    string EvaluationNumber,
+    string CompanyName,
+    string EstablishmentName,
+    string ReportStatus,
+    bool IsOfficial,
+    string Sha256Hash,
+    DateTimeOffset GeneratedAt,
+    DateTimeOffset? IssuedAt);

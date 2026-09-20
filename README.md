@@ -77,7 +77,7 @@ El módulo **Evaluaciones** concentra la creación, el inicio, la ejecución de 
 - **Persistencia:** PostgreSQL 15 o superior, Dapper y Npgsql.
 - **Archivos:** Supabase Storage privado; PostgreSQL conserva metadatos, hashes y referencias.
 - **Autenticación y autorización:** JWT, refresh tokens rotativos, MFA TOTP, BCrypt, RBAC y validación de ámbito.
-- **Informes:** PDFsharp y PuppeteerSharp.
+- **Informes:** PDFsharp, PuppeteerSharp y QRCoder; cada versión incluye un QR para consultar su validez.
 - **Calidad:** xUnit, Vitest, Testing Library, ESLint, Prettier y OpenAPI/Swagger.
 
 La solución backend se divide en:
@@ -154,7 +154,7 @@ Puertos predeterminados:
 CREATE DATABASE sigersa_db;
 ```
 
-Aplique en orden alfabético las migraciones de `src/backend/Database/Migrations`. Actualmente hay 29 migraciones, desde `001_initial_schema_sigersa.sql` hasta `029_inspection_reminder_push_dispatch.sql`. La API no las ejecuta automáticamente.
+Aplique en orden alfabético las migraciones de `src/backend/Database/Migrations`. Actualmente hay 30 migraciones, desde `001_initial_schema_sigersa.sql` hasta `030_report_verification_tokens.sql`. La API no las ejecuta automáticamente.
 
 ### 2. Backend
 
@@ -166,6 +166,7 @@ $env:Authentication__Jwt__SigningKey = "UNA_CLAVE_LOCAL_SEGURA_DE_AL_MENOS_32_CA
 $env:Supabase__Url = "https://SU_PROYECTO.supabase.co"
 $env:Supabase__Key = "SU_CLAVE_SECRETA_COMPLETA_DEL_SERVIDOR"
 $env:Supabase__DefaultBucketName = "SIGERSA_FILES"
+$env:Reports__VerificationBaseUrl = "https://api.su-dominio.com/api/v1/reports/verify"
 $env:Smtp__Enabled = "true"
 $env:Smtp__Host = "smtp.su-proveedor.com"
 $env:Smtp__Port = "587"
@@ -176,6 +177,8 @@ $env:Smtp__FromAddress = "no-reply@su-dominio.com"
 ```
 
 `Supabase__Key` es exclusiva del backend. Para MFA, habilite el proveedor de correo y contraseña y la verificación TOTP en **Authentication** de Supabase.
+
+`Reports__VerificationBaseUrl` debe ser la dirección pública HTTPS de la API. El QR de cada informe agrega a esa dirección un token aleatorio y abre una página pública que indica si la versión es oficial, borrador o fue anulada.
 
 ### 3. Frontend
 

@@ -7,6 +7,7 @@ public interface IInstitutionalPdfRenderer
     Task<byte[]> RenderAsync(
         ReportGenerationData data,
         bool official,
+        string verificationUrl,
         CancellationToken cancellationToken = default);
 }
 

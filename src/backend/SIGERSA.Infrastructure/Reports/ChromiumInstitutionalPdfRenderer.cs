@@ -15,6 +15,7 @@ public sealed class ChromiumInstitutionalPdfRenderer(IOptions<ReportOptions> opt
     public async Task<byte[]> RenderAsync(
         ReportGenerationData data,
         bool official,
+        string verificationUrl,
         CancellationToken cancellationToken = default)
     {
         var executablePath = ResolveBrowserExecutable();
@@ -22,7 +23,7 @@ public sealed class ChromiumInstitutionalPdfRenderer(IOptions<ReportOptions> opt
             DataUri("SIGERSA.Infrastructure.Reports.Assets.sigersa-logo.png", "image/png"),
             DataUri("SIGERSA.Infrastructure.Reports.Assets.Poppins-Regular.ttf", "font/ttf"),
             DataUri("SIGERSA.Infrastructure.Reports.Assets.Poppins-SemiBold.ttf", "font/ttf"));
-        var html = InstitutionalReportHtmlBuilder.Build(data, official, assets);
+        var html = InstitutionalReportHtmlBuilder.Build(data, official, assets, verificationUrl);
 
         await using var browser = await Puppeteer.LaunchAsync(new LaunchOptions
         {

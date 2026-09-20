@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Net;
+using System.Text;
+using QRCoder;
 using SIGERSA.Domain.Entities;
 
 namespace SIGERSA.Application.Operations;
@@ -102,10 +104,19 @@ public static class InstitutionalReportHtmlBuilder
         .signature { height:112px; border:1px solid #dce6e1; border-radius:9px; text-align:center; padding-top:62px; }
         .signature hr { width:72%; border:0; border-top:1px solid #5c6b66; }
         .signature b,.signature span { display:block; font-size:9px; } .signature span { color:#5c6b66; font-size:7px; }
+        .verification-card { display:grid; grid-template-columns:126px 1fr; gap:18px; align-items:center; margin-top:14px; padding:12px 16px; border:2px solid #238066; border-radius:11px; background:#f3f7f5; }
+        .verification-card img { width:118px; height:118px; padding:4px; background:#fff; }
+        .verification-card h3 { margin:0 0 7px; color:#0f4436; font-size:13px; }
+        .verification-card p { margin:0 0 8px; color:#5c6b66; font-size:8px; line-height:1.5; }
+        .verification-card code { display:block; color:#175a47; font-family:Arial,sans-serif; font-size:6.5px; overflow-wrap:anywhere; }
         footer { border-top:1px solid #dce6e1; padding-top:8px; color:#5c6b66; }
         """;
 
-    public static string Build(ReportGenerationData data, bool official, InstitutionalReportAssets assets)
+    public static string Build(
+        ReportGenerationData data,
+        bool official,
+        InstitutionalReportAssets assets,
+        string verificationUrl)
     {
         var openFindings = data.Findings.Count(item => !item.Status.Contains("CERR", StringComparison.OrdinalIgnoreCase));
         var priorityFindings = data.Findings.Count(item =>
@@ -120,6 +131,7 @@ public static class InstitutionalReportHtmlBuilder
         var evidenceChunks = SplitEvidence(data.Evidences);
         var evidencePages = EvidencePages(data, assets, evidenceStartPage, evidenceChunks);
         var validationPage = evidenceStartPage + evidenceChunks.Count;
+        var qrCodeDataUri = QrCodeDataUri(verificationUrl);
 
         return $$"""
             <!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe {{E(data.EvaluationNumber)}}</title><style>
@@ -133,7 +145,7 @@ public static class InstitutionalReportHtmlBuilder
             {{findingsPages}}
             {{followUpPages}}
             {{evidencePages}}
-            {{PageStart(assets, data, "Validación y trazabilidad", "Control institucional del documento")}}<div class="signatures">{{Signature(data.EvaluatorName, "Técnico evaluador · SIGERSA")}}{{Signature(official ? "Supervisión técnica" : "Pendiente de validación", "DIGEMAPS · Validación de caso")}}</div><div class="process-flow">{{ProcessStep("01", "Generación", "Informe consolidado")}}<span class="flow-arrow">→</span>{{ProcessStep("02", "Revisión", "Control técnico")}}<span class="flow-arrow">→</span>{{ProcessStep("03", official ? "Emisión" : "Pendiente", official ? "Documento oficial" : "Borrador")}}</div><div class="section"><div class="grid">{{Cell("Evaluación", data.EvaluationNumber)}}{{Cell("Caso", data.CaseNumber)}}{{Cell("Estado", data.Status)}}{{Cell("Tipo de documento", official ? "Informe oficial" : "Borrador para revisión")}}</div></div><div class="section"><b>Aviso de confidencialidad y control documental</b><p style="font-size:9px;line-height:1.7;color:#5c6b66">Generado automáticamente por SIGERSA el {{DateTimeOffset.UtcNow:dd/MM/yyyy 'a las' HH:mm}} UTC. Se conserva como documento institucional trazable.</p></div>{{Footer(data, validationPage)}}</section>
+            {{PageStart(assets, data, "Validación y trazabilidad", "Control institucional del documento")}}<div class="signatures">{{Signature(data.EvaluatorName, "Técnico evaluador · SIGERSA")}}{{Signature(official ? "Supervisión técnica" : "Pendiente de validación", "DIGEMAPS · Validación de caso")}}</div><div class="process-flow">{{ProcessStep("01", "Generación", "Informe consolidado")}}<span class="flow-arrow">→</span>{{ProcessStep("02", "Revisión", "Control técnico")}}<span class="flow-arrow">→</span>{{ProcessStep("03", official ? "Emisión" : "Pendiente", official ? "Documento oficial" : "Borrador")}}</div><div class="section"><div class="grid">{{Cell("Evaluación", data.EvaluationNumber)}}{{Cell("Caso", data.CaseNumber)}}{{Cell("Estado", data.Status)}}{{Cell("Tipo de documento", official ? "Informe oficial" : "Borrador para revisión")}}</div></div><div class="verification-card"><img src="{{qrCodeDataUri}}" alt="Código QR de verificación"><div><h3>Verifique la autenticidad de este informe</h3><p>Escanee el código QR para consultar el registro institucional, su versión y el estado de validez del documento.</p><code>{{E(verificationUrl)}}</code></div></div><div class="section" style="margin-top:12px"><b>Aviso de confidencialidad y control documental</b><p style="font-size:7.5px;line-height:1.5;color:#5c6b66">Generado automáticamente por SIGERSA el {{DateTimeOffset.UtcNow:dd/MM/yyyy 'a las' HH:mm}} UTC. Se conserva como documento institucional trazable.</p></div>{{Footer(data, validationPage)}}</section>
             </body></html>
             """;
     }
@@ -152,6 +164,13 @@ public static class InstitutionalReportHtmlBuilder
     private static string SummaryPill(int value, string label) => $"<div class=\"summary-pill\"><b>{value}</b><span>{E(label)}</span></div>";
     private static string ProcessStep(string number, string title, string note) => $"<div class=\"process-step\"><small>{E(number)} · {E(title)}</small><b>{E(note)}</b></div>";
     private static string Signature(string n, string r) => $"<div class=\"signature\"><hr><b>{E(n)}</b><span>{E(r)}</span></div>";
+    private static string QrCodeDataUri(string value)
+    {
+        using var qrData = QRCodeGenerator.GenerateQrCode(value, QRCodeGenerator.ECCLevel.Q);
+        using var qrCode = new SvgQRCode(qrData);
+        var svg = qrCode.GetGraphic(4, "#0f4436", "#ffffff", drawQuietZones: true);
+        return $"data:image/svg+xml;base64,{Convert.ToBase64String(Encoding.UTF8.GetBytes(svg))}";
+    }
     private static string FindingRow(ReportFinding f) => $"<tr><td>{E(f.Code)}</td><td><span class=\"severity\">{E(f.Criticality)}</span></td><td>{E(f.Description)}</td><td>{E(f.Status)}</td></tr>";
     private static string EvidenceRow(ReportEvidence e, int i) => $"<li><b>{i + 1:00}</b><span><strong>{E(e.Name)}</strong><small>{E(e.Type)} · {E(e.MimeType)}</small></span></li>";
     private static string FindingsPages(ReportGenerationData data, InstitutionalReportAssets assets,

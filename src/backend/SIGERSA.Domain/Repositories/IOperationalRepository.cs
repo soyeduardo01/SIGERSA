@@ -24,6 +24,7 @@ public interface IOperationalRepository
     Task<AuditEventsPage> SearchAuditAsync(AuditEventSearch search, CancellationToken cancellationToken = default);
     Task<bool> HasOfficialReportAsync(Guid evaluationId, CancellationToken cancellationToken = default);
     Task<ReportGenerationData?> GetReportDataAsync(Guid evaluationId, Guid actorId, CancellationToken cancellationToken = default);
-    Task<ReportFileReference> SaveReportVersionAsync(Guid evaluationId, string bucketName, string supabasePath, long fileSize, string hash, bool isOfficial, Guid actorId, CancellationToken cancellationToken = default);
+    Task<ReportFileReference> SaveReportVersionAsync(Guid evaluationId, string bucketName, string supabasePath, long fileSize, string hash, string verificationToken, bool isOfficial, Guid actorId, CancellationToken cancellationToken = default);
     Task<ReportFileReference?> GetReportFileAsync(Guid reportId, OperationalActorScope scope, CancellationToken cancellationToken = default);
+    Task<ReportVerification?> GetReportVerificationAsync(string verificationToken, CancellationToken cancellationToken = default);
 }

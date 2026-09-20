@@ -39,6 +39,9 @@ public static class ServiceCollectionExtensions
         services.AddOptions<ReportOptions>()
             .Bind(configuration.GetSection(ReportOptions.SectionName))
             .Validate(options => !string.IsNullOrWhiteSpace(options.BucketName), "El bucket de informes es obligatorio.")
+            .Validate(options => Uri.TryCreate(options.VerificationBaseUrl, UriKind.Absolute, out var uri)
+                                 && uri.Scheme is "http" or "https",
+                "La URL pública de verificación de informes debe ser una URL HTTP o HTTPS absoluta.")
             .ValidateOnStart();
         services.AddOptions<InspectionReminderPushOptions>()
             .Bind(configuration.GetSection(InspectionReminderPushOptions.SectionName))
