@@ -19,6 +19,11 @@ public static partial class SigersaSqlGuard
         foreach (Match match in DataObjectRegex().Matches(sql))
         {
             var prefix = sql.AsSpan(0, match.Index).TrimEnd();
+            if (match.Value.TrimStart().StartsWith("FROM", StringComparison.OrdinalIgnoreCase)
+                && IsDistinctFromOperator().IsMatch(prefix))
+            {
+                continue;
+            }
             if (match.Value.TrimStart().StartsWith("UPDATE", StringComparison.OrdinalIgnoreCase)
                 && prefix.EndsWith("DO", StringComparison.OrdinalIgnoreCase))
             {
@@ -76,4 +81,9 @@ public static partial class SigersaSqlGuard
         @"(?:\bWITH(?:\s+RECURSIVE)?|,)\s*""?([A-Za-z_][A-Za-z0-9_]*)""?\s+AS\s+(?:(?:NOT\s+)?MATERIALIZED\s+)?\(",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex CteRegex();
+
+    [GeneratedRegex(
+        @"\bIS\s+(?:NOT\s+)?DISTINCT\s*$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex IsDistinctFromOperator();
 }

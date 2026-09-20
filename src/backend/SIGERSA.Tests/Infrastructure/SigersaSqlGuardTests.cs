@@ -53,6 +53,14 @@ public sealed class SigersaSqlGuardTests
         Assert.Equal(sql, SigersaSqlGuard.EnsureQualified(sql));
     }
 
+    [Theory]
+    [InlineData("SELECT 1 WHERE estado IS DISTINCT FROM CASE WHEN true THEN 'A' ELSE 'B' END;")]
+    [InlineData("SELECT 1 WHERE estado IS NOT DISTINCT FROM CASE WHEN true THEN 'A' ELSE 'B' END;")]
+    public void EnsureQualifiedShouldNotTreatDistinctFromCaseAsATable(string sql)
+    {
+        Assert.Equal(sql, SigersaSqlGuard.EnsureQualified(sql));
+    }
+
     [Fact]
     public void EnsureQualifiedShouldAcceptLocalCommonTableExpression()
     {

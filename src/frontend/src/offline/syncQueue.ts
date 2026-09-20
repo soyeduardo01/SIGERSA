@@ -120,10 +120,14 @@ export async function getPendingEvaluationEvidences(evaluationId: string) {
     .then((items) => items.map((item) => item.payload as EvidencePayload))
 }
 
-export function flushSyncQueue() {
+export interface FlushSyncQueueOptions {
+  retryFailed?: boolean
+}
+
+export function flushSyncQueue(options: FlushSyncQueueOptions = {}) {
   if (!navigator.onLine) return Promise.resolve()
 
-  activeFlush ??= processSyncQueue().finally(() => {
+  activeFlush ??= processSyncQueue(options).finally(() => {
     activeFlush = undefined
   })
 
@@ -164,9 +168,16 @@ export async function retryEvaluationMutations(evaluationId: string) {
   notifyQueueChanged()
 }
 
-async function processSyncQueue() {
+async function processSyncQueue({ retryFailed = false }: FlushSyncQueueOptions) {
   const ownerUserId = currentUserId()
   const now = new Date().toISOString()
+  if (retryFailed) {
+    await offlineDb.syncQueue
+      .where('status')
+      .equals('failed')
+      .filter((item) => item.ownerUserId === ownerUserId)
+      .modify({ status: 'pending', attempts: 0, nextAttemptAt: now, lastError: undefined })
+  }
   await offlineDb.syncQueue
     .where('status')
     .equals('processing')

@@ -20,7 +20,7 @@ export function useSyncStatus() {
       setPendingCount(count)
       if (count > 0) {
         setIsSyncing(true)
-        await flushSyncQueue().finally(async () => {
+        await flushSyncQueue({ retryFailed: refreshEvaluations }).finally(async () => {
           setIsSyncing(false)
           remaining = await getPendingMutationCount()
           setPendingCount(remaining)

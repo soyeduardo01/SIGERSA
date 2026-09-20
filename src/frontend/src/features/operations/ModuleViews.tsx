@@ -7,6 +7,7 @@ import { offlineDb, type SyncQueueItem } from '../../offline/database'
 import {
   discardSyncMutation,
   flushSyncQueue,
+  getPendingMutationCount,
   retrySyncMutation,
   subscribeToSyncQueue,
 } from '../../offline/syncQueue'
@@ -132,10 +133,24 @@ export function NotificationsPage() {
   async function synchronize() {
     setSyncing(true)
     try {
-      await flushSyncQueue()
+      await flushSyncQueue({ retryFailed: true })
       await loadQueue()
-      if ((await offlineDb.syncQueue.count()) === 0) {
+      const remaining = await getPendingMutationCount()
+      if (remaining === 0) {
         await alerts.success('Sincronización completada', 'No quedan cambios pendientes.')
+      } else {
+        const firstFailure = await offlineDb.syncQueue
+          .where('status')
+          .equals('failed')
+          .filter((item) => item.ownerUserId === identity?.id)
+          .first()
+        await alerts.error(
+          new Error(
+            firstFailure?.lastError ??
+              `Quedan ${remaining} cambios pendientes. La aplicación volverá a intentarlo.`,
+          ),
+          'Sincronización incompleta',
+        )
       }
     } catch (error) {
       await alerts.error(error, 'No se pudo sincronizar')
