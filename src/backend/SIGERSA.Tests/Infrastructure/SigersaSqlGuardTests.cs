@@ -6,6 +6,18 @@ namespace SIGERSA.Tests.Infrastructure;
 public sealed class SigersaSqlGuardTests
 {
     [Fact]
+    public void EnsureQualifiedShouldIgnoreForUpdateLockClause()
+    {
+        const string sql = """
+            SELECT item.id
+              FROM "SIGERSA"."NOTIFICACION" item
+             FOR UPDATE OF item SKIP LOCKED;
+            """;
+
+        Assert.Equal(sql, SigersaSqlGuard.EnsureQualified(sql));
+    }
+
+    [Fact]
     public void EnsureQualifiedShouldAcceptSigersaTable()
     {
         const string sql = "SELECT usuario_id FROM \"SIGERSA\".\"USUARIO\";";

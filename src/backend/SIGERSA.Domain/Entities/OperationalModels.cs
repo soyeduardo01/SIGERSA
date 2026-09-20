@@ -111,6 +111,8 @@ public sealed record PublicComplaintDraft(
     string Description,
     bool IsConfidential);
 
+public sealed record PublicComplaintCreated(Guid Id, Guid CoordinatorId);
+
 public sealed record FindingRecord(
     Guid Id,
     Guid EvaluationId,

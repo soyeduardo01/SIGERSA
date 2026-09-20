@@ -20,7 +20,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
-      includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'push-sw.js'],
       manifest: {
         name: 'SIGERSA - Sistema Integral de Gestión de Riesgo y Seguridad Alimentaria',
         short_name: 'SIGERSA',
@@ -45,6 +45,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ['push-sw.js?v=sigersa-push-2'],
         cleanupOutdatedCaches: true,
         navigateFallback: null,
         ignoreURLParametersMatching: [/^utm_/, /^module$/],

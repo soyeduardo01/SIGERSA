@@ -13,6 +13,7 @@
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="PuppeteerSharp" Version="25.10.0" />
     <PackageReference Include="Supabase" Version="8.1.0" />
+    <PackageReference Include="WebPush" Version="1.0.13" />
   </ItemGroup>
 
   <PropertyGroup>

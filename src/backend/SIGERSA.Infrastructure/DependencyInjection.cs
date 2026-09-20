@@ -10,6 +10,8 @@ using SIGERSA.Domain.Security;
 using SIGERSA.Domain.Storage;
 using SIGERSA.Infrastructure.Configuration;
 using SIGERSA.Infrastructure.Email;
+using SIGERSA.Domain.Notifications;
+using SIGERSA.Infrastructure.Notifications;
 using SIGERSA.Infrastructure.Persistence;
 using SIGERSA.Infrastructure.Reports;
 using SIGERSA.Infrastructure.Security;
@@ -53,6 +55,21 @@ public static class DependencyInjection
             .Validate(options => Uri.TryCreate(options.ApplicationUrl, UriKind.Absolute, out _), "Smtp:ApplicationUrl debe ser una URL absoluta.")
             .Validate(options => Uri.TryCreate(options.PasswordRecoveryUrl, UriKind.Absolute, out _), "Smtp:PasswordRecoveryUrl debe ser una URL absoluta.")
             .Validate(options => !options.Enabled || string.IsNullOrWhiteSpace(options.Username) == string.IsNullOrWhiteSpace(options.Password), "Smtp:Username y Smtp:Password deben configurarse juntos.")
+            .ValidateOnStart();
+
+        services.AddOptions<WebPushOptions>()
+            .Bind(configuration.GetSection(WebPushOptions.SectionName))
+            .Validate(options => !options.Enabled || Uri.TryCreate(options.Subject, UriKind.Absolute, out _) ||
+                options.Subject.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase),
+                "WebPush:Subject debe ser una URL o dirección mailto válida.")
+            .Validate(options => !options.Enabled || !string.IsNullOrWhiteSpace(options.PublicKey),
+                "Se requiere WebPush:PublicKey cuando Web Push está habilitado.")
+            .Validate(options => !options.Enabled || !string.IsNullOrWhiteSpace(options.PrivateKey),
+                "Se requiere WebPush:PrivateKey cuando Web Push está habilitado.")
+            .Validate(options => options.TimeToLiveSeconds is > 0 and <= 2419200,
+                "WebPush:TimeToLiveSeconds debe estar entre 1 y 2419200.")
+            .Validate(options => options.AllowedEndpointHosts.Length > 0,
+                "WebPush:AllowedEndpointHosts debe incluir al menos un proveedor.")
             .ValidateOnStart();
 
         var databaseOptions = configuration
@@ -102,12 +119,16 @@ public static class DependencyInjection
         services.AddScoped<ICorrectionRepository, CorrectionRepository>();
         services.AddScoped<IOperationalRepository, OperationalRepository>();
         services.AddScoped<ISupportingDocumentRepository, SupportingDocumentRepository>();
+        services.AddScoped<IWebPushSubscriptionRepository, WebPushSubscriptionRepository>();
+        services.AddScoped<IInspectionReminderPushRepository, InspectionReminderPushRepository>();
         services.AddScoped<IFileStorage, SupabaseStorageAdapter>();
         services.AddSingleton<IInstitutionalPdfRenderer, ChromiumInstitutionalPdfRenderer>();
         services.AddSingleton<IPasswordService, BcryptPasswordService>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddHttpClient<ISupabaseMfaGateway, SupabaseMfaGateway>();
+        services.AddHttpClient<IWebPushSender, WebPushSender>(client =>
+            client.Timeout = TimeSpan.FromSeconds(15));
 
         return services;
     }

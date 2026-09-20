@@ -1,0 +1,30 @@
+BEGIN;
+
+SET LOCAL TIME ZONE 'UTC';
+SET LOCAL search_path = pg_catalog;
+
+CREATE TABLE IF NOT EXISTS "SIGERSA"."DESPACHO_PUSH_RECORDATORIO" (
+    notificacion_id uuid PRIMARY KEY,
+    estado varchar(20) NOT NULL DEFAULT 'PENDIENTE',
+    intentos integer NOT NULL DEFAULT 0,
+    proximo_intento_en timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    arrendado_hasta timestamptz,
+    enviado_en timestamptz,
+    ultimo_error varchar(1000),
+    creado_en timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modificado_en timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "FK_DESPACHO_PUSH_RECORDATORIO_NOTIFICACION"
+        FOREIGN KEY (notificacion_id)
+        REFERENCES "SIGERSA"."NOTIFICACION" (id)
+        ON DELETE CASCADE,
+    CONSTRAINT "CK_DESPACHO_PUSH_RECORDATORIO_ESTADO"
+        CHECK (estado IN ('PENDIENTE', 'EN_PROCESO', 'ENVIADA', 'AGOTADA')),
+    CONSTRAINT "CK_DESPACHO_PUSH_RECORDATORIO_INTENTOS"
+        CHECK (intentos >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS "IX_DESPACHO_PUSH_RECORDATORIO_PENDIENTE"
+    ON "SIGERSA"."DESPACHO_PUSH_RECORDATORIO" (proximo_intento_en, creado_en)
+    WHERE estado IN ('PENDIENTE', 'EN_PROCESO');
+
+COMMIT;

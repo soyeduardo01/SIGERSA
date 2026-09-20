@@ -286,6 +286,18 @@ export interface SystemNotification {
   readAt: string | null
 }
 
+export interface WebPushConfiguration {
+  enabled: boolean
+  publicKey: string | null
+}
+
+export interface WebPushSubscriptionPayload {
+  endpoint: string
+  expirationTime: string | null
+  keys: { p256dh: string; auth: string }
+  userAgent: string
+}
+
 export interface SurveillanceRecord {
   id: string
   kind: 'ALERTA_LAPCH' | 'DENUNCIA'
@@ -1700,6 +1712,18 @@ export async function getNotifications() {
 
 export async function markNotificationRead(id: string) {
   return sendJson<void>(`/api/v1/notifications/${id}/read`, 'POST', {})
+}
+
+export async function getWebPushConfiguration() {
+  return getJson<WebPushConfiguration>('/api/v1/push/configuration')
+}
+
+export async function registerWebPushSubscription(subscription: WebPushSubscriptionPayload) {
+  return sendJson<void>('/api/v1/push/subscriptions', 'PUT', subscription)
+}
+
+export async function removeWebPushSubscription(endpoint: string) {
+  return sendJson<void>('/api/v1/push/subscriptions', 'DELETE', { endpoint })
 }
 
 export async function getSurveillance(filters: {

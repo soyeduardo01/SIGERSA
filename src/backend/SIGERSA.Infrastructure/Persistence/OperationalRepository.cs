@@ -441,7 +441,7 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
                 Sql(sql), cancellationToken: cancellationToken))).ToArray();
     }
 
-    public async Task<Guid> CreatePublicComplaintAsync(
+    public async Task<PublicComplaintCreated> CreatePublicComplaintAsync(
         PublicComplaintDraft draft,
         CancellationToken cancellationToken = default)
     {
@@ -500,7 +500,7 @@ public sealed class OperationalRepository(IDbConnectionFactory connectionFactory
             }, transaction, cancellationToken: cancellationToken));
             if (inserted != 1) throw new ArgumentException("El establecimiento seleccionado no está disponible.");
             await transaction.CommitAsync(cancellationToken);
-            return id;
+            return new PublicComplaintCreated(id, coordinatorId.Value);
         }
     }
 

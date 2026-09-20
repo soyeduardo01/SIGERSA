@@ -12,7 +12,7 @@ public interface IOperationalRepository
     Task<Guid> CreateSurveillanceAsync(SurveillanceDraft draft, Guid actorId, CancellationToken cancellationToken = default);
     Task<bool> UpdateSurveillanceAsync(Guid id, SurveillanceDraft draft, Guid actorId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<OperationalOption>> GetPublicComplaintOptionsAsync(CancellationToken cancellationToken = default);
-    Task<Guid> CreatePublicComplaintAsync(PublicComplaintDraft draft, CancellationToken cancellationToken = default);
+    Task<PublicComplaintCreated> CreatePublicComplaintAsync(PublicComplaintDraft draft, CancellationToken cancellationToken = default);
     Task<FindingsPage> SearchFindingsAsync(FindingSearch search, CancellationToken cancellationToken = default);
     Task<FindingDetail?> GetFindingAsync(Guid id, OperationalActorScope scope, CancellationToken cancellationToken = default);
     Task<FindingOptions> GetFindingOptionsAsync(Guid actorId, bool canCreate, CancellationToken cancellationToken = default);

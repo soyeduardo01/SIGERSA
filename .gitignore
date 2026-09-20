@@ -11,6 +11,8 @@
 TestResults/
 coverage/
 output/playwright/
+output/api-webpush.*.log
+output/reminder-worker.*.log
 appsettings.Local.json
 .data-protection-keys/
 .env

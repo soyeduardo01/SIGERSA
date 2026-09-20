@@ -23,6 +23,7 @@ import { RequestsManagement } from '../requests/RequestsManagement'
 import { SchedulingManagement } from '../scheduling/SchedulingManagement'
 import { ProfileManagement } from '../profile/ProfileManagement'
 import { DashboardOverview } from './DashboardOverview'
+import { WebPushSettings } from './WebPushSettings'
 import {
   AuditManagement,
   FindingsManagement,
@@ -201,6 +202,8 @@ export function NotificationsPage() {
           {syncing ? 'Sincronizando…' : 'Sincronizar ahora'}
         </button>
       </div>
+
+      <WebPushSettings />
 
       <article className="mt-6 overflow-hidden rounded-card bg-white shadow-card">
         <div className="border-b border-slate-100 px-5 py-4">

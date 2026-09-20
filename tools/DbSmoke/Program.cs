@@ -20,6 +20,73 @@ var localSettings = File.ReadLines(Path.Combine(root, ".env.local"))
 var connectionString = localSettings["Database__ConnectionString"];
 await using var dataSource = NpgsqlDataSource.Create(connectionString);
 
+if (args.Contains("--check-web-push-state", StringComparer.Ordinal))
+{
+    await using var connection = await dataSource.OpenConnectionAsync();
+    var state = await connection.QuerySingleOrDefaultAsync<WebPushStateRow>("""
+        SELECT complaint.id AS ComplaintId, complaint.numero AS ComplaintNumber,
+               complaint.creado_en AS CreatedAt,
+               coordinator.id AS CoordinatorId,
+               coordinator.nombre_completo AS CoordinatorName,
+               COUNT(subscription.id)::integer AS ActiveSubscriptions
+          FROM "SIGERSA"."DENUNCIA" complaint
+          JOIN "SIGERSA"."USUARIO" coordinator ON coordinator.id = complaint.coordinador_asignado_id
+          LEFT JOIN "SIGERSA"."SUSCRIPCION_PUSH" subscription
+            ON subscription.usuario_id = coordinator.id AND subscription.activa = true
+           AND (subscription.expira_en IS NULL OR subscription.expira_en > CURRENT_TIMESTAMP)
+         GROUP BY complaint.id, complaint.numero, complaint.creado_en,
+                  coordinator.id, coordinator.nombre_completo
+         ORDER BY complaint.creado_en DESC
+         LIMIT 1;
+        """);
+    if (state is null)
+    {
+        Console.WriteLine("No public complaints found.");
+        return;
+    }
+    Console.WriteLine(
+        "Latest complaint: id={0}, number={1}, created={2:O}, coordinator={3} ({4}), activePushSubscriptions={5}",
+        state.ComplaintId, state.ComplaintNumber, state.CreatedAt, state.CoordinatorName,
+        state.CoordinatorId, state.ActiveSubscriptions);
+    return;
+}
+
+if (args.Contains("--check-inspection-reminder-push", StringComparer.Ordinal))
+{
+    await using var connection = await dataSource.OpenConnectionAsync();
+    var state = await connection.QuerySingleAsync<InspectionReminderPushState>("""
+        SELECT COUNT(*) FILTER (
+                   WHERE notification.programada_para <= CURRENT_TIMESTAMP
+                     AND notification.leida_en IS NULL)::integer AS DueReminders,
+               COUNT(DISTINCT notification.usuario_id) FILTER (
+                   WHERE notification.programada_para <= CURRENT_TIMESTAMP
+                     AND notification.leida_en IS NULL)::integer AS DueRecipients,
+               COUNT(DISTINCT notification.usuario_id) FILTER (
+                   WHERE notification.programada_para <= CURRENT_TIMESTAMP
+                     AND notification.leida_en IS NULL
+                     AND EXISTS (
+                         SELECT 1 FROM "SIGERSA"."SUSCRIPCION_PUSH" subscription
+                          WHERE subscription.usuario_id = notification.usuario_id
+                            AND subscription.activa = true
+                            AND (subscription.expira_en IS NULL OR subscription.expira_en > CURRENT_TIMESTAMP)
+                     ))::integer AS RecipientsWithPush,
+               (SELECT COUNT(*)::integer FROM "SIGERSA"."DESPACHO_PUSH_RECORDATORIO"
+                 WHERE estado = 'ENVIADA') AS SentDispatches,
+               (SELECT COUNT(*)::integer FROM "SIGERSA"."DESPACHO_PUSH_RECORDATORIO"
+                 WHERE estado = 'PENDIENTE') AS PendingDispatches,
+               (SELECT COUNT(*)::integer FROM "SIGERSA"."DESPACHO_PUSH_RECORDATORIO"
+                 WHERE estado = 'AGOTADA') AS ExhaustedDispatches
+          FROM "SIGERSA"."NOTIFICACION" notification
+         WHERE notification.canal = 'INTERNA'
+           AND notification.tipo LIKE 'RECORDATORIO_INSPECCION_%';
+        """);
+    Console.WriteLine(
+        "Inspection reminder push: due={0}, recipients={1}, recipientsWithPush={2}, sent={3}, pending={4}, exhausted={5}",
+        state.DueReminders, state.DueRecipients, state.RecipientsWithPush,
+        state.SentDispatches, state.PendingDispatches, state.ExhaustedDispatches);
+    return;
+}
+
 if (args.Contains("--check-establishment-roundtrip", StringComparer.Ordinal))
 {
     await using var connection = await dataSource.OpenConnectionAsync();
@@ -418,7 +485,7 @@ if (args.Contains("--check-official-report", StringComparer.Ordinal)
 }
 
 var requestedMigration = args.FirstOrDefault(argument =>
-    argument is "--apply-migration-022" or "--apply-migration-023" or "--apply-migration-024" or "--apply-migration-025" or "--apply-migration-026" or "--apply-migration-027");
+    argument is "--apply-migration-022" or "--apply-migration-023" or "--apply-migration-024" or "--apply-migration-025" or "--apply-migration-026" or "--apply-migration-027" or "--apply-migration-028" or "--apply-migration-029");
 if (requestedMigration is not null)
 {
     var migrationNumber = requestedMigration[^3..];
@@ -429,7 +496,9 @@ if (requestedMigration is not null)
         "024" => "024_operational_workflow_consistency.sql",
         "025" => "025_cross_module_audit.sql",
         "026" => "026_food_category_and_finding_workflow.sql",
-        _ => "027_evaluation_cancellation.sql"
+        "027" => "027_evaluation_cancellation.sql",
+        "028" => "028_web_push_subscriptions.sql",
+        _ => "029_inspection_reminder_push_dispatch.sql"
     };
     var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations",
         migrationFile);
@@ -529,7 +598,9 @@ if (args.Contains("--migrate-latest", StringComparer.Ordinal))
         "024_operational_workflow_consistency.sql",
         "025_cross_module_audit.sql",
         "026_food_category_and_finding_workflow.sql",
-        "027_evaluation_cancellation.sql"
+        "027_evaluation_cancellation.sql",
+        "028_web_push_subscriptions.sql",
+        "029_inspection_reminder_push_dispatch.sql"
     })
     {
         var migrationPath = Path.Combine(root, "src", "backend", "Database", "Migrations", fileName);
@@ -1162,4 +1233,24 @@ sealed class EstablishmentRoundtripSeed
     public Guid MarketId { get; init; }
     public Guid SubcategoryId { get; init; }
     public Guid ActorId { get; init; }
+}
+
+sealed class WebPushStateRow
+{
+    public Guid ComplaintId { get; init; }
+    public string ComplaintNumber { get; init; } = string.Empty;
+    public DateTimeOffset CreatedAt { get; init; }
+    public Guid CoordinatorId { get; init; }
+    public string CoordinatorName { get; init; } = string.Empty;
+    public int ActiveSubscriptions { get; init; }
+}
+
+sealed class InspectionReminderPushState
+{
+    public int DueReminders { get; init; }
+    public int DueRecipients { get; init; }
+    public int RecipientsWithPush { get; init; }
+    public int SentDispatches { get; init; }
+    public int PendingDispatches { get; init; }
+    public int ExhaustedDispatches { get; init; }
 }

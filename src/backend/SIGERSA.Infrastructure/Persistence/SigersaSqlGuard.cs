@@ -29,6 +29,11 @@ public static partial class SigersaSqlGuard
             {
                 continue;
             }
+            if (match.Value.TrimStart().StartsWith("UPDATE", StringComparison.OrdinalIgnoreCase)
+                && prefix.EndsWith("FOR", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
 
             var objectName = match.Groups[1].Value;
             if (objectName.Equals("EXCLUDED", StringComparison.OrdinalIgnoreCase)

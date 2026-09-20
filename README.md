@@ -154,7 +154,7 @@ Puertos predeterminados:
 CREATE DATABASE sigersa_db;
 ```
 
-Aplique en orden alfabético las migraciones de `src/backend/Database/Migrations`. Actualmente hay 26 migraciones, desde `001_initial_schema_sigersa.sql` hasta `026_food_category_and_finding_workflow.sql`. La API no las ejecuta automáticamente.
+Aplique en orden alfabético las migraciones de `src/backend/Database/Migrations`. Actualmente hay 29 migraciones, desde `001_initial_schema_sigersa.sql` hasta `029_inspection_reminder_push_dispatch.sql`. La API no las ejecuta automáticamente.
 
 ### 2. Backend
 
@@ -204,6 +204,12 @@ Ejecute la API:
 
 ```powershell
 dotnet run --project src/backend/SIGERSA.Api --launch-profile http
+```
+
+En otra terminal, mantenga activo el Worker que despacha recordatorios programados:
+
+```powershell
+dotnet run --project src/backend/SIGERSA.Worker
 ```
 
 En otra terminal, ejecute la PWA:
